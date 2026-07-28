@@ -91,4 +91,13 @@ class Environment {
 
   static bool get isStaging =>
       _resolveBool('IS_STAGING', _defaultIsStaging);
+
+  static String get paystackPublicKey =>
+      _resolve('PAYSTACK_PUBLIC_KEY', '');
+
+  static String get paystackSecretKey =>
+      _resolve('PAYSTACK_SECRET_KEY', '');
+
+  static String get paystackCallbackUrl =>
+      _resolve('PAYSTACK_CALLBACK_URL', 'https://standard.paystack.co/close');
 }

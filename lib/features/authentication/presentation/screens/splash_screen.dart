@@ -1,4 +1,4 @@
-import 'dart:async';
+
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/constants/app_constants.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SplashScreenPage extends StatefulWidget {
   const SplashScreenPage({super.key});
@@ -15,35 +17,37 @@ class SplashScreenPage extends StatefulWidget {
 }
 
 class _SplashScreenPageState extends State<SplashScreenPage> {
-  Timer? _redirectTimer;
-
   @override
   void initState() {
     super.initState();
-    _requestLocationPermissions();
+    _initialize();
   }
 
-  Future<void> _requestLocationPermissions() async {
+  Future<void> _initialize() async {
+    // Request location permissions (non-fatal)
     try {
       final permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         await Geolocator.requestPermission();
       }
     } catch (e) {
-      debugPrint('Location permission request error: $e');
-    } finally {
-      _redirectTimer = Timer(const Duration(seconds: 2), () {
-        if (!mounted) return;
-        context.go(Routes.onboarding);
-      });
+      debugPrint('Location permission error: $e');
+    }
+
+    // Brief splash delay so the logo is visible
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
+    // Check for an existing Supabase session — skip login if already authenticated
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session != null) {
+      context.go(Routes.passengerHome);
+    } else {
+      context.go(Routes.onboarding);
     }
   }
 
-  @override
-  void dispose() {
-    _redirectTimer?.cancel();
-    super.dispose();
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -56,31 +60,17 @@ class _SplashScreenPageState extends State<SplashScreenPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: TRYPColors.primary,
-                    borderRadius: BorderRadius.circular(32),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'T',
-                      style: TRYPTypography.headingXL.copyWith(
-                        color: TRYPColors.secondary,
-                        fontSize: 64,
-                      ),
-                    ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.asset(
+                    'assets/images/tryp_logo_dark.jpg',
+                    width: 220,
+                    height: 220,
+                    fit: BoxFit.contain,
                   ),
                 ),
-                const SizedBox(height: 32),
-                Text(
-                  AppConstants.appName,
-                  style: TRYPTypography.headingXL.copyWith(
-                    color: TRYPColors.primary,
-                    letterSpacing: 2,
-                  ),
-                ),
+                const SizedBox(height: 16),
+
                 const SizedBox(height: 12),
                 Text(
                   AppConstants.appTagline,

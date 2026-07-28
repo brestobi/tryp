@@ -45,7 +45,11 @@ dependencies:
   # Backend & APIs
   supabase_flutter: ^2.16.0
   dio: ^5.3.0
-  
+
+  # Payments
+  flutter_paystack_plus: ^2.0.1
+
+
   # Authentication & Security
   flutter_secure_storage: ^10.3.1
   
@@ -92,6 +96,8 @@ flutter:
 
   assets:
     - .env
+    - assets/images/
+
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

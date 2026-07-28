@@ -33,21 +33,16 @@ class OnboardingScreenPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 220,
-                      height: 220,
-                      decoration: BoxDecoration(
-                        color: TRYPColors.primary,
-                        borderRadius: BorderRadius.circular(32),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.local_taxi,
-                          size: 96,
-                          color: TRYPColors.secondary,
-                        ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.asset(
+                        'assets/images/tryp_logo_dark.jpg',
+                        width: 220,
+                        height: 220,
+                        fit: BoxFit.contain,
                       ),
                     ),
+
                     const SizedBox(height: 40),
                     Text(
                       'Ride anywhere, anytime',

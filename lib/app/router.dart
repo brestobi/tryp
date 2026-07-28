@@ -9,6 +9,8 @@ import 'package:tryp/features/authentication/presentation/screens/phone_verifica
 import 'package:tryp/features/authentication/presentation/screens/role_selection_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_home_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_profile_screen.dart';
+import 'package:tryp/features/passenger/presentation/screens/passenger_profile_setup_screen.dart';
+import 'package:tryp/features/passenger/presentation/screens/passenger_activity_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/ride_request_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/trip_tracking_screen.dart';
 import 'package:tryp/features/driver/presentation/screens/driver_home_screen.dart';
@@ -33,8 +35,10 @@ class Routes {
   // Passenger
   static const String passengerHome = '/passenger/home';
   static const String passengerProfile = '/passenger/profile';
+  static const String profileSetup = '/passenger/setup-profile';
   static const String rideRequest = '/passenger/ride-request';
   static const String rideTracking = '/passenger/ride-tracking';
+  static const String passengerActivity = '/passenger/activity';
   static const String tripHistory = '/passenger/trips';
 
   // Driver
@@ -89,51 +93,36 @@ final goRouter = GoRouter(
       builder: (context, state) => const RoleSelectionScreenPage(),
     ),
 
-  // Example screen routes
-  GoRoute(
-    path: '/example/splash',
-    builder: (context, state) => const SplashScreenPage(),
-  ),
-  GoRoute(
-    path: '/example/onboarding',
-    builder: (context, state) => const OnboardingScreenPage(),
-  ),
-  GoRoute(
-    path: '/example/login',
-    builder: (context, state) => const LoginScreenPage(),
-  ),
-  GoRoute(
-    path: '/example/register',
-    builder: (context, state) => const RegisterScreenPage(),
-  ),
-  GoRoute(
-    path: '/example/phone-verification',
-    builder: (context, state) => const PhoneVerificationScreenPage(),
-  ),
-  GoRoute(
-    path: '/example/role-selection',
-    builder: (context, state) => const RoleSelectionScreenPage(),
-  ),
-  GoRoute(
-    path: '/example/passenger-home',
-    builder: (context, state) => const PassengerHomeScreenPage(),
-  ),
-  GoRoute(
-    path: Routes.passengerProfile,
-    builder: (context, state) => const PassengerProfileScreen(),
-  ),
-  GoRoute(
-    path: '/example/ride-request',
-    builder: (context, state) => const RideRequestScreenPage(),
-  ),
-  GoRoute(
-    path: '/example/ride-tracking',
-    builder: (context, state) => const TripTrackingScreenPage(),
-  ),
-  GoRoute(
-    path: '/example/driver-home',
-    builder: (context, state) => const DriverHomeScreenPage(),
-  ),
+    // Passenger Routes
+    GoRoute(
+      path: Routes.passengerHome,
+      builder: (context, state) => const PassengerHomeScreenPage(),
+    ),
+    GoRoute(
+      path: Routes.passengerProfile,
+      builder: (context, state) => const PassengerProfileScreen(),
+    ),
+    GoRoute(
+      path: Routes.profileSetup,
+      builder: (context, state) => const PassengerProfileSetupScreen(),
+    ),
+    GoRoute(
+      path: Routes.rideRequest,
+      builder: (context, state) => const RideRequestScreenPage(),
+    ),
+    GoRoute(
+      path: Routes.rideTracking,
+      builder: (context, state) => const TripTrackingScreenPage(),
+    ),
+    GoRoute(
+      path: Routes.passengerActivity,
+      builder: (context, state) => const PassengerActivityScreen(),
+    ),
+    GoRoute(
+      path: Routes.tripHistory,
+      builder: (context, state) => const PassengerActivityScreen(),
+    ),
+
 
     // Driver Routes
     GoRoute(

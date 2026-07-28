@@ -8,7 +8,7 @@ class RoleSelectionScreenPage extends StatelessWidget {
 
   void _navigateToHome(BuildContext context, String role) {
     if (role == 'passenger') {
-      context.go(Routes.passengerHome);
+      context.go(Routes.profileSetup);
     } else {
       context.go(Routes.driverHome);
     }
