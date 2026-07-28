@@ -1,0 +1,9 @@
+project_id = "lapkfscxtkvbuojysygk"
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+shadow_port = 54320
