@@ -24,16 +24,19 @@ class _SplashScreenPageState extends State<SplashScreenPage> {
   }
 
   Future<void> _requestLocationPermissions() async {
-    final permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      await Geolocator.requestPermission();
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        await Geolocator.requestPermission();
+      }
+    } catch (e) {
+      debugPrint('Location permission request error: $e');
+    } finally {
+      _redirectTimer = Timer(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        context.go(Routes.onboarding);
+      });
     }
-
-    _redirectTimer = Timer(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      context.go(Routes.onboarding);
-    });
   }
 
   @override

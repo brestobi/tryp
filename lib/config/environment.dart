@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart' show rootBundle;
 
 /// Environment configuration for TRYP
 class Environment {
@@ -31,10 +32,19 @@ class Environment {
 
   static Future<void> load({String filePath = '.env'}) async {
     try {
-      final file = File(filePath);
-      if (!file.existsSync()) return;
+      String content = '';
+      try {
+        content = await rootBundle.loadString(filePath);
+      } catch (_) {
+        final file = File(filePath);
+        if (file.existsSync()) {
+          content = await file.readAsString();
+        }
+      }
 
-      final lines = await file.readAsLines();
+      if (content.isEmpty) return;
+
+      final lines = content.split('\n');
       for (final line in lines) {
         final trimmed = line.trim();
         if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
@@ -44,8 +54,8 @@ class Environment {
 
         final key = split.first.trim();
         var value = split.sublist(1).join('=').trim();
-        if (value.startsWith('"') && value.endsWith('"') ||
-            value.startsWith("'") && value.endsWith("'")) {
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
           value = value.substring(1, value.length - 1);
         }
 
@@ -55,6 +65,7 @@ class Environment {
       // Ignore failures; fall back to compile-time or OS environment values.
     }
   }
+
 
   static String _resolve(String key, String defaultValue) {
     return _runtimeValues[key] ?? Platform.environment[key] ?? defaultValue;

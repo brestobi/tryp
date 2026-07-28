@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logger/logger.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/supabase_service.dart';
@@ -15,6 +16,7 @@ class RegisterScreenPage extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
+  final _logger = Logger();
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -44,8 +46,9 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
       context.go(Routes.roleSelection);
     } catch (error) {
       if (!mounted) return;
+      _logger.e('Registration error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
+        const SnackBar(content: Text('A registration error occurred. Please try again.')),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);

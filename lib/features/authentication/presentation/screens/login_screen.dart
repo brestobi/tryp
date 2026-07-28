@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logger/logger.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/supabase_service.dart';
@@ -15,6 +16,7 @@ class LoginScreenPage extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
+  final _logger = Logger();
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -41,8 +43,9 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
       context.go(Routes.roleSelection);
     } catch (error) {
       if (!mounted) return;
+      _logger.e('Login error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
+        const SnackBar(content: Text('An authentication error occurred. Please try again.')),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -173,7 +176,7 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
                         await ref.read(authServiceProvider).signInWithGoogle();
                       } catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Google Sign-in failed: $e')),
+                          const SnackBar(content: Text('Google Sign-in failed.')),
                         );
                       }
                     },
