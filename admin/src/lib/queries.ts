@@ -1,0 +1,396 @@
+/**
+ * Typed query functions for the TRYP Admin Console.
+ * All data comes from Supabase — no hardcoded records anywhere.
+ */
+
+import { supabase } from './supabase';
+import type {
+  DriverProfile,
+  DriverDocument,
+  DocumentType,
+  DocumentStatus,
+  DriverStatus,
+  PassengerProfile,
+  Ride,
+  RideStatus,
+  FareSchema,
+  PayoutSettlement,
+  AdminAuditLog,
+  AdminRole,
+} from '../types/admin';
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDocument(row: any): DriverDocument {
+  return {
+    id: row.id,
+    driverId: row.driver_id,
+    docType: row.document_type as DocumentType,
+    title: docTypeLabel(row.document_type),
+    fileUrl: row.document_url,
+    status: (row.status ?? 'pending') as DocumentStatus,
+    uploadedAt: row.submitted_at,
+    expiresAt: row.expires_at ?? '',
+    issueNotes: row.issue_notes ?? undefined,
+  };
+}
+
+function docTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    prdp_license: 'Professional Driving Permit (PrDP)',
+    vehicle_registration: 'Vehicle Registration Certificate',
+    insurance: 'Comprehensive Passenger Insurance',
+    roadworthiness: 'Certificate of Roadworthiness',
+  };
+  return map[type] ?? type;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDriver(row: any, docs: DriverDocument[]): DriverProfile {
+  return {
+    id: row.id,
+    fullName: row.full_name ?? '',
+    email: row.email ?? '',
+    phone: row.phone ?? '',
+    saIdNumber: row.id_number ?? '',
+    licenseNumber: row.license_number ?? '',
+    driverStatus: (row.driver_status ?? 'pending') as DriverStatus,
+    vehicleMake: row.vehicle_make ?? '',
+    vehicleModel: row.vehicle_model ?? '',
+    vehicleYear: parseInt(row.vehicle_year ?? '0') || 0,
+    vehicleColor: row.vehicle_color ?? '',
+    vehiclePlate: row.vehicle_plate ?? '',
+    operatingCity: row.operating_city ?? '',
+    bankName: row.bank_name ?? '',
+    bankAccount: row.bank_account_number ?? '',
+    bankBranch: row.bank_branch_code ?? '',
+    bankHolder: row.bank_account_holder ?? '',
+    walletBalance: parseFloat(row.wallet_balance ?? '0') || 0,
+    rating: parseFloat(row.rating ?? '5') || 5,
+    isOnline: row.is_online ?? false,
+    currentLat: row.current_lat ?? 0,
+    currentLng: row.current_lng ?? 0,
+    avatarUrl: row.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(row.full_name ?? 'Driver')}&background=7c3aed&color=fff`,
+    joinedAt: row.created_at,
+    totalTrips: 0, // computed separately if needed
+    documents: docs,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapPassenger(row: any): PassengerProfile {
+  return {
+    id: row.id,
+    fullName: row.full_name ?? '',
+    email: row.email ?? '',
+    phone: row.phone ?? '',
+    rating: parseFloat(row.rating ?? '5') || 5,
+    walletBalance: parseFloat(row.wallet_balance ?? '0') || 0,
+    emergencyContactName: row.emergency_contact_name ?? '',
+    emergencyContactPhone: row.emergency_contact_phone ?? '',
+    totalRides: 0,
+    status: (row.driver_status === 'rejected' ? 'suspended' : 'active') as 'active' | 'suspended',
+    joinedAt: row.created_at,
+    avatarUrl: row.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(row.full_name ?? 'Passenger')}&background=0ea5e9&color=fff`,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRide(row: any): Ride {
+  return {
+    id: row.id,
+    passengerId: row.passenger_id,
+    passengerName: row.passenger?.full_name ?? 'Unknown Passenger',
+    passengerPhone: row.passenger?.phone ?? '',
+    driverId: row.driver_id ?? undefined,
+    driverName: row.driver?.full_name ?? undefined,
+    driverPhone: row.driver?.phone ?? undefined,
+    driverPlate: row.driver?.vehicle_plate ?? undefined,
+    pickupAddress: row.origin ?? '',
+    destAddress: row.destination ?? '',
+    pickupLat: row.pickup_lat ?? 0,
+    pickupLng: row.pickup_lng ?? 0,
+    destLat: row.dest_lat ?? 0,
+    destLng: row.dest_lng ?? 0,
+    fare: parseFloat(row.fare ?? '0') || 0,
+    tier: (row.ride_type ?? 'TRYP Go') as Ride['tier'],
+    status: (row.status ?? 'requested') as RideStatus,
+    paymentMethod: (row.payment_method?.toLowerCase() ?? 'cash') as Ride['paymentMethod'],
+    paymentStatus: (row.payment_status ?? 'pending') as Ride['paymentStatus'],
+    paymentReference: row.payment_reference ?? '',
+    requestedAt: row.requested_at,
+    surgeMultiplier: parseFloat(row.surge_multiplier ?? '1') || 1,
+    distanceKm: parseFloat(row.distance_km ?? '0') || 0,
+    durationMins: row.duration_mins ?? 0,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapFareSchema(row: any): FareSchema {
+  return {
+    id: row.id,
+    tier: (row.tier ?? 'TRYP Go') as FareSchema['tier'],
+    baseFare: parseFloat(row.base_fare ?? '0') || 0,
+    perKmRate: parseFloat(row.per_km_rate ?? '0') || 0,
+    minFare: parseFloat(row.min_fare ?? '0') || 0,
+    perMinuteRate: parseFloat(row.per_minute_rate ?? '0') || 0,
+    commissionPercentage: parseFloat(row.commission_percentage ?? '15') || 15,
+    surgeMultiplier: parseFloat(row.surge_multiplier ?? '1') || 1,
+    updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapPayout(row: any): PayoutSettlement {
+  return {
+    id: row.id,
+    driverId: row.driver_id,
+    driverName: row.driver?.full_name ?? '',
+    bankName: row.driver?.bank_name ?? '',
+    accountNumber: row.driver?.bank_account_number ?? '',
+    branchCode: row.driver?.bank_branch_code ?? '',
+    accountHolder: row.driver?.bank_account_holder ?? '',
+    grossEarnings: parseFloat(row.gross_earnings ?? '0') || 0,
+    platformFee: parseFloat(row.platform_fee ?? '0') || 0,
+    netPayout: parseFloat(row.net_payout ?? '0') || 0,
+    status: (row.status ?? 'pending') as PayoutSettlement['status'],
+    period: row.period,
+    updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapAuditLog(row: any): AdminAuditLog {
+  return {
+    id: row.id,
+    adminRole: (row.admin_role ?? 'super_admin') as AdminRole,
+    adminName: row.admin_email ?? 'Admin',
+    action: row.action,
+    targetId: row.target_id,
+    targetType: row.target_type,
+    details: row.details ?? '',
+    ipAddress: row.ip_address ?? '',
+    timestamp: row.created_at,
+  };
+}
+
+// ─── Queries ─────────────────────────────────────────────────────────────────
+
+export async function fetchDrivers(): Promise<DriverProfile[]> {
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', 'driver')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  if (!profiles?.length) return [];
+
+  const driverIds = profiles.map((p) => p.id);
+
+  const { data: docRows } = await supabase
+    .from('driver_documents')
+    .select('*')
+    .in('driver_id', driverIds);
+
+  const docsByDriver: Record<string, DriverDocument[]> = {};
+  for (const doc of docRows ?? []) {
+    const mapped = mapDocument(doc);
+    if (!docsByDriver[doc.driver_id]) docsByDriver[doc.driver_id] = [];
+    docsByDriver[doc.driver_id].push(mapped);
+  }
+
+  return profiles.map((p) => mapDriver(p, docsByDriver[p.id] ?? []));
+}
+
+export async function fetchPassengers(): Promise<PassengerProfile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', 'passenger')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map(mapPassenger);
+}
+
+export async function fetchRides(): Promise<Ride[]> {
+  const { data, error } = await supabase
+    .from('rides')
+    .select(`
+      *,
+      passenger:passenger_id (full_name, phone),
+      driver:driver_id (full_name, phone, vehicle_plate)
+    `)
+    .order('requested_at', { ascending: false })
+    .limit(200);
+
+  if (error) throw error;
+  return (data ?? []).map(mapRide);
+}
+
+export async function fetchFareSchemas(): Promise<FareSchema[]> {
+  const { data, error } = await supabase
+    .from('fare_schemas')
+    .select('*')
+    .order('id');
+
+  if (error) throw error;
+  return (data ?? []).map(mapFareSchema);
+}
+
+export async function fetchPayouts(): Promise<PayoutSettlement[]> {
+  const { data, error } = await supabase
+    .from('driver_payouts')
+    .select(`
+      *,
+      driver:driver_id (full_name, bank_name, bank_account_number, bank_branch_code, bank_account_holder)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map(mapPayout);
+}
+
+export async function fetchAuditLogs(): Promise<AdminAuditLog[]> {
+  const { data, error } = await supabase
+    .from('admin_audit_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  if (error) throw error;
+  return (data ?? []).map(mapAuditLog);
+}
+
+// ─── Mutations ────────────────────────────────────────────────────────────────
+
+export async function dbUpdateDriverStatus(driverId: string, status: DriverStatus) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ driver_status: status, updated_at: new Date().toISOString() })
+    .eq('id', driverId);
+  if (error) throw error;
+}
+
+export async function dbUpdateDocumentStatus(
+  docId: string,
+  status: DocumentStatus,
+  issueNotes?: string
+) {
+  const { error } = await supabase
+    .from('driver_documents')
+    .update({
+      status,
+      issue_notes: issueNotes ?? null,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq('id', docId);
+  if (error) throw error;
+}
+
+export async function dbUpdateFareSchema(schemaId: string, updates: {
+  base_fare?: number;
+  per_km_rate?: number;
+  min_fare?: number;
+  per_minute_rate?: number;
+  commission_percentage?: number;
+  surge_multiplier?: number;
+}) {
+  const { error } = await supabase
+    .from('fare_schemas')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', schemaId);
+  if (error) throw error;
+}
+
+export async function dbAssignDriverToRide(rideId: string, driverId: string) {
+  const { error } = await supabase
+    .from('rides')
+    .update({ driver_id: driverId, status: 'accepted', accepted_at: new Date().toISOString() })
+    .eq('id', rideId);
+  if (error) throw error;
+}
+
+export async function dbCancelRide(rideId: string) {
+  const { error } = await supabase
+    .from('rides')
+    .update({ status: 'cancelled' })
+    .eq('id', rideId);
+  if (error) throw error;
+}
+
+export async function dbVerifyPayout(payoutId: string, adminId: string) {
+  const { error } = await supabase
+    .from('driver_payouts')
+    .update({
+      status: 'verified',
+      verified_by: adminId,
+      verified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', payoutId);
+  if (error) throw error;
+}
+
+export async function dbAdjustWallet(userId: string, amount: number) {
+  // Uses RPC to atomically increment
+  const { error } = await supabase.rpc('increment_wallet', {
+    user_id: userId,
+    delta: amount,
+  });
+  // Fallback if RPC doesn't exist: do a manual read+write
+  if (error) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('wallet_balance')
+      .eq('id', userId)
+      .single();
+    const current = parseFloat(profile?.wallet_balance ?? '0') || 0;
+    await supabase
+      .from('profiles')
+      .update({ wallet_balance: current + amount, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+  }
+}
+
+export async function dbToggleUserStatus(userId: string, isDriver: boolean, currentStatus: string) {
+  if (isDriver) {
+    const next = currentStatus === 'approved' ? 'rejected' : 'approved';
+    await supabase
+      .from('profiles')
+      .update({ driver_status: next, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+  } else {
+    // For passengers, store suspension in driver_status column (repurposed) or a separate flag
+    const next = currentStatus === 'active' ? 'rejected' : 'pending';
+    await supabase
+      .from('profiles')
+      .update({ driver_status: next, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+  }
+}
+
+export async function dbInsertAuditLog(log: {
+  adminId: string;
+  adminEmail: string;
+  adminRole: string;
+  action: string;
+  targetId: string;
+  targetType: string;
+  details: string;
+  ipAddress: string;
+}) {
+  const { error } = await supabase.from('admin_audit_logs').insert({
+    admin_id: log.adminId,
+    admin_email: log.adminEmail,
+    admin_role: log.adminRole,
+    action: log.action,
+    target_id: log.targetId,
+    target_type: log.targetType,
+    details: log.details,
+    ip_address: log.ipAddress,
+  });
+  if (error) console.error('Audit log insert error:', error.message);
+}

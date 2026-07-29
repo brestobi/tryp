@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
+import { useAuth } from '../context/AuthContext';
 import type { AdminRole } from '../types/admin';
 import {
   ShieldCheck,
@@ -8,7 +9,9 @@ import {
   AlertTriangle,
   Info,
   Radio,
-  ChevronDown
+  ChevronDown,
+  LogOut,
+  RefreshCw,
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -20,26 +23,34 @@ export const Header: React.FC = () => {
     isRealtimeLive,
     setIsRealtimeLive,
     drivers,
-    rides
+    rides,
+    loading,
+    refresh,
   } = useAdmin();
+
+  const { user, signOut } = useAuth();
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const pendingKycCount = drivers.filter(d => d.driverStatus === 'pending' || d.driverStatus === 'under_review').length;
-  const activeRidesCount = rides.filter(r => r.status === 'in_trip' || r.status === 'accepted' || r.status === 'arrived').length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const pendingKycCount = drivers.filter(
+    (d) => d.driverStatus === 'pending' || d.driverStatus === 'under_review'
+  ).length;
+  const activeRidesCount = rides.filter(
+    (r) => r.status === 'in_trip' || r.status === 'accepted' || r.status === 'arrived'
+  ).length;
 
-  const roleLabels: Record<AdminRole, { label: string; bg: string; text: string }> = {
-    super_admin: { label: 'Super Admin', bg: 'bg-purple-500/20', text: 'text-purple-400 border-purple-500/30' },
-    kyc_officer: { label: 'KYC Officer', bg: 'bg-emerald-500/20', text: 'text-emerald-400 border-emerald-500/30' },
-    fleet_dispatcher: { label: 'Fleet Dispatcher', bg: 'bg-amber-500/20', text: 'text-amber-400 border-amber-500/30' },
-    finance_manager: { label: 'Finance Manager', bg: 'bg-cyan-500/20', text: 'text-cyan-400 border-cyan-500/30' }
+  const roleLabels: Record<AdminRole, { label: string; classes: string }> = {
+    super_admin:     { label: 'Super Admin',      classes: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+    kyc_officer:     { label: 'KYC Officer',       classes: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+    fleet_dispatcher:{ label: 'Fleet Dispatcher',  classes: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+    finance_manager: { label: 'Finance Manager',   classes: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
   };
 
   return (
     <header className="h-16 border-b border-slate-800 glass-panel sticky top-0 z-40 px-6 flex items-center justify-between">
-      {/* Brand & System Status */}
+      {/* Brand */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/20 font-bold text-lg text-white font-heading">
@@ -49,7 +60,7 @@ export const Header: React.FC = () => {
             <div className="flex items-center space-x-2">
               <span className="font-heading font-extrabold text-lg text-white tracking-tight">TRYP</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 font-mono border border-purple-500/20">
-                PROD-CONSOLE
+                ADMIN CONSOLE
               </span>
             </div>
             <p className="text-xs text-slate-400">Back-Office Fleet & KYC Operations</p>
@@ -57,12 +68,15 @@ export const Header: React.FC = () => {
         </div>
 
         <div className="hidden lg:flex items-center space-x-3 ml-6 pl-6 border-l border-slate-800">
+          {/* Live indicator */}
           <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-xs">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isRealtimeLive ? 'bg-emerald-400' : 'bg-slate-600'} opacity-75`} />
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${isRealtimeLive ? 'bg-emerald-500' : 'bg-slate-600'}`} />
             </span>
-            <span className="text-slate-300 font-medium">Supabase Realtime</span>
+            <span className="text-slate-300 font-medium">
+              {isRealtimeLive ? 'Supabase Realtime' : 'Feed Paused'}
+            </span>
           </div>
 
           <div className="flex items-center space-x-2 text-xs text-slate-400">
@@ -76,9 +90,19 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Control Actions */}
-      <div className="flex items-center space-x-4">
-        {/* Live Simulation Toggle */}
+      {/* Controls */}
+      <div className="flex items-center space-x-3">
+        {/* Refresh */}
+        <button
+          onClick={refresh}
+          disabled={loading}
+          title="Reload all data"
+          className="p-2 text-slate-400 hover:text-white rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors disabled:opacity-40"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+
+        {/* Live toggle */}
         <button
           onClick={() => setIsRealtimeLive(!isRealtimeLive)}
           className={`flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg border transition-all ${
@@ -86,35 +110,33 @@ export const Header: React.FC = () => {
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
               : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'
           }`}
-          title="Toggle live telemetry feed"
         >
-          <Radio className={`w-3.5 h-3.5 ${isRealtimeLive ? 'animate-pulse text-emerald-400' : ''}`} />
-          <span className="font-medium">{isRealtimeLive ? 'Live Feed: Active' : 'Live Feed: Paused'}</span>
+          <Radio className={`w-3.5 h-3.5 ${isRealtimeLive ? 'animate-pulse' : ''}`} />
+          <span className="font-medium hidden sm:inline">
+            {isRealtimeLive ? 'Live' : 'Paused'}
+          </span>
         </button>
 
-        {/* Role Selector */}
+        {/* Role selector */}
         <div className="relative">
           <button
             onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-            className={`flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${roleLabels[currentRole].bg} ${roleLabels[currentRole].text}`}
+            className={`flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${roleLabels[currentRole].classes}`}
           >
             <ShieldCheck className="w-4 h-4" />
-            <span>{roleLabels[currentRole].label}</span>
+            <span className="hidden sm:inline">{roleLabels[currentRole].label}</span>
             <ChevronDown className="w-3.5 h-3.5 opacity-70" />
           </button>
 
           {showRoleDropdown && (
-            <div className="absolute right-0 mt-2 w-56 glass-panel rounded-xl shadow-2xl border border-slate-800 py-1 z-50 animate-in fade-in zoom-in-95">
+            <div className="absolute right-0 mt-2 w-52 glass-panel rounded-xl shadow-2xl border border-slate-800 py-1 z-50 animate-in fade-in zoom-in-95">
               <div className="px-3 py-2 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                Switch Admin View Role
+                Switch View Role
               </div>
-              {(Object.keys(roleLabels) as AdminRole[]).map(role => (
+              {(Object.keys(roleLabels) as AdminRole[]).map((role) => (
                 <button
                   key={role}
-                  onClick={() => {
-                    setCurrentRole(role);
-                    setShowRoleDropdown(false);
-                  }}
+                  onClick={() => { setCurrentRole(role); setShowRoleDropdown(false); }}
                   className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800/60 ${
                     currentRole === role ? 'text-purple-400 font-semibold bg-purple-500/10' : 'text-slate-300'
                   }`}
@@ -127,7 +149,7 @@ export const Header: React.FC = () => {
           )}
         </div>
 
-        {/* Notifications Dropdown */}
+        {/* Notifications */}
         <div className="relative">
           <button
             onClick={() => {
@@ -151,20 +173,17 @@ export const Header: React.FC = () => {
                 <span className="text-[10px] text-purple-400 font-mono">{notifications.length} events</span>
               </div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {notifications.map(n => (
-                  <div
-                    key={n.id}
-                    className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-xs space-y-1 hover:border-slate-700 transition-all"
-                  >
+                {notifications.length === 0 && (
+                  <p className="text-center text-xs text-slate-500 py-4">No alerts</p>
+                )}
+                {notifications.map((n) => (
+                  <div key={n.id} className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800 text-xs space-y-1">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-1.5 font-semibold text-slate-200">
-                        {n.type === 'warning' ? (
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                        ) : n.type === 'success' ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                        ) : (
-                          <Info className="w-3.5 h-3.5 text-purple-400" />
-                        )}
+                        {n.type === 'warning' ? <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                          : n.type === 'success' ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          : n.type === 'error' ? <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                          : <Info className="w-3.5 h-3.5 text-purple-400" />}
                         <span>{n.title}</span>
                       </div>
                       <span className="text-[10px] text-slate-500 font-mono">
@@ -179,19 +198,24 @@ export const Header: React.FC = () => {
           )}
         </div>
 
-        {/* User Admin Avatar */}
+        {/* User avatar — populated from auth session */}
         <div className="flex items-center space-x-3 pl-3 border-l border-slate-800">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 p-0.5">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
-              alt="Admin Profile"
-              className="w-full h-full rounded-full object-cover"
-            />
-          </div>
+          <img
+            src={user?.avatarUrl ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName ?? 'Admin')}&background=7c3aed&color=fff`}
+            alt={user?.fullName ?? 'Admin'}
+            className="w-8 h-8 rounded-full object-cover border border-purple-500/40 ring-1 ring-purple-500/20"
+          />
           <div className="hidden md:block text-left">
-            <div className="text-xs font-semibold text-slate-200">Dimpho Bresley</div>
-            <div className="text-[10px] text-purple-400 font-mono">bresleydimpho@gmail.com</div>
+            <div className="text-xs font-semibold text-slate-200 leading-none">{user?.fullName ?? '—'}</div>
+            <div className="text-[10px] text-purple-400 font-mono mt-0.5">{user?.email ?? '—'}</div>
           </div>
+          <button
+            onClick={signOut}
+            title="Sign out"
+            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>

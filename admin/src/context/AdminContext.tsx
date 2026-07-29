@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type {
   AdminRole,
   DriverProfile,
@@ -8,16 +8,27 @@ import type {
   PayoutSettlement,
   AdminAuditLog,
   DriverStatus,
-  DocumentStatus
+  DocumentStatus,
 } from '../types/admin';
 import {
-  INITIAL_DRIVERS,
-  INITIAL_PASSENGERS,
-  INITIAL_RIDES,
-  INITIAL_FARE_SCHEMAS,
-  INITIAL_PAYOUTS,
-  INITIAL_AUDIT_LOGS
-} from '../lib/supabase';
+  fetchDrivers,
+  fetchPassengers,
+  fetchRides,
+  fetchFareSchemas,
+  fetchPayouts,
+  fetchAuditLogs,
+  dbUpdateDriverStatus,
+  dbUpdateDocumentStatus,
+  dbUpdateFareSchema,
+  dbAssignDriverToRide,
+  dbCancelRide,
+  dbVerifyPayout,
+  dbAdjustWallet,
+  dbToggleUserStatus,
+  dbInsertAuditLog,
+} from '../lib/queries';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 export type ActiveTab = 'dashboard' | 'kyc' | 'fleet' | 'fares' | 'payouts' | 'users' | 'audit';
 
@@ -35,8 +46,13 @@ interface AdminContextType {
   setActiveTab: (tab: ActiveTab) => void;
   currentRole: AdminRole;
   setCurrentRole: (role: AdminRole) => void;
-  
-  // Data state
+
+  // Loading & error states
+  loading: boolean;
+  error: string | null;
+  refresh: () => void;
+
+  // Data
   drivers: DriverProfile[];
   passengers: PassengerProfile[];
   rides: Ride[];
@@ -47,315 +63,280 @@ interface AdminContextType {
   isRealtimeLive: boolean;
   setIsRealtimeLive: (live: boolean) => void;
 
-  // Actions & Mutations
-  approveDriver: (driverId: string) => void;
-  rejectDriver: (driverId: string, reason: string) => void;
-  flagDriverDocument: (driverId: string, docId: string, issueNotes: string) => void;
-  approveDriverDocument: (driverId: string, docId: string) => void;
-  
-  updateFareSchema: (schemaId: string, updates: Partial<FareSchema>) => void;
-  assignDriverToRide: (rideId: string, driverId: string) => void;
-  cancelRide: (rideId: string, reason: string) => void;
-  
-  verifyPayout: (payoutId: string) => void;
-  adjustUserWallet: (userId: string, amount: number, isDriver: boolean, reason: string) => void;
-  toggleUserStatus: (userId: string, isDriver: boolean) => void;
-  
+  // Actions
+  approveDriver: (driverId: string) => Promise<void>;
+  rejectDriver: (driverId: string, reason: string) => Promise<void>;
+  flagDriverDocument: (driverId: string, docId: string, issueNotes: string) => Promise<void>;
+  approveDriverDocument: (driverId: string, docId: string) => Promise<void>;
+  updateFareSchema: (schemaId: string, updates: Partial<FareSchema>) => Promise<void>;
+  assignDriverToRide: (rideId: string, driverId: string) => Promise<void>;
+  cancelRide: (rideId: string, reason: string) => Promise<void>;
+  verifyPayout: (payoutId: string) => Promise<void>;
+  adjustUserWallet: (userId: string, amount: number, isDriver: boolean, reason: string) => Promise<void>;
+  toggleUserStatus: (userId: string, isDriver: boolean) => Promise<void>;
   markNotificationsRead: () => void;
-  addAuditLog: (action: string, targetId: string, targetType: string, details: string) => void;
-  dispatchDriverPushNotification: (driverId: string, title: string, body: string) => void;
+  addNotification: (n: Omit<AdminNotification, 'id' | 'read'>) => void;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [currentRole, setCurrentRole] = useState<AdminRole>('super_admin');
-  const [isRealtimeLive, setIsRealtimeLive] = useState<boolean>(true);
+  const [isRealtimeLive, setIsRealtimeLive] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Persistence in LocalStorage if available
-  const [drivers, setDrivers] = useState<DriverProfile[]>(() => {
-    const saved = localStorage.getItem('tryp_admin_drivers');
-    return saved ? JSON.parse(saved) : INITIAL_DRIVERS;
-  });
+  const [drivers, setDrivers] = useState<DriverProfile[]>([]);
+  const [passengers, setPassengers] = useState<PassengerProfile[]>([]);
+  const [rides, setRides] = useState<Ride[]>([]);
+  const [fareSchemas, setFareSchemas] = useState<FareSchema[]>([]);
+  const [payouts, setPayouts] = useState<PayoutSettlement[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
 
-  const [passengers, setPassengers] = useState<PassengerProfile[]>(() => {
-    const saved = localStorage.getItem('tryp_admin_passengers');
-    return saved ? JSON.parse(saved) : INITIAL_PASSENGERS;
-  });
-
-  const [rides, setRides] = useState<Ride[]>(() => {
-    const saved = localStorage.getItem('tryp_admin_rides');
-    return saved ? JSON.parse(saved) : INITIAL_RIDES;
-  });
-
-  const [fareSchemas, setFareSchemas] = useState<FareSchema[]>(() => {
-    const saved = localStorage.getItem('tryp_admin_fare_schemas');
-    return saved ? JSON.parse(saved) : INITIAL_FARE_SCHEMAS;
-  });
-
-  const [payouts, setPayouts] = useState<PayoutSettlement[]>(() => {
-    const saved = localStorage.getItem('tryp_admin_payouts');
-    return saved ? JSON.parse(saved) : INITIAL_PAYOUTS;
-  });
-
-  const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>(() => {
-    const saved = localStorage.getItem('tryp_admin_audit_logs');
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
-  });
-
-  const [notifications, setNotifications] = useState<AdminNotification[]>([
-    {
-      id: 'notif-1',
-      type: 'warning',
-      title: 'KYC Document Pending Review',
-      message: 'David Khumalo uploaded a revised PrDP License for review.',
-      timestamp: new Date(Date.now() - 5 * 60000).toISOString(),
-      read: false
-    },
-    {
-      id: 'notif-2',
-      type: 'info',
-      title: 'Peak Surge Multiplier Active',
-      message: 'Sandton region surge automatically scaled to 1.25x.',
-      timestamp: new Date(Date.now() - 18 * 60000).toISOString(),
-      read: false
+  // ── Initial data load ──────────────────────────────────────────────────────
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [d, p, r, f, pay, logs] = await Promise.all([
+        fetchDrivers(),
+        fetchPassengers(),
+        fetchRides(),
+        fetchFareSchemas(),
+        fetchPayouts(),
+        fetchAuditLogs(),
+      ]);
+      setDrivers(d);
+      setPassengers(p);
+      setRides(r);
+      setFareSchemas(f);
+      setPayouts(pay);
+      setAuditLogs(logs);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
     }
-  ]);
-
-  // Sync to localStorage
-  useEffect(() => {
-    localStorage.setItem('tryp_admin_drivers', JSON.stringify(drivers));
-  }, [drivers]);
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('tryp_admin_passengers', JSON.stringify(passengers));
-  }, [passengers]);
+    loadAll();
+  }, [loadAll]);
 
-  useEffect(() => {
-    localStorage.setItem('tryp_admin_rides', JSON.stringify(rides));
-  }, [rides]);
-
-  useEffect(() => {
-    localStorage.setItem('tryp_admin_fare_schemas', JSON.stringify(fareSchemas));
-  }, [fareSchemas]);
-
-  useEffect(() => {
-    localStorage.setItem('tryp_admin_payouts', JSON.stringify(payouts));
-  }, [payouts]);
-
-  useEffect(() => {
-    localStorage.setItem('tryp_admin_audit_logs', JSON.stringify(auditLogs));
-  }, [auditLogs]);
-
-  // --- Realtime WebSocket Simulator ---
+  // ── Supabase Realtime subscriptions ───────────────────────────────────────
   useEffect(() => {
     if (!isRealtimeLive) return;
 
-    const interval = setInterval(() => {
-      // Micro update driver locations slightly for realistic movement on map
-      setDrivers(prev =>
-        prev.map(drv => {
-          if (!drv.isOnline) return drv;
-          const latOffset = (Math.random() - 0.5) * 0.002;
-          const lngOffset = (Math.random() - 0.5) * 0.002;
-          return {
-            ...drv,
-            currentLat: parseFloat((drv.currentLat + latOffset).toFixed(5)),
-            currentLng: parseFloat((drv.currentLng + lngOffset).toFixed(5))
-          };
-        })
-      );
-    }, 4000);
+    const ridesChannel = supabase
+      .channel('admin-rides')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, () => {
+        fetchRides().then(setRides).catch(console.error);
+      })
+      .subscribe();
 
-    return () => clearInterval(interval);
+    const profilesChannel = supabase
+      .channel('admin-profiles')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchDrivers().then(setDrivers).catch(console.error);
+        fetchPassengers().then(setPassengers).catch(console.error);
+      })
+      .subscribe();
+
+    const logsChannel = supabase
+      .channel('admin-audit-logs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_audit_logs' }, (payload) => {
+        const newLog: AdminAuditLog = {
+          id: payload.new.id,
+          adminRole: payload.new.admin_role as AdminRole,
+          adminName: payload.new.admin_email ?? 'Admin',
+          action: payload.new.action,
+          targetId: payload.new.target_id,
+          targetType: payload.new.target_type,
+          details: payload.new.details ?? '',
+          ipAddress: payload.new.ip_address ?? '',
+          timestamp: payload.new.created_at,
+        };
+        setAuditLogs((prev) => [newLog, ...prev]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ridesChannel);
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(logsChannel);
+    };
   }, [isRealtimeLive]);
 
-  // Add audit log helper
-  const addAuditLog = (action: string, targetId: string, targetType: string, details: string) => {
-    const roleNames: Record<AdminRole, string> = {
-      super_admin: 'Super Admin',
-      kyc_officer: 'KYC Compliance Officer',
-      fleet_dispatcher: 'Fleet Dispatcher',
-      finance_manager: 'Finance Manager'
-    };
+  // ── Audit log helper ───────────────────────────────────────────────────────
+  const writeAuditLog = useCallback(
+    async (action: string, targetId: string, targetType: string, details: string) => {
+      if (!user) return;
+      await dbInsertAuditLog({
+        adminId: user.id,
+        adminEmail: user.email,
+        adminRole: currentRole,
+        action,
+        targetId,
+        targetType,
+        details,
+        ipAddress: 'client',
+      });
+    },
+    [user, currentRole]
+  );
 
-    const newLog: AdminAuditLog = {
-      id: `log-${Date.now()}`,
-      adminRole: currentRole,
-      adminName: roleNames[currentRole],
-      action,
-      targetId,
-      targetType,
-      details,
-      ipAddress: '102.165.12.8',
-      timestamp: new Date().toISOString()
-    };
-
-    setAuditLogs(prev => [newLog, ...prev]);
+  const addNotification = (n: Omit<AdminNotification, 'id' | 'read'>) => {
+    setNotifications((prev) => [
+      { ...n, id: `notif-${Date.now()}`, read: false },
+      ...prev,
+    ]);
   };
 
-  // Push notification simulator
-  const dispatchDriverPushNotification = (driverId: string, title: string, body: string) => {
-    const driver = drivers.find(d => d.id === driverId);
-    const driverName = driver ? driver.fullName : driverId;
-
-    const notif: AdminNotification = {
-      id: `notif-${Date.now()}`,
-      type: 'info',
-      title: `Push Dispatched to ${driverName}`,
-      message: `"${title}": ${body}`,
-      timestamp: new Date().toISOString(),
-      read: false
-    };
-
-    setNotifications(prev => [notif, ...prev]);
-    addAuditLog('PUSH_NOTIFICATION_DISPATCH', driverId, 'driver', `Dispatched push note: [${title}] ${body}`);
-  };
-
-  // Actions
-  const approveDriver = (driverId: string) => {
-    setDrivers(prev =>
-      prev.map(drv => {
-        if (drv.id === driverId) {
-          const updatedDocs = drv.documents.map(doc => ({ ...doc, status: 'approved' as DocumentStatus }));
-          return { ...drv, driverStatus: 'approved' as DriverStatus, documents: updatedDocs };
-        }
-        return drv;
-      })
+  // ── Actions ────────────────────────────────────────────────────────────────
+  const approveDriver = async (driverId: string) => {
+    await dbUpdateDriverStatus(driverId, 'approved');
+    setDrivers((prev) =>
+      prev.map((d) => (d.id === driverId ? { ...d, driverStatus: 'approved' as DriverStatus } : d))
     );
-    const drv = drivers.find(d => d.id === driverId);
-    addAuditLog('APPROVE_DRIVER', driverId, 'driver', `Approved driver KYC application for ${drv?.fullName || driverId}. Granted verification badge.`);
-    dispatchDriverPushNotification(driverId, 'TRYP Verification Approved!', 'Congratulations, your driver account has been verified. You can now go online.');
+    const name = drivers.find((d) => d.id === driverId)?.fullName ?? driverId;
+    await writeAuditLog('APPROVE_DRIVER', driverId, 'driver', `Approved KYC application for ${name}.`);
+    addNotification({ type: 'success', title: 'Driver Approved', message: `${name} has been verified.`, timestamp: new Date().toISOString() });
   };
 
-  const rejectDriver = (driverId: string, reason: string) => {
-    setDrivers(prev =>
-      prev.map(drv => (drv.id === driverId ? { ...drv, driverStatus: 'rejected' as DriverStatus } : drv))
+  const rejectDriver = async (driverId: string, reason: string) => {
+    await dbUpdateDriverStatus(driverId, 'rejected');
+    setDrivers((prev) =>
+      prev.map((d) => (d.id === driverId ? { ...d, driverStatus: 'rejected' as DriverStatus } : d))
     );
-    const drv = drivers.find(d => d.id === driverId);
-    addAuditLog('REJECT_DRIVER', driverId, 'driver', `Rejected driver application for ${drv?.fullName || driverId}. Reason: ${reason}`);
-    dispatchDriverPushNotification(driverId, 'Application Update', `Your driver application requires attention: ${reason}`);
+    const name = drivers.find((d) => d.id === driverId)?.fullName ?? driverId;
+    await writeAuditLog('REJECT_DRIVER', driverId, 'driver', `Rejected application for ${name}. Reason: ${reason}`);
+    addNotification({ type: 'warning', title: 'Driver Rejected', message: `${name}: ${reason}`, timestamp: new Date().toISOString() });
   };
 
-  const flagDriverDocument = (driverId: string, docId: string, issueNotes: string) => {
-    setDrivers(prev =>
-      prev.map(drv => {
-        if (drv.id === driverId) {
-          const updatedDocs = drv.documents.map(doc =>
+  const flagDriverDocument = async (driverId: string, docId: string, issueNotes: string) => {
+    await dbUpdateDocumentStatus(docId, 'flagged', issueNotes);
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.id !== driverId) return d;
+        return {
+          ...d,
+          driverStatus: 'flagged' as DriverStatus,
+          documents: d.documents.map((doc) =>
             doc.id === docId ? { ...doc, status: 'flagged' as DocumentStatus, issueNotes } : doc
-          );
-          return { ...drv, driverStatus: 'flagged' as DriverStatus, documents: updatedDocs };
-        }
-        return drv;
+          ),
+        };
       })
     );
-    const drv = drivers.find(d => d.id === driverId);
-    const doc = drv?.documents.find(d => d.id === docId);
-    addAuditLog('FLAG_DOCUMENT', docId, 'driver_document', `Flagged document ${doc?.title || docId} for ${drv?.fullName}: ${issueNotes}`);
-    dispatchDriverPushNotification(driverId, 'Document Action Required', `Please re-upload your ${doc?.title || 'document'}: ${issueNotes}`);
+    const doc = drivers.find((d) => d.id === driverId)?.documents.find((x) => x.id === docId);
+    await writeAuditLog('FLAG_DOCUMENT', docId, 'driver_document', `Flagged "${doc?.title}": ${issueNotes}`);
+    addNotification({ type: 'warning', title: 'Document Flagged', message: `${doc?.title ?? docId}: ${issueNotes}`, timestamp: new Date().toISOString() });
   };
 
-  const approveDriverDocument = (driverId: string, docId: string) => {
-    setDrivers(prev =>
-      prev.map(drv => {
-        if (drv.id === driverId) {
-          const updatedDocs = drv.documents.map(doc =>
+  const approveDriverDocument = async (driverId: string, docId: string) => {
+    await dbUpdateDocumentStatus(docId, 'approved');
+    setDrivers((prev) =>
+      prev.map((d) => {
+        if (d.id !== driverId) return d;
+        return {
+          ...d,
+          documents: d.documents.map((doc) =>
             doc.id === docId ? { ...doc, status: 'approved' as DocumentStatus } : doc
-          );
-          return { ...drv, documents: updatedDocs };
-        }
-        return drv;
+          ),
+        };
       })
     );
-    addAuditLog('APPROVE_DOCUMENT', docId, 'driver_document', `Approved document ${docId} for driver ${driverId}`);
+    const doc = drivers.find((d) => d.id === driverId)?.documents.find((x) => x.id === docId);
+    await writeAuditLog('APPROVE_DOCUMENT', docId, 'driver_document', `Approved document "${doc?.title}"`);
   };
 
-  const updateFareSchema = (schemaId: string, updates: Partial<FareSchema>) => {
-    setFareSchemas(prev =>
-      prev.map(sch => (sch.id === schemaId ? { ...sch, ...updates, updatedAt: new Date().toISOString() } : sch))
+  const updateFareSchema = async (schemaId: string, updates: Partial<FareSchema>) => {
+    await dbUpdateFareSchema(schemaId, {
+      base_fare: updates.baseFare,
+      per_km_rate: updates.perKmRate,
+      min_fare: updates.minFare,
+      per_minute_rate: updates.perMinuteRate,
+      commission_percentage: updates.commissionPercentage,
+      surge_multiplier: updates.surgeMultiplier,
+    });
+    setFareSchemas((prev) =>
+      prev.map((s) => (s.id === schemaId ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s))
     );
-    const schema = fareSchemas.find(s => s.id === schemaId);
-    addAuditLog('UPDATE_FARE_SCHEMA', schemaId, 'fare_schema', `Updated ${schema?.tier} pricing schema: ${JSON.stringify(updates)}`);
+    const schema = fareSchemas.find((s) => s.id === schemaId);
+    await writeAuditLog('UPDATE_FARE_SCHEMA', schemaId, 'fare_schema', `Updated ${schema?.tier} pricing: ${JSON.stringify(updates)}`);
   };
 
-  const assignDriverToRide = (rideId: string, driverId: string) => {
-    const drv = drivers.find(d => d.id === driverId);
-    if (!drv) return;
-
-    setRides(prev =>
-      prev.map(r => {
-        if (r.id === rideId) {
-          return {
-            ...r,
-            driverId: drv.id,
-            driverName: drv.fullName,
-            driverPhone: drv.phone,
-            driverPlate: drv.vehiclePlate,
-            status: 'accepted'
-          };
-        }
-        return r;
-      })
+  const assignDriverToRide = async (rideId: string, driverId: string) => {
+    await dbAssignDriverToRide(rideId, driverId);
+    const drv = drivers.find((d) => d.id === driverId);
+    setRides((prev) =>
+      prev.map((r) =>
+        r.id === rideId
+          ? { ...r, driverId: drv?.id, driverName: drv?.fullName, driverPhone: drv?.phone, driverPlate: drv?.vehiclePlate, status: 'accepted' }
+          : r
+      )
     );
-    addAuditLog('MANUAL_RIDE_ASSIGNMENT', rideId, 'ride', `Manually assigned driver ${drv.fullName} (${drv.vehiclePlate}) to trip ${rideId}`);
+    await writeAuditLog('MANUAL_RIDE_ASSIGNMENT', rideId, 'ride', `Assigned ${drv?.fullName} (${drv?.vehiclePlate}) to trip ${rideId}`);
   };
 
-  const cancelRide = (rideId: string, reason: string) => {
-    setRides(prev =>
-      prev.map(r => (r.id === rideId ? { ...r, status: 'cancelled' } : r))
+  const cancelRide = async (rideId: string, reason: string) => {
+    await dbCancelRide(rideId);
+    setRides((prev) => prev.map((r) => (r.id === rideId ? { ...r, status: 'cancelled' } : r)));
+    await writeAuditLog('EMERGENCY_RIDE_CANCEL', rideId, 'ride', `Cancelled trip ${rideId}. Reason: ${reason}`);
+    addNotification({ type: 'error', title: 'Ride Cancelled', message: `Trip ${rideId} cancelled: ${reason}`, timestamp: new Date().toISOString() });
+  };
+
+  const verifyPayout = async (payoutId: string) => {
+    if (!user) return;
+    await dbVerifyPayout(payoutId, user.id);
+    setPayouts((prev) =>
+      prev.map((p) => (p.id === payoutId ? { ...p, status: 'verified', updatedAt: new Date().toISOString() } : p))
     );
-    addAuditLog('EMERGENCY_RIDE_CANCEL', rideId, 'ride', `Dispatcher cancelled trip ${rideId}. Reason: ${reason}`);
+    const p = payouts.find((x) => x.id === payoutId);
+    await writeAuditLog('VERIFY_PAYOUT', payoutId, 'payout_settlement', `Verified payout of R${p?.netPayout.toFixed(2)} to ${p?.driverName}`);
+    addNotification({ type: 'success', title: 'Payout Verified', message: `R${p?.netPayout.toFixed(2)} to ${p?.driverName} marked verified.`, timestamp: new Date().toISOString() });
   };
 
-  const verifyPayout = (payoutId: string) => {
-    setPayouts(prev =>
-      prev.map(p => (p.id === payoutId ? { ...p, status: 'verified', updatedAt: new Date().toISOString() } : p))
-    );
-    const p = payouts.find(pay => pay.id === payoutId);
-    addAuditLog('VERIFY_PAYOUT', payoutId, 'payout_settlement', `Verified driver bank settlement for ${p?.driverName}: R${p?.netPayout.toFixed(2)}`);
-  };
-
-  const adjustUserWallet = (userId: string, amount: number, isDriver: boolean, reason: string) => {
+  const adjustUserWallet = async (userId: string, amount: number, isDriver: boolean, reason: string) => {
+    await dbAdjustWallet(userId, amount);
     if (isDriver) {
-      setDrivers(prev =>
-        prev.map(drv => (drv.id === userId ? { ...drv, walletBalance: drv.walletBalance + amount } : drv))
-      );
+      setDrivers((prev) => prev.map((d) => (d.id === userId ? { ...d, walletBalance: d.walletBalance + amount } : d)));
     } else {
-      setPassengers(prev =>
-        prev.map(pas => (pas.id === userId ? { ...pas, walletBalance: pas.walletBalance + amount } : pas))
-      );
+      setPassengers((prev) => prev.map((p) => (p.id === userId ? { ...p, walletBalance: p.walletBalance + amount } : p)));
     }
-    addAuditLog('ADJUST_WALLET', userId, isDriver ? 'driver' : 'passenger', `Adjusted wallet balance by R${amount} for user ID ${userId}. Reason: ${reason}`);
+    await writeAuditLog('ADJUST_WALLET', userId, isDriver ? 'driver' : 'passenger', `Adjusted wallet by R${amount}. Reason: ${reason}`);
   };
 
-  const toggleUserStatus = (userId: string, isDriver: boolean) => {
+  const toggleUserStatus = async (userId: string, isDriver: boolean) => {
     if (isDriver) {
-      setDrivers(prev =>
-        prev.map(drv => {
-          if (drv.id === userId) {
-            const nextStatus: DriverStatus = drv.driverStatus === 'approved' ? 'rejected' : 'approved';
-            return { ...drv, driverStatus: nextStatus };
-          }
-          return drv;
+      const drv = drivers.find((d) => d.id === userId);
+      await dbToggleUserStatus(userId, true, drv?.driverStatus ?? 'approved');
+      setDrivers((prev) =>
+        prev.map((d) => {
+          if (d.id !== userId) return d;
+          const next: DriverStatus = d.driverStatus === 'approved' ? 'rejected' : 'approved';
+          return { ...d, driverStatus: next };
         })
       );
     } else {
-      setPassengers(prev =>
-        prev.map(pas => {
-          if (pas.id === userId) {
-            const nextStatus = pas.status === 'active' ? 'suspended' : 'active';
-            return { ...pas, status: nextStatus };
-          }
-          return pas;
+      const pas = passengers.find((p) => p.id === userId);
+      await dbToggleUserStatus(userId, false, pas?.status ?? 'active');
+      setPassengers((prev) =>
+        prev.map((p) => {
+          if (p.id !== userId) return p;
+          const next = p.status === 'active' ? 'suspended' : 'active';
+          return { ...p, status: next };
         })
       );
     }
-    addAuditLog('TOGGLE_USER_STATUS', userId, isDriver ? 'driver' : 'passenger', `Toggled account status for user ID ${userId}`);
+    await writeAuditLog('TOGGLE_USER_STATUS', userId, isDriver ? 'driver' : 'passenger', `Toggled account status`);
   };
 
   const markNotificationsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
   return (
@@ -365,6 +346,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setActiveTab,
         currentRole,
         setCurrentRole,
+        loading,
+        error,
+        refresh: loadAll,
         drivers,
         passengers,
         rides,
@@ -385,8 +369,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         adjustUserWallet,
         toggleUserStatus,
         markNotificationsRead,
-        addAuditLog,
-        dispatchDriverPushNotification
+        addNotification,
       }}
     >
       {children}
@@ -395,9 +378,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 };
 
 export const useAdmin = () => {
-  const context = useContext(AdminContext);
-  if (!context) {
-    throw new Error('useAdmin must be used within an AdminProvider');
-  }
-  return context;
+  const ctx = useContext(AdminContext);
+  if (!ctx) throw new Error('useAdmin must be used within an AdminProvider');
+  return ctx;
 };
