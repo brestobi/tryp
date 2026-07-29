@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
+import 'package:tryp/core/services/document_storage_service.dart';
 import 'package:tryp/core/services/supabase_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
@@ -475,11 +477,7 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                       ),
                     ),
                     TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _uploadedDocuments[docName] = !_uploadedDocuments[docName]!;
-                        });
-                      },
+                      onPressed: () => _handleDocumentUpload(docName),
                       child: Text(isUploaded ? 'Change' : 'Upload'),
                     ),
                   ],
@@ -488,6 +486,95 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
             }).toList(),
           ],
         );
+    }
+  }
+
+  Future<void> _handleDocumentUpload(String docName) async {
+    final storageService = ref.read(documentStorageServiceProvider);
+    
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Upload $docName', style: TRYPTypography.headingSmall),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded, color: TRYPColors.primary),
+              title: const Text('Take Photo with Camera'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded, color: TRYPColors.secondary),
+              title: const Text('Choose from Gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final image = await storageService.pickDocumentImage(source: source);
+    if (image == null) return;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Text('Uploading $docName to Supabase Storage...'),
+          ],
+        ),
+        duration: const Duration(seconds: 10),
+      ),
+    );
+
+    final docKeyMap = {
+      'PrDP Driver\'s License': 'prdp',
+      'Vehicle Registration (RC)': 'vehicle_registration',
+      'Commercial Insurance Cover': 'insurance',
+      'Roadworthiness Certificate': 'roadworthiness',
+    };
+    final docKey = docKeyMap[docName] ?? 'document';
+
+    final url = await storageService.uploadDriverDocument(
+      docKey: docKey,
+      file: image,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (url != null) {
+      setState(() {
+        _uploadedDocuments[docName] = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ $docName uploaded successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Upload failed for $docName. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

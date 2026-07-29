@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/app.dart';
 import 'package:tryp/config/environment.dart';
+import 'package:tryp/core/services/push_notification_service.dart';
 
 
 void main() async {
@@ -62,9 +64,18 @@ void main() async {
     try {
       await Environment.load();
 
+      // Safely initialize Firebase (requires google-services.json / native Firebase config)
+      try {
+        await Firebase.initializeApp();
+        final pushService = PushNotificationService();
+        await pushService.initialize();
+      } catch (e) {
+        debugPrint('⚠️ Firebase/FCM initialization warning (push notifications disabled): $e');
+      }
+
       await Supabase.initialize(
         url: Environment.supabaseUrl,
-        anonKey: Environment.supabaseAnonKey,
+        publishableKey: Environment.supabaseAnonKey,
       );
 
       runApp(

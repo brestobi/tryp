@@ -82,6 +82,18 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
           _stateLabels[_tripStateIndex],
           style: TRYPTypography.headingSmall.copyWith(fontSize: 18),
         ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Row(
+              children: [
+                Icon(Icons.verified_rounded, color: TRYPColors.primary, size: 20),
+                SizedBox(width: 4),
+                Text('Verified', style: TextStyle(color: TRYPColors.secondary, fontSize: 12, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -140,7 +152,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Sipho Nkosi', style: TRYPTypography.headingSmall),
+                            Text('Passenger', style: TRYPTypography.headingSmall),
                             Text('Pickup: Sandton City Mall', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
                           ],
                         ),

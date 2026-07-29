@@ -189,7 +189,7 @@ class _PassengerProfileSetupScreenState
             const SizedBox(height: 24),
             CustomTextField(
               label: 'Full Name',
-              hint: 'e.g. Sipho Nkosi',
+              hint: 'e.g. Thandi Mokoena',
               controller: _nameController,
               prefixIcon: Icons.person_outline_rounded,
               validator: (v) => (v == null || v.isEmpty) ? 'Full name is required' : null,

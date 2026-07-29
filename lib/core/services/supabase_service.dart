@@ -196,6 +196,21 @@ class AuthService {
     }
   }
 
+  /// Send a password reset email.
+  Future<void> resetPasswordForEmail(String email) async {
+    try {
+      _logger.i('Sending password reset email to: $email');
+      await _supabase.auth.resetPasswordForEmail(email);
+      _logger.i('Password reset email sent');
+    } on AuthException catch (error) {
+      _logger.e('Password reset auth error: ${error.message}');
+      rethrow;
+    } catch (error) {
+      _logger.e('Password reset error: $error');
+      rethrow;
+    }
+  }
+
   /// Sign out
   Future<void> signOut() async {
     try {

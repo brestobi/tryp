@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
+import 'package:tryp/core/services/notification_service.dart';
 import 'package:tryp/core/services/supabase_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
@@ -15,7 +16,8 @@ class DriverHomeScreenPage extends ConsumerStatefulWidget {
 
 class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
   bool _isOnline = false;
-  String _driverStatus = 'under_review'; // 'pending', 'under_review', 'approved', 'rejected'
+  String _driverName = 'Driver';
+  String _driverStatus = 'under_review';
   final double _todayEarnings = 450.00;
   final int _completedTripsToday = 3;
   final double _driverRating = 4.9;
@@ -34,9 +36,16 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
       final user = client.auth.currentUser;
       if (user != null) {
         final profile = await client.from('profiles').select().eq('id', user.id).maybeSingle();
-        if (profile != null && profile['driver_status'] != null) {
+        if (profile != null) {
           setState(() {
-            _driverStatus = profile['driver_status'];
+            if (profile['driver_status'] != null) {
+              _driverStatus = profile['driver_status'];
+            }
+            if ((profile['full_name'] as String?)?.isNotEmpty == true) {
+              _driverName = profile['full_name'];
+            } else if (user.email != null && user.email!.contains('@')) {
+              _driverName = user.email!.split('@').first;
+            }
           });
         }
       }
@@ -47,21 +56,45 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
     }
   }
 
-  void _toggleOnline() {
+  Future<void> _toggleOnline() async {
     // SECURITY CHECK: Must be verified to go online!
     if (_driverStatus != 'approved') {
       _showVerificationRequiredDialog();
       return;
     }
 
+    final newOnlineState = !_isOnline;
     setState(() {
-      _isOnline = !_isOnline;
+      _isOnline = newOnlineState;
     });
 
+    try {
+      final client = ref.read(supabaseClientProvider);
+      final user = client.auth.currentUser;
+      if (user != null) {
+        await client.from('profiles').update({
+          'is_online': newOnlineState,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', user.id);
+      }
+    } catch (e) {
+      debugPrint('Error updating driver online status in Supabase: $e');
+    }
+
+    ref.read(notificationsProvider.notifier).addNotification(
+      title: newOnlineState ? 'Driver Status: Online 🟢' : 'Driver Status: Offline 🔴',
+      body: newOnlineState
+          ? 'You are now online and available for nearby ride requests.'
+          : 'You are now offline and will not receive new ride requests.',
+      type: NotificationType.system,
+      routePath: Routes.driverHome,
+    );
+
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_isOnline ? 'You are now ONLINE and receiving trip requests' : 'You are now OFFLINE'),
-        backgroundColor: _isOnline ? Colors.green : Colors.orange,
+        content: Text(newOnlineState ? 'You are now ONLINE and receiving trip requests' : 'You are now OFFLINE'),
+        backgroundColor: newOnlineState ? Colors.green : Colors.orange,
       ),
     );
   }
@@ -194,7 +227,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Sipho Nkosi', style: TRYPTypography.headingSmall),
+                      Text('Verified Passenger', style: TRYPTypography.headingSmall),
                       Text('4.9 ★ Passenger', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
                     ],
                   ),
@@ -341,9 +374,18 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                         ),
                       ),
 
-                    Text(
-                      'Welcome, David',
-                      style: TRYPTypography.headingLarge.copyWith(color: TRYPColors.white),
+                    Row(
+                      children: [
+                        Text('Welcome, $_driverName', style: TRYPTypography.headingLarge.copyWith(color: TRYPColors.white)),
+                        if (isVerified) ...[
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.verified_rounded,
+                            color: TRYPColors.primary,
+                            size: 24,
+                          ),
+                        ],
+                      ],
                     ),
                     Text(
                       'Toyota Corolla Quest • ND 123-456',

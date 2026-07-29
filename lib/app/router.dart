@@ -6,6 +6,7 @@ import 'package:tryp/features/authentication/presentation/screens/welcome_screen
 import 'package:tryp/features/authentication/presentation/screens/login_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/register_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/phone_verification_screen.dart';
+import 'package:tryp/features/authentication/presentation/screens/forgot_password_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/role_selection_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_home_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_profile_screen.dart';
@@ -18,9 +19,13 @@ import 'package:tryp/features/driver/presentation/screens/driver_profile_screen.
 import 'package:tryp/features/driver/presentation/screens/driver_onboarding_screen.dart';
 import 'package:tryp/features/driver/presentation/screens/driver_documents_screen.dart';
 import 'package:tryp/features/driver/presentation/screens/active_trip_screen.dart';
+import 'package:tryp/features/notifications/presentation/screens/notifications_screen.dart';
 
 /// TRYP Navigation Routes
 class Routes {
+  // Common & Notifications
+  static const String notifications = '/notifications';
+
   // Splash & Onboarding
   static const String splash = '/splash';
   static const String onboarding = '/onboarding';
@@ -30,6 +35,7 @@ class Routes {
   static const String login = '/login';
   static const String register = '/register';
   static const String phoneVerification = '/phone-verification';
+  static const String forgotPassword = '/forgot-password';
   static const String roleSelection = '/role-selection';
 
   // Passenger
@@ -54,6 +60,12 @@ final goRouter = GoRouter(
   initialLocation: Routes.splash,
   debugLogDiagnostics: true,
   routes: [
+    // Notifications
+    GoRoute(
+      path: Routes.notifications,
+      builder: (context, state) => const NotificationsScreen(),
+    ),
+
     // Splash
     GoRoute(
       path: Routes.splash,
@@ -86,6 +98,11 @@ final goRouter = GoRouter(
     GoRoute(
       path: Routes.phoneVerification,
       builder: (context, state) => const PhoneVerificationScreenPage(),
+    ),
+
+    GoRoute(
+      path: Routes.forgotPassword,
+      builder: (context, state) => const ForgotPasswordScreenPage(),
     ),
 
     GoRoute(

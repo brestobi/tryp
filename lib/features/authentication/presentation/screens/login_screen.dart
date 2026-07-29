@@ -118,7 +118,7 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
                       children: [
                         TextButton(
                           onPressed: () {
-                            context.go(Routes.phoneVerification);
+                            context.go(Routes.forgotPassword);
                           },
                           child: Text(
                             'Forgot password?',

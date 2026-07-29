@@ -45,7 +45,7 @@ class _PassengerActivityScreenState extends State<PassengerActivityScreen>
       rideType: 'TRYP Go',
       fare: 41.00,
       status: 'Completed',
-      driverName: 'Sipho M.',
+      driverName: 'K. Mokoena',
     ),
     TripActivityItem(
       id: 'TRIP-8842',

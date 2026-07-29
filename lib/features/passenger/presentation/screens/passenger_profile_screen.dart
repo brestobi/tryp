@@ -52,13 +52,17 @@ class _PassengerProfileScreenState extends ConsumerState<PassengerProfileScreen>
       final user = client.auth.currentUser;
       if (user != null) {
         final data = await client.from('profiles').select().eq('id', user.id).maybeSingle();
+        final userEmail = user.email ?? '';
+        final defaultName = userEmail.contains('@') ? userEmail.split('@').first : 'TRYP User';
         setState(() {
-          _nameController.text = data?['full_name'] ?? 'Sipho Nkosi';
-          _emailController.text = data?['email'] ?? user.email ?? 'sipho@example.com';
-          _phoneController.text = data?['phone_number'] ?? '+27 82 123 4567';
-          _homeAddressController.text = data?['home_address'] ?? '123 Main Street, Sandton';
-          _workAddressController.text = data?['work_address'] ?? '456 Office Park, Rosebank';
-          _emergencyContactController.text = data?['emergency_contact_phone'] ?? '+27 71 987 6543';
+          _nameController.text = (data?['full_name'] as String?)?.isNotEmpty == true
+              ? data!['full_name'] as String
+              : defaultName;
+          _emailController.text = (data?['email'] as String?) ?? userEmail;
+          _phoneController.text = (data?['phone_number'] as String?) ?? '';
+          _homeAddressController.text = (data?['home_address'] as String?) ?? '';
+          _workAddressController.text = (data?['work_address'] as String?) ?? '';
+          _emergencyContactController.text = (data?['emergency_contact_phone'] as String?) ?? '';
         });
       } else {
         _setDefaults();
@@ -71,13 +75,18 @@ class _PassengerProfileScreenState extends ConsumerState<PassengerProfileScreen>
   }
 
   void _setDefaults() {
+    final client = ref.read(supabaseClientProvider);
+    final user = client.auth.currentUser;
+    final userEmail = user?.email ?? '';
+    final defaultName = userEmail.contains('@') ? userEmail.split('@').first : 'TRYP User';
+
     setState(() {
-      _nameController.text = 'Sipho Nkosi';
-      _emailController.text = 'passenger@tryp.app';
-      _phoneController.text = '+27 82 123 4567';
-      _homeAddressController.text = '123 Main Street, Sandton';
-      _workAddressController.text = '456 Office Park, Rosebank';
-      _emergencyContactController.text = '+27 71 987 6543';
+      _nameController.text = defaultName;
+      _emailController.text = userEmail;
+      _phoneController.text = '';
+      _homeAddressController.text = '';
+      _workAddressController.text = '';
+      _emergencyContactController.text = '';
     });
   }
 

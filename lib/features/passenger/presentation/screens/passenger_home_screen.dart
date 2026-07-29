@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
+import 'package:tryp/core/services/notification_service.dart';
 
-class PassengerHomeScreenPage extends StatefulWidget {
+class PassengerHomeScreenPage extends ConsumerStatefulWidget {
   const PassengerHomeScreenPage({Key? key}) : super(key: key);
 
   @override
-  State<PassengerHomeScreenPage> createState() => _PassengerHomeScreenPageState();
+  ConsumerState<PassengerHomeScreenPage> createState() => _PassengerHomeScreenPageState();
 }
 
-class _PassengerHomeScreenPageState extends State<PassengerHomeScreenPage> {
+class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPage> {
   int _selectedIndex = 0;
 
   void _onNavTap(int index) {
@@ -28,6 +30,8 @@ class _PassengerHomeScreenPageState extends State<PassengerHomeScreenPage> {
 
   @override
   Widget build(BuildContext context) {
+    final unreadNotifs = ref.watch(unreadNotificationCountProvider);
+
     return Scaffold(
       backgroundColor: TRYPColors.secondary,
       extendBodyBehindAppBar: true,
@@ -65,9 +69,33 @@ class _PassengerHomeScreenPageState extends State<PassengerHomeScreenPage> {
               color: Colors.black54,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: IconButton(
-              icon: const Icon(Icons.notifications_none, color: TRYPColors.white),
-              onPressed: () {},
+            child: Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_none_rounded, color: TRYPColors.white),
+                  onPressed: () => context.push(Routes.notifications),
+                ),
+                if (unreadNotifs > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: TRYPColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '$unreadNotifs',
+                        style: const TextStyle(
+                          color: TRYPColors.secondary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -149,6 +177,47 @@ class _PassengerHomeScreenPageState extends State<PassengerHomeScreenPage> {
                           const Icon(Icons.arrow_forward_ios, size: 16, color: TRYPColors.grey),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Saved Places Shortcuts (Home, Work, Gym, Airport)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _SavedPlaceChip(
+                          icon: Icons.home_rounded,
+                          label: 'Home',
+                          subtitle: 'Sandton City',
+                          onTap: () => context.go(Routes.rideRequest),
+                        ),
+                        const SizedBox(width: 10),
+                        _SavedPlaceChip(
+                          icon: Icons.work_rounded,
+                          label: 'Work',
+                          subtitle: 'Melrose Arch',
+                          onTap: () => context.go(Routes.rideRequest),
+                        ),
+                        const SizedBox(width: 10),
+                        _SavedPlaceChip(
+                          icon: Icons.fitness_center_rounded,
+                          label: 'Gym',
+                          subtitle: 'Virgin Active',
+                          onTap: () => context.go(Routes.rideRequest),
+                        ),
+                        const SizedBox(width: 10),
+                        _SavedPlaceChip(
+                          icon: Icons.flight_takeoff_rounded,
+                          label: 'Airport',
+                          subtitle: 'OR Tambo',
+                          onTap: () => context.go(Routes.rideRequest),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -283,3 +352,60 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
+
+class _SavedPlaceChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _SavedPlaceChip({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: TRYPColors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: TRYPColors.primary.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: TRYPColors.secondary),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, style: TRYPTypography.bodySmall.copyWith(fontWeight: FontWeight.bold, color: TRYPColors.secondary)),
+                Text(subtitle, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontSize: 10)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
