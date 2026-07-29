@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email TEXT,
   phone TEXT UNIQUE,
   phone_number TEXT,
-  role TEXT CHECK (role IN ('passenger', 'driver')) NOT NULL DEFAULT 'passenger',
+  role TEXT CHECK (role IN ('passenger', 'driver', 'admin', 'super_admin')) NOT NULL DEFAULT 'passenger',
   avatar_url TEXT,
   home_address TEXT,
   work_address TEXT,
