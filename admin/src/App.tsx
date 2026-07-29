@@ -87,7 +87,7 @@ const MainContent: React.FC = () => {
 };
 
 const AppShell: React.FC = () => {
-  const { session, loading } = useAuth();
+  const { session, user, isAdmin, loading } = useAuth();
 
   if (loading) {
     return (
@@ -97,8 +97,8 @@ const AppShell: React.FC = () => {
     );
   }
 
-  if (!session) {
-    return <LoginPage />;
+  if (!session || !user || !isAdmin) {
+    return <LoginPage initialError={user && !isAdmin ? 'Access denied: Account does not have admin permissions.' : undefined} />;
   }
 
   return (

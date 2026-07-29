@@ -25,6 +25,8 @@ import {
   dbVerifyPayout,
   dbAdjustWallet,
   dbToggleUserStatus,
+  dbUpdateUserProfile,
+  dbDeleteUser,
   dbInsertAuditLog,
 } from '../lib/queries';
 import { supabase } from '../lib/supabase';
@@ -74,6 +76,8 @@ interface AdminContextType {
   verifyPayout: (payoutId: string) => Promise<void>;
   adjustUserWallet: (userId: string, amount: number, isDriver: boolean, reason: string) => Promise<void>;
   toggleUserStatus: (userId: string, isDriver: boolean) => Promise<void>;
+  updateUserProfile: (userId: string, isDriver: boolean, updates: Parameters<typeof dbUpdateUserProfile>[1]) => Promise<void>;
+  deleteUser: (userId: string, isDriver: boolean) => Promise<void>;
   markNotificationsRead: () => void;
   addNotification: (n: Omit<AdminNotification, 'id' | 'read'>) => void;
 }
@@ -335,6 +339,36 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await writeAuditLog('TOGGLE_USER_STATUS', userId, isDriver ? 'driver' : 'passenger', `Toggled account status`);
   };
 
+  const updateUserProfile = async (
+    userId: string,
+    isDriver: boolean,
+    updates: Parameters<typeof dbUpdateUserProfile>[1]
+  ) => {
+    await dbUpdateUserProfile(userId, updates);
+    if (isDriver) {
+      setDrivers((prev) =>
+        prev.map((d) => (d.id === userId ? { ...d, ...updates } : d))
+      );
+    } else {
+      setPassengers((prev) =>
+        prev.map((p) => (p.id === userId ? { ...p, ...updates } : p))
+      );
+    }
+    await writeAuditLog('UPDATE_USER_PROFILE', userId, isDriver ? 'driver' : 'passenger', `Updated profile fields: ${JSON.stringify(updates)}`);
+    addNotification({ type: 'success', title: 'Profile Updated', message: `Profile updated successfully.`, timestamp: new Date().toISOString() });
+  };
+
+  const deleteUser = async (userId: string, isDriver: boolean) => {
+    await dbDeleteUser(userId);
+    if (isDriver) {
+      setDrivers((prev) => prev.filter((d) => d.id !== userId));
+    } else {
+      setPassengers((prev) => prev.filter((p) => p.id !== userId));
+    }
+    await writeAuditLog('DELETE_USER', userId, isDriver ? 'driver' : 'passenger', `Deleted user account from database.`);
+    addNotification({ type: 'warning', title: 'User Account Deleted', message: `User record removed from database.`, timestamp: new Date().toISOString() });
+  };
+
   const markNotificationsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
@@ -368,6 +402,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         verifyPayout,
         adjustUserWallet,
         toggleUserStatus,
+        updateUserProfile,
+        deleteUser,
         markNotificationsRead,
         addNotification,
       }}

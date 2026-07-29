@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ShieldCheck, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 
-export const LoginPage: React.FC = () => {
+interface LoginPageProps {
+  initialError?: string;
+}
+
+export const LoginPage: React.FC<LoginPageProps> = ({ initialError }) => {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

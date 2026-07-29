@@ -13,7 +13,7 @@ class DocumentStorageService {
 
   DocumentStorageService(this._supabase);
 
-  /// Ensure the 'driver-documents' bucket exists in Supabase Storage
+  /// Safe bucket check — catches non-admin permissions silently
   Future<void> ensureBucketExists() async {
     try {
       final buckets = await _supabase.storage.listBuckets();
@@ -26,7 +26,8 @@ class DocumentStorageService {
         );
       }
     } catch (e) {
-      debugPrint('ℹ️ Supabase bucket check/creation note: $e');
+      // listBuckets may throw 403 for non-admin users, which is expected
+      debugPrint('ℹ️ Supabase bucket check note: $e');
     }
   }
 
@@ -46,7 +47,23 @@ class DocumentStorageService {
     }
   }
 
-  /// Upload document to Supabase Storage and update profiles table
+  /// Map friendly doc keys to official document_type DB names
+  String _mapDocKeyToDocType(String docKey) {
+    switch (docKey) {
+      case 'prdp':
+        return 'prdp_license';
+      case 'vehicle_registration':
+        return 'vehicle_registration';
+      case 'insurance':
+        return 'insurance';
+      case 'roadworthiness':
+        return 'roadworthiness';
+      default:
+        return docKey;
+    }
+  }
+
+  /// Upload document to Supabase Storage and update profiles & driver_documents tables
   Future<String?> uploadDriverDocument({
     required String docKey, // e.g. 'prdp', 'vehicle_registration', 'insurance', 'roadworthiness'
     required XFile file,
@@ -61,10 +78,17 @@ class DocumentStorageService {
       await ensureBucketExists();
 
       final bytes = await file.readAsBytes();
-      final fileExt = file.name.split('.').last.toLowerCase();
+      final rawExt = file.name.split('.').last.toLowerCase();
+      final fileExt = (rawExt == 'png' || rawExt == 'jpg' || rawExt == 'jpeg' || rawExt == 'webp' || rawExt == 'pdf') ? rawExt : 'jpg';
       final path = 'drivers/${user.id}/${docKey}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
       debugPrint('📤 Uploading document to Supabase Storage: $path');
+
+      final mimeType = fileExt == 'pdf'
+          ? 'application/pdf'
+          : fileExt == 'png'
+              ? 'image/png'
+              : 'image/jpeg';
 
       await _supabase.storage.from(bucketName).uploadBinary(
             path,
@@ -72,19 +96,29 @@ class DocumentStorageService {
             fileOptions: FileOptions(
               cacheControl: '3600',
               upsert: true,
-              contentType: 'image/${fileExt == "png" ? "png" : "jpeg"}',
+              contentType: mimeType,
             ),
           );
 
       final publicUrl = _supabase.storage.from(bucketName).getPublicUrl(path);
       debugPrint('✅ Document uploaded successfully. Public URL: $publicUrl');
 
-      // Update document metadata in user's profile table
+      // 1. Update document metadata in user's profile table
       await _supabase.from('profiles').upsert({
         'id': user.id,
         'doc_$docKey': publicUrl,
         'doc_${docKey}_status': 'pending',
         'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      // 2. Insert into driver_documents table for admin inspector view
+      final docType = _mapDocKeyToDocType(docKey);
+      await _supabase.from('driver_documents').insert({
+        'driver_id': user.id,
+        'document_type': docType,
+        'document_url': publicUrl,
+        'status': 'pending',
+        'submitted_at': DateTime.now().toIso8601String(),
       });
 
       return publicUrl;

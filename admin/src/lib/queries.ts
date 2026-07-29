@@ -22,13 +22,13 @@ import type {
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapDocument(row: any): DriverDocument {
+function mapDocument(row: any, signedUrl?: string): DriverDocument {
   return {
     id: row.id,
     driverId: row.driver_id,
     docType: row.document_type as DocumentType,
     title: docTypeLabel(row.document_type),
-    fileUrl: row.document_url,
+    fileUrl: signedUrl || row.document_url,
     status: (row.status ?? 'pending') as DocumentStatus,
     uploadedAt: row.submitted_at,
     expiresAt: row.expires_at ?? '',
@@ -73,7 +73,7 @@ function mapDriver(row: any, docs: DriverDocument[]): DriverProfile {
     currentLng: row.current_lng ?? 0,
     avatarUrl: row.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(row.full_name ?? 'Driver')}&background=7c3aed&color=fff`,
     joinedAt: row.created_at,
-    totalTrips: 0, // computed separately if needed
+    totalTrips: 0,
     documents: docs,
   };
 }
@@ -196,7 +196,21 @@ export async function fetchDrivers(): Promise<DriverProfile[]> {
 
   const docsByDriver: Record<string, DriverDocument[]> = {};
   for (const doc of docRows ?? []) {
-    const mapped = mapDocument(doc);
+    let signedUrl: string | undefined;
+    if (doc.document_url) {
+      const parts = doc.document_url.split('/driver-documents/');
+      if (parts.length > 1) {
+        const filePath = parts[1];
+        const { data: signedData } = await supabase.storage
+          .from('driver-documents')
+          .createSignedUrl(filePath, 3600);
+        if (signedData?.signedUrl) {
+          signedUrl = signedData.signedUrl;
+        }
+      }
+    }
+
+    const mapped = mapDocument(doc, signedUrl);
     if (!docsByDriver[doc.driver_id]) docsByDriver[doc.driver_id] = [];
     docsByDriver[doc.driver_id].push(mapped);
   }
@@ -335,12 +349,10 @@ export async function dbVerifyPayout(payoutId: string, adminId: string) {
 }
 
 export async function dbAdjustWallet(userId: string, amount: number) {
-  // Uses RPC to atomically increment
   const { error } = await supabase.rpc('increment_wallet', {
     user_id: userId,
     delta: amount,
   });
-  // Fallback if RPC doesn't exist: do a manual read+write
   if (error) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -363,13 +375,53 @@ export async function dbToggleUserStatus(userId: string, isDriver: boolean, curr
       .update({ driver_status: next, updated_at: new Date().toISOString() })
       .eq('id', userId);
   } else {
-    // For passengers, store suspension in driver_status column (repurposed) or a separate flag
     const next = currentStatus === 'active' ? 'rejected' : 'pending';
     await supabase
       .from('profiles')
       .update({ driver_status: next, updated_at: new Date().toISOString() })
       .eq('id', userId);
   }
+}
+
+export async function dbUpdateUserProfile(userId: string, updates: {
+  fullName?: string;
+  phone?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehiclePlate?: string;
+  vehicleColor?: string;
+  operatingCity?: string;
+  rating?: number;
+  role?: string;
+}) {
+  const dbFields: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (updates.fullName !== undefined) dbFields.full_name = updates.fullName;
+  if (updates.phone !== undefined) dbFields.phone = updates.phone;
+  if (updates.vehicleMake !== undefined) dbFields.vehicle_make = updates.vehicleMake;
+  if (updates.vehicleModel !== undefined) dbFields.vehicle_model = updates.vehicleModel;
+  if (updates.vehicleYear !== undefined) dbFields.vehicle_year = updates.vehicleYear.toString();
+  if (updates.vehiclePlate !== undefined) dbFields.vehicle_plate = updates.vehiclePlate;
+  if (updates.vehicleColor !== undefined) dbFields.vehicle_color = updates.vehicleColor;
+  if (updates.operatingCity !== undefined) dbFields.operating_city = updates.operatingCity;
+  if (updates.rating !== undefined) dbFields.rating = updates.rating;
+  if (updates.role !== undefined) dbFields.role = updates.role;
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(dbFields)
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+export async function dbDeleteUser(userId: string) {
+  const { error } = await supabase
+    .from('profiles')
+    .delete()
+    .eq('id', userId);
+  if (error) throw error;
 }
 
 export async function dbInsertAuditLog(log: {

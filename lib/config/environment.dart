@@ -66,7 +66,6 @@ class Environment {
     }
   }
 
-
   static String _resolve(String key, String defaultValue) {
     return _runtimeValues[key] ?? Platform.environment[key] ?? defaultValue;
   }
@@ -94,9 +93,6 @@ class Environment {
 
   static String get paystackPublicKey =>
       _resolve('PAYSTACK_PUBLIC_KEY', '');
-
-  static String get paystackSecretKey =>
-      _resolve('PAYSTACK_SECRET_KEY', '');
 
   static String get paystackCallbackUrl =>
       _resolve('PAYSTACK_CALLBACK_URL', 'https://standard.paystack.co/close');

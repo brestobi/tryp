@@ -1,33 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import 'package:logger/logger.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
-  /// Sign in with Google (native Android & iOS) using google_sign_in package
-  Future<void> signInWithGoogleNative() async {
-    try {
-      _logger.i('Starting native Google Sign-In');
-      final GoogleSignInAccount? googleUser = await GoogleSignIn(scopes: ['email', 'profile']).signIn();
-      if (googleUser == null) {
-        _logger.w('Google Sign-In cancelled by user');
-        return;
-      }
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final idToken = googleAuth.idToken;
-      final accessToken = googleAuth.accessToken;
-      if (idToken == null) {
-        throw AuthException('Google ID token missing');
-      }
-      // Use Supabase's signInWithIdToken
-      await _supabase.auth.signInWithIdToken(
-        provider: Provider.google,
-        idToken: idToken,
-        accessToken: accessToken,
-      );
-    } catch (e) {
-      _logger.e('Native Google sign in error: $e');
-      rethrow;
-    }
-  }
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Supabase service provider
 final supabaseProvider = riverpod.Provider<SupabaseClient>((ref) {
@@ -61,7 +35,7 @@ class AuthService {
   /// Check if user is authenticated
   bool get isAuthenticated => currentUser != null;
 
-  /// Sign in with Google
+  /// Sign in with Google (OAuth flow)
   Future<void> signInWithGoogle() async {
     try {
       _logger.i('Signing in with Google');
@@ -70,6 +44,33 @@ class AuthService {
       );
     } catch (e) {
       _logger.e('Google sign in error: $e');
+      rethrow;
+    }
+  }
+
+  /// Sign in with Google (native Android & iOS) using google_sign_in package
+  Future<void> signInWithGoogleNative() async {
+    try {
+      _logger.i('Starting native Google Sign-In');
+      final GoogleSignInAccount? googleUser = await GoogleSignIn(scopes: ['email', 'profile']).signIn();
+      if (googleUser == null) {
+        _logger.w('Google Sign-In cancelled by user');
+        return;
+      }
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
+      if (idToken == null) {
+        throw AuthException('Google ID token missing');
+      }
+      // Use Supabase's signInWithIdToken
+      await _supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+    } catch (e) {
+      _logger.e('Native Google sign in error: $e');
       rethrow;
     }
   }

@@ -5,7 +5,7 @@ import 'package:tryp/core/services/fare_calculator.dart';
 
 /// TRYP Payment Service — wraps flutter_paystack_plus
 class PaymentService {
-  /// Launch Paystack checkout for a ride payment.
+  /// Launch Paystack checkout for a ride payment using public key.
   ///
   /// [context]      — current BuildContext (required by the SDK for WebView)
   /// [email]        — customer's email address
@@ -33,7 +33,7 @@ class PaymentService {
         customerEmail: email,
         amount: amountInCents,
         reference: reference,
-        secretKey: Environment.paystackSecretKey,
+        publicKey: Environment.paystackPublicKey,
         callBackUrl: Environment.paystackCallbackUrl,
         currency: currency,
         metadata: metadata,

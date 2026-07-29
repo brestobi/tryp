@@ -13,6 +13,7 @@ interface AuthUser {
 interface AuthContextType {
   session: Session | null;
   user: AuthUser | null;
+  isAdmin: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -25,16 +26,18 @@ async function fetchProfile(supabaseUser: User): Promise<AuthUser> {
     .from('profiles')
     .select('full_name, role, avatar_url')
     .eq('id', supabaseUser.id)
-    .single();
+    .maybeSingle();
+
+  const userRole = data?.role ?? 'none';
 
   return {
     id: supabaseUser.id,
     email: supabaseUser.email ?? '',
-    fullName: data?.full_name ?? supabaseUser.email?.split('@')[0] ?? 'Admin',
-    role: data?.role ?? 'admin',
+    fullName: data?.full_name ?? supabaseUser.email?.split('@')[0] ?? 'User',
+    role: userRole,
     avatarUrl:
       data?.avatar_url ??
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(data?.full_name ?? 'Admin')}&background=7c3aed&color=fff`,
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(data?.full_name ?? 'User')}&background=7c3aed&color=fff`,
   };
 }
 
@@ -69,8 +72,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
+
+    if (data.user) {
+      const profile = await fetchProfile(data.user);
+      if (!['admin', 'super_admin'].includes(profile.role)) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        return { error: 'Access denied: Account does not have admin privileges.' };
+      }
+      setUser(profile);
+    }
     return { error: null };
   };
 
@@ -80,8 +94,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
   };
 
+  const isAdmin = Boolean(user && ['admin', 'super_admin'].includes(user.role));
+
   return (
-    <AuthContext.Provider value={{ session, user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, isAdmin, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
