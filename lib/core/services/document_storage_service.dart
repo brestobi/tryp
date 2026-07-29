@@ -122,8 +122,12 @@ class DocumentStorageService {
       });
 
       return publicUrl;
-    } catch (e) {
-      debugPrint('❌ Error uploading document to Supabase Storage: $e');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error uploading document: $e');
+      debugPrint('🔍 StackTrace: $stackTrace');
+      
+      // Determine if it's a storage or database error based on context,
+      // though catching the specific error here is best.
       return null;
     }
   }
