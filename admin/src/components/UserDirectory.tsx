@@ -10,7 +10,6 @@ import {
   Edit,
   Trash2,
   AlertTriangle,
-  UserCheck,
 } from 'lucide-react';
 import type { DriverProfile, PassengerProfile } from '../types/admin';
 
