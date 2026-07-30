@@ -24,12 +24,12 @@ This plan is based on a direct code/schema audit, not the existing PROGRESS.md (
 ## P1 — Core correctness (app actually does what it appears to do)
 
 ### App
-- [ ] Wire `PhoneVerificationScreenPage` to the real `AuthService.verifyOTP()` call (currently fakes success after 1s delay)
-- [ ] Remove the mock-trip fallback in `TripService.requestRide()` — a failed insert should surface an error, not silently return a fake trip
+- [x] Wire `PhoneVerificationScreenPage` to the real `AuthService.verifyOTP()` call (currently fakes success after 1s delay)
+- [x] Remove the mock-trip fallback in `TripService.requestRide()` — a failed insert should surface an error, not silently return a fake trip
 - [ ] Remove/replace the hardcoded mock notification list in `notification_service.dart` with real Supabase-backed notifications
 - [ ] Implement or remove the Facebook sign-in button (currently a dead TODO)
 - [ ] Add a payment success **server-side verification** step (Paystack webhook → Supabase Edge Function → mark `payment_status = 'paid'`) instead of trusting the client callback
-- [ ] Replace default fallback coordinates in `TripModel.fromJson` (Johannesburg lat/lng) with explicit null-handling — silent defaults mask bad data
+- [x] Replace default fallback coordinates in `TripModel.fromJson` (Johannesburg lat/lng) with explicit null-handling — silent defaults mask bad data
 
 ### Admin
 - [ ] Confirm every write-capable action (KYC approval, payout verification, fare schema edits) checks the caller's role server-side (RLS), not just hides the button client-side

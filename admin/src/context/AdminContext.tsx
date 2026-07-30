@@ -77,6 +77,7 @@ interface AdminContextType {
   adjustUserWallet: (userId: string, amount: number, isDriver: boolean, reason: string) => Promise<void>;
   toggleUserStatus: (userId: string, isDriver: boolean) => Promise<void>;
   updateUserProfile: (userId: string, isDriver: boolean, updates: Parameters<typeof dbUpdateUserProfile>[1]) => Promise<void>;
+  promoteUserToAdmin: (userId: string) => Promise<void>;
   deleteUser: (userId: string, isDriver: boolean) => Promise<void>;
   markNotificationsRead: () => void;
   addNotification: (n: Omit<AdminNotification, 'id' | 'read'>) => void;
@@ -369,6 +370,13 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addNotification({ type: 'warning', title: 'User Account Deleted', message: `User record removed from database.`, timestamp: new Date().toISOString() });
   };
 
+  const promoteUserToAdmin = async (userId: string) => {
+    await dbUpdateUserProfile(userId, false, { role: 'admin' });
+    await writeAuditLog('PROMOTE_TO_ADMIN', userId, 'user', `Promoted user to admin role.`);
+    addNotification({ type: 'success', title: 'User Promoted', message: `User promoted to admin successfully.`, timestamp: new Date().toISOString() });
+    refresh(); // Refresh to update user lists
+  };
+
   const markNotificationsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
@@ -403,6 +411,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         adjustUserWallet,
         toggleUserStatus,
         updateUserProfile,
+        promoteUserToAdmin,
         deleteUser,
         markNotificationsRead,
         addNotification,

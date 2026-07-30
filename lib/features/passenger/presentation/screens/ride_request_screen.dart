@@ -33,7 +33,7 @@ class LocationItem {
 }
 
 class RideRequestScreenPage extends ConsumerStatefulWidget {
-  const RideRequestScreenPage({Key? key}) : super(key: key);
+  const RideRequestScreenPage({super.key});
 
   @override
   ConsumerState<RideRequestScreenPage> createState() => _RideRequestScreenPageState();
@@ -392,6 +392,9 @@ class _RideRequestScreenPageState extends ConsumerState<RideRequestScreenPage> {
       // Online payment via Paystack
       final email = Supabase.instance.client.auth.currentUser?.email ?? 'passenger@tryp.app';
       final reference = PaymentService.generateReference();
+      // Capture messenger before async gap to avoid use_build_context_synchronously
+      final messenger = ScaffoldMessenger.of(context);
+      final router = GoRouter.of(context);
 
       await PaymentService.chargeForRide(
         context: context,
@@ -407,26 +410,45 @@ class _RideRequestScreenPageState extends ConsumerState<RideRequestScreenPage> {
           'distance_km': _calculatedDistanceKm.toStringAsFixed(1),
         },
         onSuccess: () {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             const SnackBar(
               content: Text('Payment successful! Finding your driver...'),
               backgroundColor: Colors.green,
             ),
           );
-          context.go(Routes.rideTracking);
+          router.go(Routes.rideTracking);
         },
         onCancelled: () {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             const SnackBar(content: Text('Payment cancelled.')),
           );
         },
       );
     } catch (e) {
       if (!mounted) return;
+      final raw = e.toString();
+      final String userMessage;
+      if (raw.contains('without an authenticated user')) {
+        userMessage = 'You must be logged in to request a ride.';
+      } else if (raw.contains('permission') || raw.contains('RLS') || raw.contains('policy')) {
+        userMessage = 'Permission denied. Please log out and log back in.';
+      } else if (raw.contains('network') || raw.contains('SocketException')) {
+        userMessage = 'No internet connection. Please check your network.';
+      } else {
+        userMessage = 'Could not create your ride. Please try again.';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating ride: $e')),
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(child: Text(userMessage)),
+            ],
+          ),
+          backgroundColor: Colors.red[700],
+          duration: const Duration(seconds: 5),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);

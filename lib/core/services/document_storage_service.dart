@@ -104,30 +104,39 @@ class DocumentStorageService {
       debugPrint('✅ Document uploaded successfully. Public URL: $publicUrl');
 
       // 1. Update document metadata in user's profile table
-      await _supabase.from('profiles').upsert({
-        'id': user.id,
-        'doc_$docKey': publicUrl,
-        'doc_${docKey}_status': 'pending',
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+      try {
+        await _supabase.from('profiles').upsert({
+          'id': user.id,
+          'doc_$docKey': publicUrl,
+          'doc_${docKey}_status': 'pending',
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+        debugPrint('✅ Profile table updated successfully.');
+      } catch (e) {
+        debugPrint('❌ Error updating profiles table: $e');
+        rethrow;
+      }
 
       // 2. Insert into driver_documents table for admin inspector view
       final docType = _mapDocKeyToDocType(docKey);
-      await _supabase.from('driver_documents').insert({
-        'driver_id': user.id,
-        'document_type': docType,
-        'document_url': publicUrl,
-        'status': 'pending',
-        'submitted_at': DateTime.now().toIso8601String(),
-      });
+      try {
+        await _supabase.from('driver_documents').insert({
+          'driver_id': user.id,
+          'document_type': docType,
+          'document_url': publicUrl,
+          'status': 'pending',
+          'submitted_at': DateTime.now().toIso8601String(),
+        });
+        debugPrint('✅ Driver documents table inserted successfully.');
+      } catch (e) {
+        debugPrint('❌ Error inserting into driver_documents table: $e');
+        rethrow;
+      }
 
       return publicUrl;
     } catch (e, stackTrace) {
       debugPrint('❌ Error uploading document: $e');
       debugPrint('🔍 StackTrace: $stackTrace');
-      
-      // Determine if it's a storage or database error based on context,
-      // though catching the specific error here is best.
       return null;
     }
   }

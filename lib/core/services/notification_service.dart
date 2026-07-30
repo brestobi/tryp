@@ -1,11 +1,43 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum NotificationType {
   ride,
   promo,
   system,
   payment,
+}
+
+extension NotificationTypeX on NotificationType {
+  String toDbString() {
+    switch (this) {
+      case NotificationType.ride:
+        return 'ride';
+      case NotificationType.promo:
+        return 'promo';
+      case NotificationType.payment:
+        return 'payment';
+      case NotificationType.system:
+        return 'system';
+    }
+  }
+
+  static NotificationType fromDbString(String val) {
+    switch (val) {
+      case 'ride':
+        return NotificationType.ride;
+      case 'promo':
+        return NotificationType.promo;
+      case 'payment':
+        return NotificationType.payment;
+      case 'system':
+      default:
+        return NotificationType.system;
+    }
+  }
 }
 
 class TRYPNotification {
@@ -28,6 +60,19 @@ class TRYPNotification {
     this.routePath,
     this.payload,
   });
+
+  factory TRYPNotification.fromJson(Map<String, dynamic> json) {
+    return TRYPNotification(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      body: json['body'] as String,
+      timestamp: DateTime.parse(json['created_at'] as String),
+      type: NotificationTypeX.fromDbString(json['type'] as String? ?? 'system'),
+      isRead: json['is_read'] as bool? ?? false,
+      routePath: json['route_path'] as String?,
+      payload: json['payload'] as Map<String, dynamic>?,
+    );
+  }
 
   TRYPNotification copyWith({
     String? id,
@@ -52,94 +97,190 @@ class TRYPNotification {
   }
 }
 
-class NotificationNotifier extends Notifier<List<TRYPNotification>> {
+/// Riverpod Notifier backed by Supabase — replaces the in-memory mock list.
+///
+/// Lifecycle:
+///  • On build: fetches the 50 most recent notifications for the current user.
+///  • Subscribes to a realtime channel so new rows inserted server-side (e.g.
+///    from Edge Functions or other clients) appear instantly without polling.
+///  • Local actions (addNotification, markAsRead, etc.) write to Supabase and
+///    let the realtime channel drive the state update.
+class NotificationNotifier extends AsyncNotifier<List<TRYPNotification>> {
+  SupabaseClient get _supabase => Supabase.instance.client;
+  RealtimeChannel? _channel;
+
   @override
-  List<TRYPNotification> build() {
-    return _initialMockNotifications;
+  Future<List<TRYPNotification>> build() async {
+    // Unsubscribe from any previous channel when rebuilt.
+    await _channel?.unsubscribe();
+
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    // Initial fetch: 50 most recent.
+    final rows = await _supabase
+        .from('notifications')
+        .select()
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .limit(50);
+
+    final initial = (rows as List)
+        .map((r) => TRYPNotification.fromJson(r as Map<String, dynamic>))
+        .toList();
+
+    // Subscribe to realtime so new server-side inserts appear immediately.
+    _channel = _supabase
+        .channel('notifications:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            // newRecord is non-nullable in Supabase SDK; empty map means N/A.
+            if (payload.newRecord.isEmpty) return;
+            try {
+              final notif = TRYPNotification.fromJson(payload.newRecord);
+              // Prepend only if not already in list (idempotent).
+              final current = state.asData?.value ?? [];
+              if (current.any((n) => n.id == notif.id)) return;
+              state = AsyncData([notif, ...current]);
+            } catch (e) {
+              debugPrint('NotificationNotifier: realtime parse error: $e');
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            if (payload.newRecord.isEmpty) return;
+            try {
+              final notif = TRYPNotification.fromJson(payload.newRecord);
+              final current = state.asData?.value ?? [];
+              state = AsyncData(current.map((n) => n.id == notif.id ? notif : n).toList());
+            } catch (e) {
+              debugPrint('NotificationNotifier: realtime update parse error: $e');
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.delete,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            // oldRecord is non-nullable; empty map means ID not available.
+            final deletedId = payload.oldRecord['id'] as String?;
+            if (deletedId == null) return;
+            final current = state.asData?.value ?? [];
+            state = AsyncData(current.where((n) => n.id != deletedId).toList());
+          },
+        )
+        .subscribe();
+
+    // Auto-unsubscribe when the notifier is disposed.
+    ref.onDispose(() => _channel?.unsubscribe());
+
+    return initial;
   }
 
-  static final List<TRYPNotification> _initialMockNotifications = [
-    TRYPNotification(
-      id: 'notif_1',
-      title: 'Driver Arrived at Pickup! 🚘',
-      body: 'Your driver in a Toyota Corolla (ND 123-456) has arrived at Sandton City Mall.',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 12)),
-      type: NotificationType.ride,
-      routePath: '/passenger/ride-tracking',
-      isRead: false,
-    ),
-    TRYPNotification(
-      id: 'notif_2',
-      title: '20% Off Weekend Rides 🎉',
-      body: 'Use promo code TRYPWEEKEND to get 20% off your next 3 rides across Sandton and Rosebank!',
-      timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-      type: NotificationType.promo,
-      isRead: false,
-    ),
-    TRYPNotification(
-      id: 'notif_3',
-      title: 'Payment Receipt Available 🧾',
-      body: 'Your ride to Rosebank Mall for R82.50 was paid via Paystack Card. Tap to view receipt.',
-      timestamp: DateTime.now().subtract(const Duration(hours: 26)),
-      type: NotificationType.payment,
-      routePath: '/passenger/activity',
-      isRead: true,
-    ),
-    TRYPNotification(
-      id: 'notif_4',
-      title: 'Driver Document Status Update 🛡️',
-      body: 'Your SA PrDP driving license verification is currently under review by our safety team.',
-      timestamp: DateTime.now().subtract(const Duration(days: 2)),
-      type: NotificationType.system,
-      routePath: '/driver/documents',
-      isRead: true,
-    ),
-  ];
+  // ── Write helpers ─────────────────────────────────────────────────────────
 
-  void addNotification({
+  /// Insert a new notification into Supabase. The realtime subscription will
+  /// pick it up and update state — no need to manually modify state here.
+  Future<void> addNotification({
     required String title,
     required String body,
     required NotificationType type,
     String? routePath,
-  }) {
-    final newNotif = TRYPNotification(
-      id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
-      title: title,
-      body: body,
-      timestamp: DateTime.now(),
-      type: type,
-      routePath: routePath,
-      isRead: false,
-    );
-    state = [newNotif, ...state];
+    Map<String, dynamic>? payload,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) {
+      debugPrint('NotificationNotifier.addNotification: no authenticated user');
+      return;
+    }
+    try {
+      await _supabase.from('notifications').insert({
+        'user_id': userId,
+        'title': title,
+        'body': body,
+        'type': type.toDbString(),
+        'route_path': routePath,
+        'payload': payload,
+        'is_read': false,
+      });
+    } catch (e) {
+      debugPrint('NotificationNotifier.addNotification error: $e');
+    }
   }
 
-  void markAsRead(String id) {
-    state = state.map((n) {
-      if (n.id == id) {
-        return n.copyWith(isRead: true);
-      }
-      return n;
-    }).toList();
+  Future<void> markAsRead(String id) async {
+    try {
+      await _supabase
+          .from('notifications')
+          .update({'is_read': true})
+          .eq('id', id);
+    } catch (e) {
+      debugPrint('NotificationNotifier.markAsRead error: $e');
+    }
   }
 
-  void markAllAsRead() {
-    state = state.map((n) => n.copyWith(isRead: true)).toList();
+  Future<void> markAllAsRead() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      await _supabase
+          .from('notifications')
+          .update({'is_read': true})
+          .eq('user_id', userId)
+          .eq('is_read', false);
+    } catch (e) {
+      debugPrint('NotificationNotifier.markAllAsRead error: $e');
+    }
   }
 
-  void removeNotification(String id) {
-    state = state.where((n) => n.id != id).toList();
+  Future<void> removeNotification(String id) async {
+    try {
+      await _supabase.from('notifications').delete().eq('id', id);
+    } catch (e) {
+      debugPrint('NotificationNotifier.removeNotification error: $e');
+    }
   }
 
-  void clearAll() {
-    state = [];
+  Future<void> clearAll() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      await _supabase.from('notifications').delete().eq('user_id', userId);
+    } catch (e) {
+      debugPrint('NotificationNotifier.clearAll error: $e');
+    }
   }
 }
 
 final notificationsProvider =
-    NotifierProvider<NotificationNotifier, List<TRYPNotification>>(NotificationNotifier.new);
+    AsyncNotifierProvider<NotificationNotifier, List<TRYPNotification>>(
+  NotificationNotifier.new,
+);
 
 final unreadNotificationCountProvider = Provider<int>((ref) {
-  final list = ref.watch(notificationsProvider);
-  return list.where((n) => !n.isRead).length;
+  final asyncList = ref.watch(notificationsProvider);
+  return asyncList.asData?.value.where((n) => !n.isRead).length ?? 0;
 });

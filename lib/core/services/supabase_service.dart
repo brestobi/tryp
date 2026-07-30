@@ -197,6 +197,21 @@ class AuthService {
     }
   }
 
+  /// Send an OTP SMS to the given phone number (passwordless phone sign-in).
+  Future<void> sendPhoneOTP(String phone) async {
+    try {
+      _logger.i('Sending OTP to phone: $phone');
+      await _supabase.auth.signInWithOtp(phone: phone);
+      _logger.i('OTP sent successfully');
+    } on AuthException catch (error) {
+      _logger.e('Send OTP auth error: ${error.message}');
+      rethrow;
+    } catch (e) {
+      _logger.e('Send OTP error: $e');
+      rethrow;
+    }
+  }
+
   /// Verify OTP for phone-based auth flows.
   Future<AuthResponse> verifyOTP(
     String phone,

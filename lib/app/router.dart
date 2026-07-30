@@ -97,7 +97,9 @@ final goRouter = GoRouter(
 
     GoRoute(
       path: Routes.phoneVerification,
-      builder: (context, state) => const PhoneVerificationScreenPage(),
+      builder: (context, state) => PhoneVerificationScreenPage(
+        phone: state.extra as String? ?? '',
+      ),
     ),
 
     GoRoute(
@@ -172,7 +174,7 @@ final goRouter = GoRouter(
 
 class ErrorScreen extends StatelessWidget {
   final Exception? error;
-  const ErrorScreen({Key? key, this.error}) : super(key: key);
+  const ErrorScreen({super.key, this.error});
 
   @override
   Widget build(BuildContext context) => Scaffold(

@@ -241,10 +241,18 @@ export const UserDirectory: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right space-x-1.5">
-                      <button
-                        onClick={() =>
-                          setEditModalUser({
-                            id: drv.id,
+                    <button
+                      onClick={() => promoteUserToAdmin(drv.id)}
+                      title="Promote to Admin"
+                      className="px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/40 text-[11px] font-semibold"
+                    >
+                      Promote
+                    </button>
+                    <button
+                      onClick={() =>
+                        setEditModalUser({
+                          id: drv.id,
+
                             fullName: drv.fullName,
                             phone: drv.phone,
                             email: drv.email,
@@ -370,6 +378,13 @@ export const UserDirectory: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right space-x-1.5">
+                      <button
+                        onClick={() => promoteUserToAdmin(pas.id)}
+                        title="Promote to Admin"
+                        className="px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/40 text-[11px] font-semibold"
+                      >
+                        Promote
+                      </button>
                       <button
                         onClick={() =>
                           setEditModalUser({

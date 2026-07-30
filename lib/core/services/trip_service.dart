@@ -97,6 +97,19 @@ class TripModel {
   });
 
   factory TripModel.fromJson(Map<String, dynamic> json) {
+    // Coordinates must be present — null defaults would silently mask bad data.
+    final pickupLat = (json['pickup_lat'] as num?)?.toDouble();
+    final pickupLng = (json['pickup_lng'] as num?)?.toDouble();
+    final destLat   = (json['dest_lat']   as num?)?.toDouble();
+    final destLng   = (json['dest_lng']   as num?)?.toDouble();
+
+    if (pickupLat == null || pickupLng == null || destLat == null || destLng == null) {
+      throw FormatException(
+        'TripModel.fromJson: missing coordinates in ride record (id=${json['id']}). '
+        'pickup_lat=$pickupLat pickup_lng=$pickupLng dest_lat=$destLat dest_lng=$destLng',
+      );
+    }
+
     return TripModel(
       id: json['id'] as String,
       passengerId: json['passenger_id'] as String,
@@ -108,12 +121,12 @@ class TripModel {
       rideType: json['ride_type'] as String? ?? 'TRYP Go',
       paymentMethod: json['payment_method'] as String? ?? 'Cash',
       paymentStatus: json['payment_status'] as String? ?? 'pending',
-      pinCode: (json['metadata'] as Map<String, dynamic>?)?['pin_code'] as String? ?? '4829',
-      distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 5.0,
-      pickupLat: (json['pickup_lat'] as num?)?.toDouble() ?? -26.1076,
-      pickupLng: (json['pickup_lng'] as num?)?.toDouble() ?? 28.0567,
-      destLat: (json['dest_lat'] as num?)?.toDouble() ?? -26.1465,
-      destLng: (json['dest_lng'] as num?)?.toDouble() ?? 28.0436,
+      pinCode: (json['metadata'] as Map<String, dynamic>?)?['pin_code'] as String? ?? '',
+      distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 0.0,
+      pickupLat: pickupLat,
+      pickupLng: pickupLng,
+      destLat: destLat,
+      destLng: destLng,
       requestedAt: DateTime.tryParse(json['requested_at'] as String? ?? '') ?? DateTime.now(),
       acceptedAt: json['accepted_at'] != null ? DateTime.tryParse(json['accepted_at'] as String) : null,
       startedAt: json['started_at'] != null ? DateTime.tryParse(json['started_at'] as String) : null,
@@ -192,11 +205,13 @@ class TripService {
     required double destLng,
   }) async {
     final user = _supabase.auth.currentUser;
-    final passengerId = user?.id ?? 'demo-passenger-id';
-    final pinCode = _generatePinCode();
+    if (user == null) {
+      throw StateError('requestRide called without an authenticated user.');
+    }
 
+    final pinCode = _generatePinCode();
     final payload = {
-      'passenger_id': passengerId,
+      'passenger_id': user.id,
       'origin': origin,
       'destination': destination,
       'status': TripStatus.requested.toDbString(),
@@ -213,30 +228,9 @@ class TripService {
       'requested_at': DateTime.now().toIso8601String(),
     };
 
-    try {
-      final response = await _supabase.from('rides').insert(payload).select().single();
-      return TripModel.fromJson(response);
-    } catch (e) {
-      debugPrint('Error inserting ride into Supabase, returning mock trip: $e');
-      return TripModel(
-        id: 'trip_${DateTime.now().millisecondsSinceEpoch}',
-        passengerId: passengerId,
-        origin: origin,
-        destination: destination,
-        status: TripStatus.requested,
-        fare: fare,
-        rideType: rideType,
-        paymentMethod: paymentMethod,
-        paymentStatus: 'pending',
-        pinCode: pinCode,
-        distanceKm: distanceKm,
-        pickupLat: pickupLat,
-        pickupLng: pickupLng,
-        destLat: destLat,
-        destLng: destLng,
-        requestedAt: DateTime.now(),
-      );
-    }
+    // Do NOT catch here — let the error propagate so the UI can surface it.
+    final response = await _supabase.from('rides').insert(payload).select().single();
+    return TripModel.fromJson(response);
   }
 
   /// Update trip status (accept, arrived, in_trip, completed, cancelled)
@@ -282,8 +276,8 @@ class TripService {
         value: rideId,
       ),
       callback: (payload) {
-        if (payload.newRecord != null) {
-          onUpdate(payload.newRecord!);
+        if (payload.newRecord.isNotEmpty) {
+          onUpdate(payload.newRecord);
         }
       },
     ).subscribe();

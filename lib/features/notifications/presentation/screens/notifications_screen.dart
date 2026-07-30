@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/notification_service.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
-  const NotificationsScreen({Key? key}) : super(key: key);
+  const NotificationsScreen({super.key});
 
   @override
   ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -17,8 +16,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final notifications = ref.watch(notificationsProvider);
+    final asyncNotifications = ref.watch(notificationsProvider);
     final unreadCount = ref.watch(unreadNotificationCountProvider);
+
+    // Resolve the async list; while loading show an empty list.
+    final notifications = asyncNotifications.asData?.value ?? [];
 
     // Apply Filter
     final filteredNotifications = notifications.where((n) {
@@ -136,10 +138,37 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
             const SizedBox(height: 8),
 
+            // Loading / error states
+            if (asyncNotifications.isLoading)
+              const Expanded(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (asyncNotifications.hasError)
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.cloud_off_rounded, size: 48, color: TRYPColors.grey),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Could not load notifications',
+                        style: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.grey),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => ref.invalidate(notificationsProvider),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
             // Notification List
-            Expanded(
-              child: filteredNotifications.isEmpty
-                  ? Center(
+            else
+              Expanded(
+                child: filteredNotifications.isEmpty
+                    ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -157,26 +186,26 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         ],
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      itemCount: filteredNotifications.length,
-                      itemBuilder: (context, index) {
-                        final notif = filteredNotifications[index];
-                        return _NotificationCard(
-                          notification: notif,
-                          onTap: () {
-                            ref.read(notificationsProvider.notifier).markAsRead(notif.id);
-                            if (notif.routePath != null) {
-                              context.go(notif.routePath!);
-                            }
-                          },
-                          onDismissed: () {
-                            ref.read(notificationsProvider.notifier).removeNotification(notif.id);
-                          },
-                        );
-                      },
-                    ),
-            ),
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        itemCount: filteredNotifications.length,
+                        itemBuilder: (context, index) {
+                          final notif = filteredNotifications[index];
+                          return _NotificationCard(
+                            notification: notif,
+                            onTap: () {
+                              ref.read(notificationsProvider.notifier).markAsRead(notif.id);
+                              if (notif.routePath != null) {
+                                context.go(notif.routePath!);
+                              }
+                            },
+                            onDismissed: () {
+                              ref.read(notificationsProvider.notifier).removeNotification(notif.id);
+                            },
+                          );
+                        },
+                      ),
+              ),
           ],
         ),
       ),
@@ -229,7 +258,6 @@ class _NotificationCard extends StatelessWidget {
         icon = Icons.receipt_long_rounded;
         break;
       case NotificationType.system:
-      default:
         iconBg = Colors.orange.withValues(alpha: 0.15);
         iconColor = Colors.orange;
         icon = Icons.shield_rounded;
