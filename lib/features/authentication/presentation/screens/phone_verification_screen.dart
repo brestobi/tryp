@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logger/logger.dart';
@@ -9,8 +10,8 @@ import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/supabase_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
+/// Phone Verification Screen — Bolt-style: white bg, bold headline, OTP boxes, pill CTA
 class PhoneVerificationScreenPage extends ConsumerStatefulWidget {
-  /// The phone number that was used to trigger the OTP SMS.
   final String phone;
 
   const PhoneVerificationScreenPage({
@@ -32,7 +33,6 @@ class _PhoneVerificationScreenPageState
   bool _isSending = false;
   String? _errorMessage;
 
-  // Resend countdown
   static const int _resendCooldown = 30;
   int _secondsRemaining = 0;
   Timer? _countdownTimer;
@@ -40,7 +40,6 @@ class _PhoneVerificationScreenPageState
   @override
   void initState() {
     super.initState();
-    // Kick off OTP send immediately when screen opens (if phone is provided).
     if (widget.phone.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _sendOTP());
     }
@@ -52,8 +51,6 @@ class _PhoneVerificationScreenPageState
     _countdownTimer?.cancel();
     super.dispose();
   }
-
-  // ── Helpers ──────────────────────────────────────────────────────────────
 
   void _startCountdown() {
     _countdownTimer?.cancel();
@@ -80,8 +77,6 @@ class _PhoneVerificationScreenPageState
     return 'Resend in ${mins > 0 ? '${mins.toString().padLeft(2, '0')}:' : ''}${secs.toString().padLeft(2, '0')}';
   }
 
-  // ── Actions ───────────────────────────────────────────────────────────────
-
   Future<void> _sendOTP() async {
     if (_isSending) return;
     setState(() {
@@ -104,7 +99,6 @@ class _PhoneVerificationScreenPageState
 
   Future<void> _verifyCode() async {
     final code = _codeController.text.trim();
-
     if (code.isEmpty) {
       setState(() => _errorMessage = 'Please enter the verification code.');
       return;
@@ -146,125 +140,168 @@ class _PhoneVerificationScreenPageState
     return 'Something went wrong. Please try again.';
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final maskedPhone = widget.phone.isNotEmpty
-        ? '${widget.phone.substring(0, widget.phone.length > 6 ? widget.phone.length - 4 : 1)}****'
+        ? '${widget.phone.substring(0, widget.phone.length > 6 ? widget.phone.length - 4 : 1)}••••'
         : 'your phone';
+    final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: TRYPColors.white,
       appBar: AppBar(
         backgroundColor: TRYPColors.white,
-        foregroundColor: TRYPColors.secondary,
         elevation: 0,
-        title: const Text('Phone Verification'),
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: TRYPColors.secondary, size: 24),
+          onPressed: () => context.canPop() ? context.pop() : context.go(Routes.login),
+        ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 32),
-
-              // Header
-              Text(
-                'Enter verification code',
-                style: TRYPTypography.headingMedium.copyWith(
-                  color: TRYPColors.secondary,
+        bottom: false,
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(28, 8, 28, bottomPad + 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Icon badge
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: TRYPColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.sms_outlined,
+                    size: 28,
+                    color: TRYPColors.secondary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'We sent a 6-digit code to $maskedPhone',
-                style: TRYPTypography.bodyLarge.copyWith(
-                  color: TRYPColors.grey,
+                const SizedBox(height: 24),
+
+                Text('Enter code.', style: TRYPTypography.headingLarge),
+                const SizedBox(height: 6),
+                Text(
+                  'We sent a 6-digit code to $maskedPhone',
+                  style: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.grey),
                 ),
-              ),
-              const SizedBox(height: 32),
+                const SizedBox(height: 36),
 
-              // OTP input
-              CustomTextField(
-                label: 'Verification code',
-                hint: '123456',
-                controller: _codeController,
-                keyboardType: TextInputType.number,
-              ),
-
-              // Error message
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.error_outline_rounded,
-                      color: Colors.red,
-                      size: 16,
+                // OTP Input — large monospace field
+                TextFormField(
+                  controller: _codeController,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 6,
+                  autofocus: true,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (v) {
+                    if (v.length == 6) _verifyCode();
+                  },
+                  style: TRYPTypography.headingMedium.copyWith(
+                    letterSpacing: 10,
+                    color: TRYPColors.secondary,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '------',
+                    hintStyle: TRYPTypography.headingMedium.copyWith(
+                      letterSpacing: 10,
+                      color: TRYPColors.greyLight,
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: TRYPTypography.bodySmall.copyWith(
-                          color: Colors.red[700],
+                    counterText: '',
+                    filled: true,
+                    fillColor: TRYPColors.inputFill,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                          color: TRYPColors.secondary, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 20),
+                  ),
+                ),
+
+                // Error message
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          color: TRYPColors.error, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TRYPTypography.bodySmall
+                              .copyWith(color: TRYPColors.error),
                         ),
                       ),
+                    ],
+                  ),
+                ],
+
+                const SizedBox(height: 20),
+
+                // Resend row
+                Row(
+                  children: [
+                    Text(
+                      "Didn't receive it? ",
+                      style: TRYPTypography.bodySmall,
+                    ),
+                    GestureDetector(
+                      onTap: _secondsRemaining == 0 && !_isSending
+                          ? _sendOTP
+                          : null,
+                      child: _isSending
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: TRYPColors.secondary,
+                              ),
+                            )
+                          : Text(
+                              _countdownLabel,
+                              style: TRYPTypography.bodySmall.copyWith(
+                                color: _secondsRemaining == 0
+                                    ? TRYPColors.secondary
+                                    : TRYPColors.grey,
+                                fontWeight: _secondsRemaining == 0
+                                    ? FontWeight.w700
+                                    : FontWeight.normal,
+                                decoration: _secondsRemaining == 0
+                                    ? TextDecoration.underline
+                                    : TextDecoration.none,
+                              ),
+                            ),
                     ),
                   ],
                 ),
+
+                const Spacer(),
+
+                // Verify CTA
+                PrimaryButton(
+                  label: 'Verify',
+                  onPressed: _verifyCode,
+                  isLoading: _isVerifying,
+                ),
               ],
-
-              const SizedBox(height: 16),
-
-              // Resend row
-              Row(
-                children: [
-                  Text(
-                    "Didn't receive a code? ",
-                    style: TRYPTypography.bodySmall.copyWith(
-                      color: TRYPColors.grey,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _secondsRemaining == 0 && !_isSending
-                        ? _sendOTP
-                        : null,
-                    child: _isSending
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: TRYPColors.primary,
-                            ),
-                          )
-                        : Text(
-                            _countdownLabel,
-                            style: TRYPTypography.bodySmall.copyWith(
-                              color: _secondsRemaining == 0
-                                  ? TRYPColors.primary
-                                  : TRYPColors.grey,
-                              fontWeight: _secondsRemaining == 0
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 32),
-
-              // Verify button
-              PrimaryButton(
-                label: 'Verify',
-                onPressed: _verifyCode,
-                isLoading: _isVerifying,
-              ),
-            ],
+            ),
           ),
         ),
       ),

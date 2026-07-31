@@ -3,8 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 
+/// Role Selection Screen — Bolt-style: white bg, bold headline, clean icon card choices
 class RoleSelectionScreenPage extends StatelessWidget {
-  const RoleSelectionScreenPage({Key? key}) : super(key: key);
+  const RoleSelectionScreenPage({super.key});
 
   void _navigateToHome(BuildContext context, String role) {
     if (role == 'passenger') {
@@ -16,39 +17,67 @@ class RoleSelectionScreenPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: TRYPColors.white,
-      appBar: AppBar(
-        backgroundColor: TRYPColors.white,
-        foregroundColor: TRYPColors.secondary,
-        elevation: 0,
-        title: const Text('Choose Your Role'),
-      ),
       body: SafeArea(
+        bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.fromLTRB(28, 0, 28, bottomPad + 32),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 24),
-              Text(
-                'Continue as',
-                style: TRYPTypography.headingLarge.copyWith(
-                  color: TRYPColors.secondary,
+              const SizedBox(height: 48),
+
+              // Logo mark (small)
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: TRYPColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(
+                  child: Text(
+                    'T',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: TRYPColors.secondary,
+                      height: 1,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 28),
+
+              Text(
+                'How will you\nuse TRYP?',
+                style: TRYPTypography.headingLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Choose your role to continue',
+                style: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.grey),
+              ),
+              const SizedBox(height: 40),
+
+              // Passenger card — Clean Flutter Icon
               _RoleCard(
+                icon: Icons.person_rounded,
                 title: 'Passenger',
-                subtitle: 'Ride with comfort and safety',
-                icon: Icons.person,
+                subtitle: 'Book rides and travel anywhere',
                 onTap: () => _navigateToHome(context, 'passenger'),
               ),
               const SizedBox(height: 16),
+
+              // Driver card — Clean Flutter Icon
               _RoleCard(
+                icon: Icons.directions_car_rounded,
                 title: 'Driver',
-                subtitle: 'Manage rides and earn daily',
-                icon: Icons.drive_eta,
+                subtitle: 'Manage rides and earn every day',
                 onTap: () => _navigateToHome(context, 'driver'),
               ),
             ],
@@ -59,40 +88,63 @@ class RoleSelectionScreenPage extends StatelessWidget {
   }
 }
 
-class _RoleCard extends StatelessWidget {
+class _RoleCard extends StatefulWidget {
+  final IconData icon;
   final String title;
   final String subtitle;
-  final IconData icon;
   final VoidCallback onTap;
 
   const _RoleCard({
-    Key? key,
+    required this.icon,
     required this.title,
     required this.subtitle,
-    required this.icon,
     required this.onTap,
-  }) : super(key: key);
+  });
+
+  @override
+  State<_RoleCard> createState() => _RoleCardState();
+}
+
+class _RoleCardState extends State<_RoleCard> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: TRYPColors.lightGrey,
+          color: _pressed ? TRYPColors.inputFill : TRYPColors.white,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: _pressed ? TRYPColors.secondary : TRYPColors.divider,
+            width: _pressed ? 1.5 : 1,
+          ),
         ),
         child: Row(
           children: [
+            // Icon inside a rounded square
             Container(
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: TRYPColors.primary,
-                borderRadius: BorderRadius.circular(18),
+                color: TRYPColors.inputFill,
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(icon, color: TRYPColors.secondary, size: 28),
+              child: Center(
+                child: Icon(
+                  widget.icon,
+                  size: 26,
+                  color: TRYPColors.secondary,
+                ),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -100,14 +152,12 @@ class _RoleCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
-                    style: TRYPTypography.headingSmall.copyWith(
-                      color: TRYPColors.secondary,
-                    ),
+                    widget.title,
+                    style: TRYPTypography.titleLarge,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
-                    subtitle,
+                    widget.subtitle,
                     style: TRYPTypography.bodyMedium.copyWith(
                       color: TRYPColors.grey,
                     ),
@@ -115,7 +165,11 @@ class _RoleCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 18),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: TRYPColors.grey,
+              size: 24,
+            ),
           ],
         ),
       ),

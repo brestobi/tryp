@@ -8,6 +8,7 @@ import 'package:tryp/core/services/supabase_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 import 'package:tryp/core/utils/validators.dart';
 
+/// Login Screen — Bolt-style: white bg, bold headline, flat inputs, pill CTA
 class LoginScreenPage extends ConsumerStatefulWidget {
   const LoginScreenPage({super.key});
 
@@ -31,7 +32,6 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
     try {
       final authService = ref.read(authServiceProvider);
@@ -45,7 +45,9 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
       if (!mounted) return;
       _logger.e('Login error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An authentication error occurred. Please try again.')),
+        const SnackBar(
+          content: Text('Incorrect email or password. Please try again.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -54,141 +56,187 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: TRYPColors.white,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+      // Minimal back button — icon only, no AppBar chrome
+      appBar: AppBar(
+        backgroundColor: TRYPColors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: TRYPColors.secondary, size: 24),
+          onPressed: () => context.canPop() ? context.pop() : context.go(Routes.onboarding),
+        ),
+      ),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          bottom: false,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 24),
-              Text(
-                'Welcome back!',
-                style: TRYPTypography.headingLarge.copyWith(
-                  color: TRYPColors.secondary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Log in to continue',
-                style: TRYPTypography.bodyLarge.copyWith(
-                  color: TRYPColors.grey,
-                ),
-              ),
-              const SizedBox(height: 32),
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    CustomTextField(
-                      label: 'Email',
-                      hint: 'example@email.com',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Email is required';
-                        }
-                        if (!Validators.isValidEmail(value)) {
-                          return 'Enter a valid email address';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    CustomTextField(
-                      label: 'Password',
-                      hint: 'Enter your password',
-                      controller: _passwordController,
-                      obscureText: true,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Password is required';
-                        }
-                        if (!Validators.isValidPasswordLength(value)) {
-                          return 'Password must be at least 8 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TextButton(
-                          onPressed: () {
-                            context.go(Routes.forgotPassword);
+                        const SizedBox(height: 8),
+
+                        // Headline
+                        Text(
+                          'Welcome back.',
+                          style: TRYPTypography.headingLarge,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Log in to continue',
+                          style: TRYPTypography.bodyLarge.copyWith(
+                            color: TRYPColors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 36),
+
+                        // Email
+                        CustomTextField(
+                          hint: 'Email address',
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          prefixIcon: Icons.email_outlined,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Email is required';
+                            }
+                            if (!Validators.isValidEmail(value)) {
+                              return 'Enter a valid email address';
+                            }
+                            return null;
                           },
-                          child: Text(
-                            'Forgot password?',
-                            style: TRYPTypography.bodyMedium.copyWith(
-                              color: TRYPColors.primary,
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Password
+                        CustomTextField(
+                          hint: 'Password',
+                          controller: _passwordController,
+                          obscureText: true,
+                          prefixIcon: Icons.lock_outline_rounded,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Password is required';
+                            }
+                            if (!Validators.isValidPasswordLength(value)) {
+                              return 'Password must be at least 8 characters';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        // Forgot password — right-aligned
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => context.go(Routes.forgotPassword),
+                            style: TextButton.styleFrom(
+                              foregroundColor: TRYPColors.secondary,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 10),
+                            ),
+                            child: Text(
+                              'Forgot password?',
+                              style: TRYPTypography.labelMedium.copyWith(
+                                color: TRYPColors.secondary,
+                                decoration: TextDecoration.underline,
+                                decorationColor: TRYPColors.grey,
+                              ),
                             ),
                           ),
                         ),
+                        const SizedBox(height: 8),
+
+                        // Login CTA
+                        PrimaryButton(
+                          label: 'Log in',
+                          onPressed: _submit,
+                          isLoading: _isLoading,
+                          enabled: !_isLoading,
+                        ),
+                        const SizedBox(height: 28),
+
+                        // Divider
+                        const LabeledDivider(label: 'or continue with'),
+                        const SizedBox(height: 24),
+
+                        // Social login row
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _SocialButton(
+                                label: 'Google',
+                                icon: Icons.g_mobiledata,
+                                onTap: () async {
+                                  final messenger = ScaffoldMessenger.of(context);
+                                  try {
+                                    await ref.read(authServiceProvider).signInWithGoogle();
+                                  } catch (e) {
+                                    if (!mounted) return;
+                                    messenger.showSnackBar(
+                                      const SnackBar(
+                                          content: Text('Google sign-in failed.')),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _SocialButton(
+                                label: 'Facebook',
+                                icon: Icons.facebook_rounded,
+                                onTap: () {},
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
                       ],
                     ),
-                    const SizedBox(height: 24),
-                    PrimaryButton(
-                      label: 'Login',
-                      onPressed: _submit,
-                      isLoading: _isLoading,
-                      enabled: !_isLoading,
+                  ),
+                ),
+              ),
+
+              // Bottom: don't have account
+              Padding(
+                padding: EdgeInsets.only(
+                  left: 28,
+                  right: 28,
+                  bottom: bottomPad + 24,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Don't have an account? ",
+                      style: TRYPTypography.bodyMedium.copyWith(
+                        color: TRYPColors.grey,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => context.go(Routes.register),
+                      child: Text(
+                        'Register',
+                        style: TRYPTypography.bodyMedium.copyWith(
+                          color: TRYPColors.secondary,
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Don't have an account? ",
-                    style: TRYPTypography.bodyMedium,
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      context.go(Routes.register);
-                    },
-                    child: Text(
-                      'Register',
-                      style: TRYPTypography.bodyMedium.copyWith(
-                        color: TRYPColors.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const Center(
-                child: Text('or continue with'),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _SocialLoginButton(
-                    icon: Icons.g_mobiledata,
-                    onTap: () async {
-                      try {
-                        await ref.read(authServiceProvider).signInWithGoogle();
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Google Sign-in failed.')),
-                        );
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  _SocialLoginButton(
-                    icon: Icons.facebook,
-                    onTap: () {
-                      // TODO: Implement Facebook sign-in
-                    },
-                  ),
-                ],
               ),
             ],
           ),
@@ -198,24 +246,42 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
   }
 }
 
-class _SocialLoginButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback? onTap;
+// ─────────────────────────────────────────────────────────────────────────────
+// Social Login Button — outline pill
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const _SocialLoginButton({required this.icon, this.onTap});
+class _SocialButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _SocialButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 56,
-        height: 56,
+        height: 52,
         decoration: BoxDecoration(
-          border: Border.all(color: TRYPColors.lightGrey),
-          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: TRYPColors.divider, width: 1.5),
+          borderRadius: BorderRadius.circular(100),
         ),
-        child: Icon(icon, size: 28, color: TRYPColors.secondary),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: TRYPColors.secondary),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TRYPTypography.labelMedium,
+            ),
+          ],
+        ),
       ),
     );
   }

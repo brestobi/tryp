@@ -440,35 +440,55 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
           children: [
             Text('Required Documents', style: TRYPTypography.headingLarge.copyWith(fontSize: 22)),
             const SizedBox(height: 4),
-            Text('Upload high quality scans or photos of your original documents.', style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey)),
+            Text('Upload legibly scanned or captured photo documents for safety verification.', style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey)),
             const SizedBox(height: 24),
             ..._uploadedDocuments.keys.map((docName) {
               final isUploaded = _uploadedDocuments[docName]!;
+              IconData icon;
+              if (docName.contains('PrDP')) {
+                icon = Icons.badge_rounded;
+              } else if (docName.contains('Vehicle')) {
+                icon = Icons.directions_car_rounded;
+              } else if (docName.contains('Insurance')) {
+                icon = Icons.shield_rounded;
+              } else {
+                icon = Icons.verified_rounded;
+              }
+
               return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: isUploaded ? Colors.green.withValues(alpha: 0.1) : TRYPColors.lightGrey,
-                  borderRadius: BorderRadius.circular(16),
+                  color: isUploaded ? Colors.green.withValues(alpha: 0.05) : TRYPColors.white,
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isUploaded ? Colors.green : Colors.transparent,
+                    color: isUploaded ? Colors.green.withValues(alpha: 0.4) : TRYPColors.divider,
                     width: 1.5,
                   ),
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      isUploaded ? Icons.check_circle_rounded : Icons.cloud_upload_outlined,
-                      color: isUploaded ? Colors.green : TRYPColors.secondary,
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isUploaded ? Colors.green.withValues(alpha: 0.1) : TRYPColors.primary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: isUploaded ? Colors.green : TRYPColors.secondary,
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(docName, style: TRYPTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
+                          Text(docName, style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 2),
                           Text(
-                            isUploaded ? 'Document Uploaded' : 'Tap to upload scan/photo',
+                            isUploaded ? 'Document Uploaded • Pending Review' : 'Tap to upload clear scan/photo',
                             style: TRYPTypography.bodySmall.copyWith(
                               color: isUploaded ? Colors.green : TRYPColors.grey,
                             ),
@@ -476,9 +496,17 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                         ],
                       ),
                     ),
-                    TextButton(
+                    ElevatedButton.icon(
                       onPressed: () => _handleDocumentUpload(docName),
-                      child: Text(isUploaded ? 'Change' : 'Upload'),
+                      icon: Icon(isUploaded ? Icons.refresh_rounded : Icons.file_upload_outlined, size: 16),
+                      label: Text(isUploaded ? 'Replace' : 'Upload'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isUploaded ? TRYPColors.inputFill : TRYPColors.secondary,
+                        foregroundColor: isUploaded ? TRYPColors.secondary : TRYPColors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: TRYPTypography.labelSmall.copyWith(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),
@@ -491,29 +519,64 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
 
   Future<void> _handleDocumentUpload(String docName) async {
     final storageService = ref.read(documentStorageServiceProvider);
-    
+
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
+      backgroundColor: TRYPColors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Upload $docName', style: TRYPTypography.headingSmall),
-            const SizedBox(height: 16),
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: TRYPColors.divider,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('Upload $docName', style: TRYPTypography.headingMedium.copyWith(fontSize: 18)),
+            const SizedBox(height: 6),
+            Text('Ensure document text and details are sharp and fully visible.', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+            const SizedBox(height: 20),
             ListTile(
-              leading: const Icon(Icons.camera_alt_rounded, color: TRYPColors.primary),
-              title: const Text('Take Photo with Camera'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              tileColor: TRYPColors.inputFill,
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: TRYPColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.camera_alt_rounded, color: TRYPColors.secondary, size: 20),
+              ),
+              title: Text('Take Photo with Camera', style: TRYPTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
+            const SizedBox(height: 10),
             ListTile(
-              leading: const Icon(Icons.photo_library_rounded, color: TRYPColors.secondary),
-              title: const Text('Choose from Gallery'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              tileColor: TRYPColors.inputFill,
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: TRYPColors.secondary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.photo_library_rounded, color: TRYPColors.white, size: 20),
+              ),
+              title: Text('Choose from Photo Gallery', style: TRYPTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -535,7 +598,7 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
             ),
             const SizedBox(width: 12),
-            Text('Uploading $docName to Supabase Storage...'),
+            Text('Uploading $docName...'),
           ],
         ),
         duration: const Duration(seconds: 10),
