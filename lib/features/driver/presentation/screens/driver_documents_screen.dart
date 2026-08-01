@@ -6,41 +6,8 @@ import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/document_storage_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
-
-class DriverDocumentModel {
-  final String key;
-  final String title;
-  final String description;
-  final String requirement;
-  final String status; // 'approved', 'pending', 'action_required', 'not_uploaded'
-  final String? url;
-  final IconData icon;
-
-  const DriverDocumentModel({
-    required this.key,
-    required this.title,
-    required this.description,
-    required this.requirement,
-    required this.status,
-    this.url,
-    required this.icon,
-  });
-
-  DriverDocumentModel copyWith({
-    String? status,
-    String? url,
-  }) {
-    return DriverDocumentModel(
-      key: key,
-      title: title,
-      description: description,
-      requirement: requirement,
-      status: status ?? this.status,
-      url: url ?? this.url,
-      icon: icon,
-    );
-  }
-}
+import 'package:tryp/features/driver/data/repositories/driver_onboarding_repository.dart';
+import 'package:tryp/features/driver/domain/models/driver_onboarding_config.dart';
 
 class DriverDocumentsScreen extends ConsumerStatefulWidget {
   const DriverDocumentsScreen({super.key});
@@ -50,79 +17,9 @@ class DriverDocumentsScreen extends ConsumerStatefulWidget {
 }
 
 class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
-  bool _isLoading = true;
   String? _uploadingDocKey;
 
-  List<DriverDocumentModel> _documents = [
-    const DriverDocumentModel(
-      key: 'prdp',
-      title: 'PrDP Driver\'s License',
-      description: 'Professional Driving Permit for South Africa',
-      requirement: 'Front & back scan. License card must be valid and unexpired.',
-      status: 'not_uploaded',
-      icon: Icons.badge_rounded,
-    ),
-    const DriverDocumentModel(
-      key: 'vehicle_registration',
-      title: 'Vehicle Registration (RC)',
-      description: 'Official vehicle logbook document',
-      requirement: 'Page 1 & 2 showing VIN, engine number, and registered owner name.',
-      status: 'not_uploaded',
-      icon: Icons.directions_car_rounded,
-    ),
-    const DriverDocumentModel(
-      key: 'insurance',
-      title: 'Commercial E-Hailing Insurance',
-      description: 'Passenger liability insurance policy cover',
-      requirement: 'Policy schedule showing active coverage for passenger transport.',
-      status: 'not_uploaded',
-      icon: Icons.shield_rounded,
-    ),
-    const DriverDocumentModel(
-      key: 'roadworthiness',
-      title: 'Certificate of Roadworthiness',
-      description: 'DEKRA or approved SABS inspection slip',
-      requirement: 'Must be issued within the last 12 months for safety compliance.',
-      status: 'not_uploaded',
-      icon: Icons.verified_rounded,
-    ),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDriverDocuments();
-  }
-
-  Future<void> _loadDriverDocuments() async {
-    setState(() => _isLoading = true);
-    try {
-      final storageService = ref.read(documentStorageServiceProvider);
-      final profileData = await storageService.fetchDriverDocumentStatuses();
-
-      if (profileData.isNotEmpty) {
-        setState(() {
-          _documents = _documents.map((doc) {
-            final urlKey = 'doc_${doc.key}';
-            final statusKey = 'doc_${doc.key}_status';
-            final url = profileData[urlKey] as String?;
-            final status = (profileData[statusKey] as String?) ?? (url != null ? 'pending' : 'not_uploaded');
-
-            return doc.copyWith(
-              url: url,
-              status: url != null ? (status.isEmpty ? 'pending' : status) : 'not_uploaded',
-            );
-          }).toList();
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading documents: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _pickAndUploadDocument(DriverDocumentModel doc) async {
+  Future<void> _pickAndUploadDocument(RequiredDocumentType doc) async {
     final storageService = ref.read(documentStorageServiceProvider);
 
     final source = await showModalBottomSheet<ImageSource>(
@@ -203,14 +100,13 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
     setState(() => _uploadingDocKey = doc.key);
 
     try {
-      final url = await storageService.uploadDriverDocument(
-        docKey: doc.key,
-        file: image,
-      );
+      final success = await ref
+          .read(driverOnboardingStateProvider.notifier)
+          .uploadDocument(doc.key, image);
 
       if (!mounted) return;
 
-      if (url != null) {
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -225,7 +121,6 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         );
-        await _loadDriverDocuments();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -239,8 +134,8 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
     }
   }
 
-  void _viewDocumentImage(DriverDocumentModel doc) {
-    if (doc.url == null || doc.url!.isEmpty) return;
+  void _viewDocumentImage(String title, String? url) {
+    if (url == null || url.isEmpty) return;
 
     showDialog(
       context: context,
@@ -258,11 +153,11 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(doc.icon, color: TRYPColors.primary),
+                  const Icon(Icons.badge_rounded, color: TRYPColors.primary),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      doc.title,
+                      title,
                       style: TRYPTypography.titleLarge.copyWith(color: TRYPColors.white),
                     ),
                   ),
@@ -277,7 +172,7 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
               child: Image.network(
-                doc.url!,
+                url,
                 fit: BoxFit.cover,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
@@ -304,15 +199,6 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            PrimaryButton(
-              label: 'Re-upload / Replace Scan',
-              icon: Icons.refresh_rounded,
-              onPressed: () {
-                Navigator.pop(context);
-                _pickAndUploadDocument(doc);
-              },
-            ),
           ],
         ),
       ),
@@ -321,9 +207,7 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final uploadedCount = _documents.where((d) => d.status != 'not_uploaded').length;
-    final verifiedCount = _documents.where((d) => d.status == 'approved').length;
-    final progressPercent = uploadedCount / _documents.length;
+    final onboardingAsync = ref.watch(driverOnboardingStateProvider);
 
     return Scaffold(
       backgroundColor: TRYPColors.white,
@@ -343,184 +227,213 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: _loadDriverDocuments,
+            onPressed: () => ref.read(driverOnboardingStateProvider.notifier).loadData(),
           ),
         ],
       ),
       body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: TRYPColors.primary))
-            : RefreshIndicator(
-                color: TRYPColors.secondary,
-                onRefresh: _loadDriverDocuments,
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  children: [
-                    // ── Status Overview Header Banner ─────────────────
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: TRYPColors.secondary,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: TRYPColors.primary,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Icon(
-                                  Icons.verified_user_rounded,
-                                  color: TRYPColors.secondary,
-                                  size: 26,
-                                ),
+        child: onboardingAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator(color: TRYPColors.primary)),
+          error: (err, stack) => Center(child: Text('Error loading documents: $err')),
+          data: (data) {
+            final docs = DriverOnboardingConfig.requiredDocuments;
+            int uploadedCount = 0;
+            int verifiedCount = 0;
+
+            for (final doc in docs) {
+              final url = data.documentUrls[doc.key];
+              final status = data.documentStatuses[doc.key];
+              if (url != null && url.isNotEmpty) uploadedCount++;
+              if (status == 'approved') verifiedCount++;
+            }
+
+            final progressPercent = docs.isEmpty ? 0.0 : uploadedCount / docs.length;
+
+            return RefreshIndicator(
+              color: TRYPColors.secondary,
+              onRefresh: () => ref.read(driverOnboardingStateProvider.notifier).loadData(),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                children: [
+                  // Verification Banner
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: TRYPColors.secondary,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: TRYPColors.primary,
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Verification Progress',
-                                      style: TRYPTypography.bodySmall.copyWith(
-                                        color: TRYPColors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '$verifiedCount of ${_documents.length} Approved • $uploadedCount Uploaded',
-                                      style: TRYPTypography.titleLarge.copyWith(
-                                        color: TRYPColors.white,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              child: const Icon(
+                                Icons.verified_user_rounded,
+                                color: TRYPColors.secondary,
+                                size: 26,
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(100),
-                            child: LinearProgressIndicator(
-                              value: progressPercent,
-                              minHeight: 8,
-                              backgroundColor: Colors.white.withValues(alpha: 0.15),
-                              valueColor: const AlwaysStoppedAnimation<Color>(TRYPColors.primary),
                             ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Verification Progress',
+                                    style: TRYPTypography.bodySmall.copyWith(
+                                      color: TRYPColors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '$verifiedCount of ${docs.length} Approved • $uploadedCount Uploaded',
+                                    style: TRYPTypography.titleLarge.copyWith(
+                                      color: TRYPColors.white,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(100),
+                          child: LinearProgressIndicator(
+                            value: progressPercent,
+                            minHeight: 8,
+                            backgroundColor: Colors.white.withValues(alpha: 0.15),
+                            valueColor: const AlwaysStoppedAnimation<Color>(TRYPColors.primary),
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Verification response within 24 hours',
+                              style: TRYPTypography.bodySmall.copyWith(
+                                color: TRYPColors.grey,
+                                fontSize: 11,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: TRYPColors.primary.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              child: Text(
+                                'TRYP Safety Standard',
+                                style: TRYPTypography.labelSmall.copyWith(
+                                  color: TRYPColors.primary,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  Text(
+                    'Required Documents',
+                    style: TRYPTypography.headingSmall.copyWith(fontSize: 18),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Upload legibly scanned or captured photo documents for admin review.',
+                    style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Document Cards List
+                  ...docs.map((doc) {
+                    final url = data.documentUrls[doc.key];
+                    final status = data.documentStatuses[doc.key] ?? (url != null ? 'pending' : 'not_uploaded');
+                    final isUploadingThis = _uploadingDocKey == doc.key;
+
+                    return _DocumentUploadCard(
+                      doc: doc,
+                      url: url,
+                      status: status,
+                      isUploading: isUploadingThis,
+                      onUpload: () => _pickAndUploadDocument(doc),
+                      onView: () => _viewDocumentImage(doc.title, url),
+                    );
+                  }),
+
+                  const SizedBox(height: 24),
+
+                  // Help Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: TRYPColors.inputFill,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.help_outline_rounded, color: TRYPColors.secondary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Verification response within 24 hours',
-                                style: TRYPTypography.bodySmall.copyWith(
-                                  color: TRYPColors.grey,
-                                  fontSize: 11,
-                                ),
+                                'Need document assistance?',
+                                style: TRYPTypography.titleMedium.copyWith(fontSize: 14),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: TRYPColors.primary.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(100),
-                                ),
-                                child: Text(
-                                  'TRYP Safety Standard',
-                                  style: TRYPTypography.labelSmall.copyWith(
-                                    color: TRYPColors.primary,
-                                    fontSize: 10,
-                                  ),
-                                ),
+                              Text(
+                                'Contact TRYP Driver Support 24/7 for verification help.',
+                                style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-
-                    const SizedBox(height: 28),
-
-                    Text(
-                      'Required Documents',
-                      style: TRYPTypography.headingSmall.copyWith(fontSize: 18),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Upload legibly scanned or captured photo documents for admin review.',
-                      style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Document Cards List ───────────────────────────
-                    ..._documents.map((doc) => _DocumentUploadCard(
-                          doc: doc,
-                          isUploading: _uploadingDocKey == doc.key,
-                          onUpload: () => _pickAndUploadDocument(doc),
-                          onView: () => _viewDocumentImage(doc),
-                        )),
-
-                    const SizedBox(height: 24),
-
-                    // ── Help Banner ────────────────────────────────────
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: TRYPColors.inputFill,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.help_outline_rounded, color: TRYPColors.secondary),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Need document assistance?',
-                                  style: TRYPTypography.titleMedium.copyWith(fontSize: 14),
-                                ),
-                                Text(
-                                  'Contact TRYP Driver Support 24/7 for verification help.',
-                                  style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
+            );
+          },
+        ),
       ),
     );
   }
 }
 
 class _DocumentUploadCard extends StatelessWidget {
-  final DriverDocumentModel doc;
+  final RequiredDocumentType doc;
+  final String? url;
+  final String status;
   final bool isUploading;
   final VoidCallback onUpload;
   final VoidCallback onView;
 
   const _DocumentUploadCard({
     required this.doc,
+    required this.url,
+    required this.status,
     required this.isUploading,
     required this.onUpload,
     required this.onView,
@@ -533,7 +446,7 @@ class _DocumentUploadCard extends StatelessWidget {
     String badgeLabel;
     IconData badgeIcon;
 
-    switch (doc.status) {
+    switch (status) {
       case 'approved':
         badgeBg = Colors.green.withValues(alpha: 0.12);
         badgeFg = Colors.green;
@@ -541,6 +454,7 @@ class _DocumentUploadCard extends StatelessWidget {
         badgeIcon = Icons.check_circle_rounded;
         break;
       case 'action_required':
+      case 'rejected':
         badgeBg = TRYPColors.error.withValues(alpha: 0.12);
         badgeFg = TRYPColors.error;
         badgeLabel = 'Action Needed';
@@ -561,7 +475,7 @@ class _DocumentUploadCard extends StatelessWidget {
         break;
     }
 
-    final hasFile = doc.url != null && doc.url!.isNotEmpty;
+    final hasFile = url != null && url!.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -570,9 +484,9 @@ class _DocumentUploadCard extends StatelessWidget {
         color: TRYPColors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: doc.status == 'approved'
+          color: status == 'approved'
               ? Colors.green.withValues(alpha: 0.4)
-              : (doc.status == 'action_required' ? TRYPColors.error : TRYPColors.divider),
+              : (status == 'action_required' || status == 'rejected' ? TRYPColors.error : TRYPColors.divider),
           width: 1.5,
         ),
       ),
@@ -586,14 +500,14 @@ class _DocumentUploadCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: doc.status == 'approved'
+                  color: status == 'approved'
                       ? Colors.green.withValues(alpha: 0.1)
                       : TRYPColors.primary.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
                   doc.icon,
-                  color: doc.status == 'approved' ? Colors.green : TRYPColors.secondary,
+                  color: status == 'approved' ? Colors.green : TRYPColors.secondary,
                   size: 24,
                 ),
               ),
@@ -649,7 +563,6 @@ class _DocumentUploadCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // ── Action Row: Thumbnail or Upload Trigger ──────────────────
           if (isUploading)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 12),

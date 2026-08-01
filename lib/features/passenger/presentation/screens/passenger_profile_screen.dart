@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/supabase_service.dart';
@@ -23,6 +25,8 @@ class _PassengerProfileScreenState extends ConsumerState<PassengerProfileScreen>
 
   bool _isEditing = false;
   bool _isLoading = false;
+  bool _isUploadingAvatar = false;
+  String? _avatarUrl;
   bool _pinVerificationEnabled = false;
   bool _shareTripEnabled = true;
   double _walletBalance = 150.00;
@@ -54,23 +58,132 @@ class _PassengerProfileScreenState extends ConsumerState<PassengerProfileScreen>
         final data = await client.from('profiles').select().eq('id', user.id).maybeSingle();
         final userEmail = user.email ?? '';
         final defaultName = userEmail.contains('@') ? userEmail.split('@').first : 'TRYP User';
-        setState(() {
-          _nameController.text = (data?['full_name'] as String?)?.isNotEmpty == true
-              ? data!['full_name'] as String
-              : defaultName;
-          _emailController.text = (data?['email'] as String?) ?? userEmail;
-          _phoneController.text = (data?['phone_number'] as String?) ?? '';
-          _homeAddressController.text = (data?['home_address'] as String?) ?? '';
-          _workAddressController.text = (data?['work_address'] as String?) ?? '';
-          _emergencyContactController.text = (data?['emergency_contact_phone'] as String?) ?? '';
-        });
+        final rawAvatar = data?['avatar_url'] as String?;
+        final validAvatar = (rawAvatar != null && rawAvatar.trim().isNotEmpty && rawAvatar.startsWith('http'))
+            ? rawAvatar.trim()
+            : null;
+        final rawFullName = data?['full_name'] as String?;
+
+        if (mounted) {
+          setState(() {
+            _avatarUrl = validAvatar;
+            _nameController.text = (rawFullName != null && rawFullName.trim().isNotEmpty)
+                ? rawFullName.trim()
+                : defaultName;
+            _emailController.text = (data?['email'] as String?) ?? userEmail;
+            _phoneController.text = (data?['phone_number'] as String?) ?? (data?['phone'] as String?) ?? '';
+            _homeAddressController.text = (data?['home_address'] as String?) ?? '';
+            _workAddressController.text = (data?['work_address'] as String?) ?? '';
+            _emergencyContactController.text = (data?['emergency_contact_phone'] as String?) ?? '';
+          });
+        }
       } else {
         _setDefaults();
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Error loading profile data: $e');
       _setDefaults();
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await showModalBottomSheet<XFile?>(
+      context: context,
+      backgroundColor: TRYPColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Update Profile Picture', style: TRYPTypography.headingSmall),
+            const SizedBox(height: 16),
+            ListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              tileColor: TRYPColors.inputFill,
+              leading: const Icon(Icons.camera_alt_rounded, color: TRYPColors.secondary, size: 28),
+              title: Text('Take Photo', style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Use camera to take a new profile picture'),
+              onTap: () async {
+                final file = await picker.pickImage(source: ImageSource.camera, maxWidth: 600, maxHeight: 600, imageQuality: 85);
+                if (mounted) Navigator.pop(context, file);
+              },
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              tileColor: TRYPColors.inputFill,
+              leading: const Icon(Icons.photo_library_rounded, color: TRYPColors.primary, size: 28),
+              title: Text('Choose from Gallery', style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Select photo from gallery'),
+              onTap: () async {
+                final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 600, maxHeight: 600, imageQuality: 85);
+                if (mounted) Navigator.pop(context, file);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (image == null) return;
+
+    setState(() => _isUploadingAvatar = true);
+    try {
+      final client = ref.read(supabaseClientProvider);
+      final user = client.auth.currentUser;
+      if (user == null) throw Exception('User not logged in');
+
+      final bytes = await image.readAsBytes();
+      final ext = image.name.split('.').last.toLowerCase();
+      final extension = (ext == 'png' || ext == 'jpg' || ext == 'jpeg' || ext == 'webp') ? ext : 'jpg';
+      final storagePath = '${user.id}/avatar_${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+      await client.storage.from('avatars').uploadBinary(
+        storagePath,
+        bytes,
+        fileOptions: FileOptions(
+          contentType: 'image/$extension',
+          upsert: true,
+        ),
+      );
+
+      final publicUrl = client.storage.from('avatars').getPublicUrl(storagePath);
+
+      await client.from('profiles').update({
+        'avatar_url': publicUrl,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+
+      setState(() {
+        _avatarUrl = publicUrl;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile picture updated successfully! 📸'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating profile picture: $e'),
+            backgroundColor: TRYPColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingAvatar = false);
     }
   }
 
@@ -175,26 +288,37 @@ class _PassengerProfileScreenState extends ConsumerState<PassengerProfileScreen>
                       Center(
                         child: Column(
                           children: [
-                            Stack(
-                              children: [
-                                const CircleAvatar(
-                                  radius: 46,
-                                  backgroundColor: TRYPColors.primary,
-                                  child: Icon(Icons.person_rounded, size: 54, color: TRYPColors.secondary),
-                                ),
-                                Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: const BoxDecoration(
-                                      color: TRYPColors.secondary,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.camera_alt_rounded, size: 14, color: TRYPColors.white),
+                            GestureDetector(
+                              onTap: _pickAndUploadAvatar,
+                              child: Stack(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 46,
+                                    backgroundColor: TRYPColors.primary,
+                                    backgroundImage: (_avatarUrl != null && _avatarUrl!.startsWith('http'))
+                                        ? NetworkImage(_avatarUrl!)
+                                        : null,
+                                    child: _isUploadingAvatar
+                                        ? const CircularProgressIndicator(color: TRYPColors.secondary)
+                                        : ((_avatarUrl == null || !_avatarUrl!.startsWith('http'))
+                                            ? const Icon(Icons.person_rounded, size: 54, color: TRYPColors.secondary)
+                                            : null),
                                   ),
-                                ),
-                              ],
+                                  Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: TRYPColors.secondary,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: TRYPColors.white, width: 2),
+                                      ),
+                                      child: const Icon(Icons.camera_alt_rounded, size: 14, color: TRYPColors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Text(

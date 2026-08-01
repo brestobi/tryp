@@ -52,7 +52,13 @@ class AuthService {
   Future<void> signInWithGoogleNative() async {
     try {
       _logger.i('Starting native Google Sign-In');
-      final GoogleSignInAccount? googleUser = await GoogleSignIn(scopes: ['email', 'profile']).signIn();
+      // Pass the Web Client ID here
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId: '756456562820-7934og3tdvng2gh6nihqhm8do9fakj3s.apps.googleusercontent.com',
+        scopes: ['email', 'profile'],
+      );
+      
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         _logger.w('Google Sign-In cancelled by user');
         return;
@@ -212,6 +218,23 @@ class AuthService {
     }
   }
 
+  /// Send an OTP to the given email.
+  Future<void> sendEmailOTP(String email) async {
+    try {
+      _logger.i('Sending OTP to email: $email');
+      await _supabase.auth.signInWithOtp(
+        email: email,
+      );
+      _logger.i('Email OTP sent successfully');
+    } on AuthException catch (error) {
+      _logger.e('Send email OTP auth error: ${error.message}');
+      rethrow;
+    } catch (e) {
+      _logger.e('Send email OTP error: $e');
+      rethrow;
+    }
+  }
+
   /// Verify OTP for phone-based auth flows.
   Future<AuthResponse> verifyOTP(
     String phone,
@@ -223,6 +246,33 @@ class AuthService {
         phone: phone,
         token: otp,
         type: OtpType.sms,
+      );
+
+      if (response.session == null && response.user == null) {
+        throw AuthException('OTP verification failed: missing session or user data');
+      }
+
+      return response;
+    } on AuthException catch (error) {
+      _logger.e('OTP verification auth error: ${error.message}');
+      rethrow;
+    } catch (e) {
+      _logger.e('OTP verification error: $e');
+      rethrow;
+    }
+  }
+
+  /// Verify OTP for email-based auth flows.
+  Future<AuthResponse> verifyEmailOTP(
+    String email,
+    String otp,
+  ) async {
+    try {
+      _logger.i('Verifying OTP for email: $email');
+      final response = await _supabase.auth.verifyOTP(
+        email: email,
+        token: otp,
+        type: OtpType.email,
       );
 
       if (response.session == null && response.user == null) {

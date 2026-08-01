@@ -511,17 +511,17 @@ class TRYPBottomNavBar extends StatelessWidget {
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPad > 0 ? bottomPad + 8 : 16),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad > 0 ? bottomPad + 4 : 14),
       child: Container(
-        height: 62,
+        height: 64,
         decoration: BoxDecoration(
           color: TRYPColors.secondary,
           borderRadius: BorderRadius.circular(100),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -529,22 +529,22 @@ class TRYPBottomNavBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _TRYPNavItem(
-              icon: Icons.home_rounded,
-              label: 'Home',
+              icon: Icons.directions_car_rounded,
+              label: 'Rides',
               selected: currentIndex == 0,
               onTap: () => onTap != null ? onTap!(0) : context.go('/passenger/home'),
             ),
             _TRYPNavItem(
-              icon: Icons.directions_car_rounded,
-              label: 'Rides',
-              selected: currentIndex == 1,
-              onTap: () => onTap != null ? onTap!(1) : context.go('/passenger/ride-request'),
-            ),
-            _TRYPNavItem(
               icon: Icons.receipt_long_rounded,
               label: 'Activity',
+              selected: currentIndex == 1,
+              onTap: () => onTap != null ? onTap!(1) : context.go('/passenger/activity'),
+            ),
+            _TRYPNavItem(
+              icon: Icons.notifications_none_rounded,
+              label: 'Inbox',
               selected: currentIndex == 2,
-              onTap: () => onTap != null ? onTap!(2) : context.go('/passenger/activity'),
+              onTap: () => onTap != null ? onTap!(2) : context.go('/notifications'),
             ),
             _TRYPNavItem(
               icon: Icons.person_rounded,
@@ -580,7 +580,7 @@ class _TRYPNavItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? TRYPColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(100),
@@ -591,7 +591,7 @@ class _TRYPNavItem extends StatelessWidget {
             Icon(
               icon,
               size: 22,
-              color: selected ? TRYPColors.secondary : TRYPColors.grey,
+              color: selected ? TRYPColors.secondary : TRYPColors.white.withValues(alpha: 0.7),
             ),
             if (selected) ...[
               const SizedBox(width: 6),
@@ -599,7 +599,8 @@ class _TRYPNavItem extends StatelessWidget {
                 label,
                 style: TRYPTypography.labelMedium.copyWith(
                   color: TRYPColors.secondary,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
                 ),
               ),
             ],

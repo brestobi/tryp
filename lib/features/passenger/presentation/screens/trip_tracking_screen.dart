@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
+import 'package:tryp/core/services/location_service.dart';
 import 'package:tryp/core/services/notification_service.dart';
 import 'package:tryp/core/services/trip_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
@@ -17,133 +19,218 @@ class TripTrackingScreenPage extends ConsumerStatefulWidget {
 }
 
 class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage> {
-  int _simulationStep = 0; // 0: Searching, 1: Driver Accepted, 2: Driver Arrived, 3: In Trip, 4: Completed, 5: No Driver Available
-  int _searchCountdown = 15;
-  Timer? _searchTimer;
-  bool _noDriversAvailable = false;
+  TripModel? _currentTrip;
+  RealtimeChannel? _rideSubscription;
+  bool _isLoading = true;
+
+  GoogleMapController? _mapController;
+  Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
 
   @override
   void initState() {
     super.initState();
-    _startSearchCountdown();
+    _loadAndSubscribeToActiveRide();
   }
 
   @override
   void dispose() {
-    _searchTimer?.cancel();
+    _rideSubscription?.unsubscribe();
     super.dispose();
   }
 
-  void _startSearchCountdown() {
-    setState(() {
-      _simulationStep = 0;
-      _searchCountdown = 15;
-      _noDriversAvailable = false;
-    });
+  Future<void> _loadAndSubscribeToActiveRide() async {
+    setState(() => _isLoading = true);
+    final tripService = ref.read(tripServiceProvider);
 
-    _searchTimer?.cancel();
-    _searchTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      if (_searchCountdown > 1) {
-        setState(() => _searchCountdown--);
-
-        // Simulate driver acceptance at countdown 10 (normal flow)
-        if (_searchCountdown == 10 && !_noDriversAvailable) {
-          _searchTimer?.cancel();
-          setState(() => _simulationStep = 1);
-
-          _syncTripStatus(TripStatus.accepted);
-          ref.read(notificationsProvider.notifier).addNotification(
-            title: 'Driver Matched! 🚙',
-            body: 'A driver accepted your ride request and is heading to your pickup location.',
-            type: NotificationType.ride,
-            routePath: Routes.rideTracking,
-          );
-
-          _startDriverApproach();
-        }
-      } else {
-        // Countdown reached 0 with no driver available!
-        _searchTimer?.cancel();
-        setState(() {
-          _noDriversAvailable = true;
-          _simulationStep = 5;
-        });
-
-        ref.read(notificationsProvider.notifier).addNotification(
-          title: 'No Drivers Found ⚠️',
-          body: 'No nearby drivers were available for your request. Please try again.',
-          type: NotificationType.system,
-        );
+    var trip = ref.read(activeTripStateProvider);
+    if (trip == null) {
+      trip = await tripService.getPassengerActiveTrip();
+      if (trip != null) {
+        ref.read(activeTripStateProvider.notifier).stateTrip = trip;
       }
-    });
-  }
-
-  void _syncTripStatus(TripStatus status) {
-    final activeTrip = ref.read(activeTripStateProvider);
-    if (activeTrip != null) {
-      ref.read(tripServiceProvider).updateTripStatus(
-        rideId: activeTrip.id,
-        status: status,
-      );
     }
-  }
 
-  void _triggerNoDriverScenario() {
-    _searchTimer?.cancel();
+    if (!mounted) return;
+
+    if (trip == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
     setState(() {
-      _noDriversAvailable = true;
-      _simulationStep = 5;
+      _currentTrip = trip;
+      _isLoading = false;
     });
 
-    ref.read(notificationsProvider.notifier).addNotification(
-      title: 'No Drivers Available ⚠️',
-      body: 'No drivers found nearby. Please try booking again.',
-      type: NotificationType.system,
+    _subscribeToRideUpdates(trip.id);
+    _updateMapMarkersAndRoute(trip);
+  }
+
+  void _subscribeToRideUpdates(String rideId) {
+    _rideSubscription?.unsubscribe();
+    final tripService = ref.read(tripServiceProvider);
+
+    _rideSubscription = tripService.subscribeToRide(
+      rideId: rideId,
+      onUpdate: (payload) async {
+        if (!mounted) return;
+
+        final fullTrip = await tripService.getPassengerActiveTrip();
+        if (fullTrip != null && mounted) {
+          final previousStatus = _currentTrip?.status;
+          setState(() {
+            _currentTrip = fullTrip;
+          });
+          ref.read(activeTripStateProvider.notifier).stateTrip = fullTrip;
+          _updateMapMarkersAndRoute(fullTrip);
+
+          if (previousStatus != fullTrip.status) {
+            _handleStatusChangeNotifications(fullTrip);
+          }
+        }
+      },
     );
   }
 
-  void _startDriverApproach() {
-    // Step 2: Arrived after 6 seconds
-    Future.delayed(const Duration(seconds: 6), () {
-      if (mounted && _simulationStep == 1) {
-        setState(() => _simulationStep = 2);
-
-        _syncTripStatus(TripStatus.arrived);
+  void _handleStatusChangeNotifications(TripModel trip) {
+    final driverName = trip.driverName ?? 'Your driver';
+    switch (trip.status) {
+      case TripStatus.accepted:
         ref.read(notificationsProvider.notifier).addNotification(
-          title: 'Driver Arrived! 📌',
-          body: 'Your driver has arrived at the pickup location. Please meet your driver.',
+          title: 'Driver Assigned! 🚙',
+          body: '$driverName accepted your ride request and is en route to pickup.',
           type: NotificationType.ride,
           routePath: Routes.rideTracking,
         );
-      }
+        break;
+      case TripStatus.arrived:
+        ref.read(notificationsProvider.notifier).addNotification(
+          title: 'Driver Arrived! 📌',
+          body: '$driverName has arrived outside your pickup location.',
+          type: NotificationType.ride,
+          routePath: Routes.rideTracking,
+        );
+        break;
+      case TripStatus.inTrip:
+        ref.read(notificationsProvider.notifier).addNotification(
+          title: 'Trip Started! 🟢',
+          body: 'Your ride to ${trip.destination} is in progress.',
+          type: NotificationType.ride,
+          routePath: Routes.rideTracking,
+        );
+        break;
+      case TripStatus.completed:
+        ref.read(notificationsProvider.notifier).addNotification(
+          title: 'Trip Completed! 🏁',
+          body: 'You have arrived at ${trip.destination}. Thank you for riding with TRYP!',
+          type: NotificationType.ride,
+          routePath: Routes.passengerActivity,
+        );
+        _showRatingModal();
+        break;
+      case TripStatus.cancelled:
+        ref.read(notificationsProvider.notifier).addNotification(
+          title: 'Ride Cancelled ⚠️',
+          body: 'Your ride request was cancelled.',
+          type: NotificationType.system,
+        );
+        break;
+      default:
+        break;
+    }
+  }
+
+  Future<void> _updateMapMarkersAndRoute(TripModel trip) async {
+    final markers = <Marker>{};
+
+    markers.add(
+      Marker(
+        markerId: const MarkerId('pickup'),
+        position: LatLng(trip.pickupLat, trip.pickupLng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        infoWindow: InfoWindow(title: 'Pickup Location', snippet: trip.origin),
+      ),
+    );
+
+    markers.add(
+      Marker(
+        markerId: const MarkerId('destination'),
+        position: LatLng(trip.destLat, trip.destLng),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        infoWindow: InfoWindow(title: 'Destination', snippet: trip.destination),
+      ),
+    );
+
+    if (trip.driverLat != null && trip.driverLng != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('driver_live'),
+          position: LatLng(trip.driverLat!, trip.driverLng!),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+          infoWindow: InfoWindow(title: trip.driverName ?? 'Driver', snippet: trip.vehicleDescription),
+        ),
+      );
+    }
+
+    setState(() {
+      _markers = markers;
     });
+
+    try {
+      final locService = ref.read(locationServiceProvider);
+      final route = await locService.getRealRoute(
+        startLat: trip.pickupLat,
+        startLng: trip.pickupLng,
+        endLat: trip.destLat,
+        endLng: trip.destLng,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _polylines = {
+          Polyline(
+            polylineId: const PolylineId('active_trip_route'),
+            points: route.polylinePoints,
+            color: TRYPColors.primary,
+            width: 5,
+          ),
+        };
+      });
+
+      if (_mapController != null) {
+        final bounds = LatLngBounds(
+          southwest: LatLng(
+            trip.pickupLat < trip.destLat ? trip.pickupLat : trip.destLat,
+            trip.pickupLng < trip.destLng ? trip.pickupLng : trip.destLng,
+          ),
+          northeast: LatLng(
+            trip.pickupLat > trip.destLat ? trip.pickupLat : trip.destLat,
+            trip.pickupLng > trip.destLng ? trip.pickupLng : trip.destLng,
+          ),
+        );
+        _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
+      }
+    } catch (_) {}
   }
 
-  void _startTripWithPin() {
-    setState(() => _simulationStep = 3);
-
-    _syncTripStatus(TripStatus.inTrip);
-    ref.read(notificationsProvider.notifier).addNotification(
-      title: 'Trip Started! 🟢',
-      body: 'Your trip is now in progress. Sit back and enjoy your ride with TRYP!',
-      type: NotificationType.ride,
-      routePath: Routes.rideTracking,
-    );
-  }
-
-  void _completeRide() {
-    setState(() => _simulationStep = 4);
-
-    _syncTripStatus(TripStatus.completed);
-    ref.read(notificationsProvider.notifier).addNotification(
-      title: 'Trip Completed! 🏁',
-      body: 'You have arrived at your destination. Thank you for riding with TRYP!',
-      type: NotificationType.ride,
-      routePath: Routes.passengerActivity,
-    );
-
-    _showRatingModal();
+  Future<void> _cancelRide() async {
+    if (_currentTrip == null) return;
+    try {
+      final tripService = ref.read(tripServiceProvider);
+      await tripService.updateTripStatus(
+        rideId: _currentTrip!.id,
+        status: TripStatus.cancelled,
+      );
+      ref.read(activeTripStateProvider.notifier).stateTrip = null;
+      if (!mounted) return;
+      context.go(Routes.passengerHome);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not cancel ride: $e'), backgroundColor: TRYPColors.error),
+      );
+    }
   }
 
   void _showRatingModal() {
@@ -165,7 +252,7 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                 const SizedBox(height: 12),
                 Text('You have arrived!', style: TRYPTypography.headingMedium),
                 const SizedBox(height: 4),
-                Text('How was your trip with your driver?', style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey)),
+                Text('How was your trip with your TRYP driver?', style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey)),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -185,6 +272,7 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                 PrimaryButton(
                   label: 'Submit Rating & Back Home',
                   onPressed: () {
+                    ref.read(activeTripStateProvider.notifier).stateTrip = null;
                     Navigator.pop(context);
                     context.go(Routes.passengerHome);
                   },
@@ -197,32 +285,79 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
     );
   }
 
+  void _makeCall(String phone) {
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Driver phone number not available')),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Calling driver: $phone')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final activeTrip = ref.watch(activeTripStateProvider);
-    final pinCode = activeTrip?.pinCode ?? '4829';
-    final fareAmount = activeTrip?.fare ?? 82.50;
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: TRYPColors.white,
+        body: Center(child: CircularProgressIndicator(color: TRYPColors.primary)),
+      );
+    }
 
-    String headerTitle;
-    switch (_simulationStep) {
-      case 0:
-        headerTitle = 'Searching for Drivers ($_searchCountdown s)';
+    if (_currentTrip == null) {
+      return Scaffold(
+        backgroundColor: TRYPColors.white,
+        appBar: AppBar(title: const Text('Trip Tracking')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.directions_car_rounded, size: 48, color: TRYPColors.grey),
+              const SizedBox(height: 12),
+              Text('No active trip to track', style: TRYPTypography.headingSmall),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => context.go(Routes.passengerHome),
+                child: const Text('Go to Passenger Home'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final trip = _currentTrip!;
+    final status = trip.status;
+
+    String headerTitle = 'Ride Tracking';
+    String statusSubtitle = 'Connecting to real-time driver dispatch...';
+
+    switch (status) {
+      case TripStatus.requested:
+        headerTitle = 'Searching for Nearby Drivers';
+        statusSubtitle = 'We are notifying active, verified drivers near your pickup.';
         break;
-      case 1:
-        headerTitle = 'Driver En Route (3 min)';
+      case TripStatus.accepted:
+        headerTitle = 'Driver En Route';
+        statusSubtitle = '${trip.driverName ?? "Your driver"} is heading to pickup location.';
         break;
-      case 2:
-        headerTitle = 'Driver Waiting Outside!';
+      case TripStatus.arrived:
+        headerTitle = 'Driver Has Arrived!';
+        statusSubtitle = 'Your driver is waiting outside. Share PIN code to start.';
         break;
-      case 3:
+      case TripStatus.inTrip:
         headerTitle = 'On Trip to Destination';
+        statusSubtitle = 'Heading towards ${trip.destination}.';
         break;
-      case 5:
-        headerTitle = 'No Drivers Available';
-        break;
-      case 4:
-      default:
+      case TripStatus.completed:
         headerTitle = 'Trip Completed';
+        statusSubtitle = 'You have arrived at your destination.';
+        break;
+      case TripStatus.cancelled:
+        headerTitle = 'Ride Cancelled';
+        statusSubtitle = 'This ride request was cancelled.';
         break;
     }
 
@@ -236,250 +371,167 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.go(Routes.passengerHome),
         ),
-        title: Text(headerTitle, style: TRYPTypography.headingSmall.copyWith(fontSize: 18)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(headerTitle, style: TRYPTypography.headingSmall.copyWith(fontSize: 16)),
+            Text(statusSubtitle, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontSize: 11)),
+          ],
+        ),
         actions: [
-          if (_simulationStep != 5)
-            IconButton(
-              icon: const Icon(Icons.sos_rounded, color: Colors.red),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('EMERGENCY SOS: Contacting 24/7 Safety & Dispatch...'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              },
-              tooltip: 'Emergency SOS',
-            ),
+          IconButton(
+            icon: const Icon(Icons.sos_rounded, color: Colors.red),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('EMERGENCY SOS: Contacting TRYP 24/7 Safety Center...'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            },
+          ),
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Google Map View
+            // Real-Time Google Map
             Expanded(
               child: GoogleMap(
-                initialCameraPosition: const CameraPosition(
-                  target: LatLng(-26.2041, 28.0473),
-                  zoom: 14.5,
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(trip.pickupLat, trip.pickupLng),
+                  zoom: 14,
                 ),
+                markers: _markers,
+                polylines: _polylines,
                 myLocationEnabled: true,
                 zoomControlsEnabled: false,
-                markers: (_simulationStep > 0 && _simulationStep != 5)
-                    ? {
-                        const Marker(
-                          markerId: MarkerId('driver'),
-                          position: LatLng(-26.2025, 28.0450),
-                          infoWindow: InfoWindow(title: 'Driver (Toyota Corolla)'),
-                        ),
-                      }
-                    : {},
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                  _updateMapMarkersAndRoute(trip);
+                },
               ),
             ),
 
-            // Live Tracking / No Driver Panel
+            // Bottom Trip Info & Driver Card
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: TRYPColors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 16,
-                    offset: const Offset(0, -6),
-                  ),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, -6)),
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // STATE 5: NO DRIVERS AVAILABLE ALERT
-                  if (_simulationStep == 5) ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
+                  if (status == TripStatus.requested) ...[
+                    const CircularProgressIndicator(color: TRYPColors.primary),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Waiting for a driver to accept...',
+                      style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Drivers in your area have received your request',
+                      style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+                    ),
+                    const SizedBox(height: 20),
+                    OutlinedButton(
+                      onPressed: _cancelRide,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
-                      child: const Icon(Icons.car_crash_rounded, color: Colors.orange, size: 42),
+                      child: const Text('Cancel Ride Request'),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No Drivers Available Nearby',
-                      style: TRYPTypography.headingMedium.copyWith(fontSize: 20),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'All TRYP drivers in your area are currently busy on other rides or offline. Please try again in a moment or select a different vehicle tier.',
-                      style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey, height: 1.4),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    PrimaryButton(
-                      label: 'Retry Searching for Drivers',
-                      onPressed: _startSearchCountdown,
-                    ),
-                    const SizedBox(height: 12),
-                    SecondaryButton(
-                      label: 'Change Vehicle Tier',
-                      onPressed: () => context.go(Routes.rideRequest),
-                    ),
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: () => context.go(Routes.passengerHome),
-                      child: const Text('Cancel Request', style: TextStyle(color: TRYPColors.grey)),
-                    ),
-                  ]
-                  // STATE 0: SEARCHING FOR DRIVERS
-                  else if (_simulationStep == 0) ...[
-                    LoadingIndicator(message: 'Searching for nearby verified TRYP drivers... ($_searchCountdown s)'),
-                    const SizedBox(height: 16),
+                  ] else ...[
+                    // Assigned Driver Card
                     Row(
                       children: [
-                        Expanded(
-                          child: SecondaryButton(
-                            label: 'Cancel Request',
-                            onPressed: () => context.go(Routes.passengerHome),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: const BorderSide(color: Colors.orange),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                            onPressed: _triggerNoDriverScenario,
-                            child: const Text(
-                              'Test: No Drivers',
-                              style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ]
-                  // STATES 1-4: DRIVER MATCHED & IN PROGRESS
-                  else ...[
-                    // Safety PIN Code Display Banner
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: TRYPColors.primary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: TRYPColors.primary),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.shield_rounded, color: TRYPColors.secondary, size: 20),
-                              const SizedBox(width: 8),
-                              Text('Safety PIN Code:', style: TRYPTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: TRYPColors.secondary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              pinCode,
-                              style: TRYPTypography.headingSmall.copyWith(color: TRYPColors.primary, letterSpacing: 3),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Driver Details Card
-                    Row(
-                      children: [
-                        const CircleAvatar(
+                        CircleAvatar(
                           radius: 26,
                           backgroundColor: TRYPColors.primary,
-                          child: Icon(Icons.person_rounded, size: 30, color: TRYPColors.secondary),
+                          backgroundImage: (trip.driverAvatar != null && trip.driverAvatar!.isNotEmpty)
+                              ? NetworkImage(trip.driverAvatar!)
+                              : null,
+                          child: (trip.driverAvatar == null || trip.driverAvatar!.isEmpty)
+                              ? const Icon(Icons.person_rounded, color: TRYPColors.secondary, size: 28)
+                              : null,
                         ),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Text('Verified Driver', style: TRYPTypography.headingSmall.copyWith(fontSize: 17)),
-                                  const SizedBox(width: 6),
-                                  const Icon(Icons.verified_rounded, color: Colors.blueAccent, size: 18),
-                                ],
+                              Text(
+                                trip.driverName ?? 'Assigned TRYP Driver',
+                                style: TRYPTypography.headingSmall.copyWith(fontSize: 17),
                               ),
-                              const SizedBox(height: 2),
-                              Row(
-                                children: [
-                                  const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text('4.9 ★ (124 rides)', style: TRYPTypography.bodySmall),
-                                ],
+                              Text(
+                                trip.vehicleDescription,
+                                style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Calling driver (+27 82 123 4567)...')),
-                            );
-                          },
-                          icon: const Icon(Icons.phone_rounded, color: TRYPColors.primary),
+                          onPressed: () => _makeCall(trip.driverPhone ?? ''),
+                          icon: const Icon(Icons.phone_rounded, color: TRYPColors.primary, size: 28),
+                          tooltip: 'Call Driver',
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     const Divider(),
                     const SizedBox(height: 8),
 
-                    // Vehicle & Fare Summary
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Vehicle:', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
-                        Text('Toyota Corolla Quest (Silver) • ND 123-456', style: TRYPTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold, fontSize: 13)),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Total Fare:', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
-                        Text('R${fareAmount.toStringAsFixed(2)} (Paystack Card)', style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.primary, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Step Action Buttons
-                    if (_simulationStep == 1)
-                      SecondaryButton(
-                        label: 'Cancel Ride',
-                        onPressed: () => context.go(Routes.passengerHome),
-                      )
-                    else if (_simulationStep == 2)
-                      PrimaryButton(
-                        label: 'Provide PIN & Start Ride',
-                        onPressed: _startTripWithPin,
-                      )
-                    else if (_simulationStep == 3)
-                      PrimaryButton(
-                        label: 'Complete Trip',
-                        onPressed: _completeRide,
+                    // Safety PIN Code Display
+                    if (trip.pinCode.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: TRYPColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: TRYPColors.primary),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('YOUR SAFETY PIN', style: TRYPTypography.labelSmall.copyWith(fontWeight: FontWeight.bold, color: TRYPColors.secondary)),
+                                Text('Give this 4-digit PIN to your driver to start ride', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontSize: 11)),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: TRYPColors.primary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                trip.pinCode,
+                                style: TRYPTypography.headingMedium.copyWith(color: TRYPColors.secondary, letterSpacing: 4, fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Fare (${trip.paymentMethod}):', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+                        Text('R${trip.fare.toStringAsFixed(2)}', style: TRYPTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: TRYPColors.secondary)),
+                      ],
+                    ),
                   ],
                 ],
               ),

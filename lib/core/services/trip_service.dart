@@ -51,10 +51,78 @@ extension TripStatusX on TripStatus {
   }
 }
 
+class UserProfileModel {
+  final String id;
+  final String fullName;
+  final String phone;
+  final String? avatarUrl;
+  final String role;
+  final bool isOnline;
+  final double? currentLat;
+  final double? currentLng;
+  final String? vehicleMake;
+  final String? vehicleModel;
+  final String? vehicleColor;
+  final String? vehiclePlate;
+
+  const UserProfileModel({
+    required this.id,
+    required this.fullName,
+    required this.phone,
+    this.avatarUrl,
+    required this.role,
+    this.isOnline = false,
+    this.currentLat,
+    this.currentLng,
+    this.vehicleMake,
+    this.vehicleModel,
+    this.vehicleColor,
+    this.vehiclePlate,
+  });
+
+  factory UserProfileModel.fromJson(Map<String, dynamic> json) {
+    return UserProfileModel(
+      id: json['id'] as String,
+      fullName: json['full_name'] as String? ?? 'TRYP User',
+      phone: json['phone'] as String? ?? '',
+      avatarUrl: json['avatar_url'] as String?,
+      role: json['role'] as String? ?? 'passenger',
+      isOnline: json['is_online'] as bool? ?? false,
+      currentLat: (json['current_lat'] as num?)?.toDouble(),
+      currentLng: (json['current_lng'] as num?)?.toDouble(),
+      vehicleMake: json['vehicle_make'] as String?,
+      vehicleModel: json['vehicle_model'] as String?,
+      vehicleColor: json['vehicle_color'] as String?,
+      vehiclePlate: json['vehicle_plate'] as String?,
+    );
+  }
+
+  String get vehicleDescription {
+    final parts = [vehicleColor, vehicleMake, vehicleModel].where((p) => p != null && p.isNotEmpty).join(' ');
+    if (parts.isEmpty) return 'TRYP Vehicle';
+    if (vehiclePlate != null && vehiclePlate!.isNotEmpty) {
+      return '$parts ($vehiclePlate)';
+    }
+    return parts;
+  }
+}
+
 class TripModel {
   final String id;
   final String passengerId;
+  final String? passengerName;
+  final String? passengerPhone;
+  final String? passengerAvatar;
   final String? driverId;
+  final String? driverName;
+  final String? driverPhone;
+  final String? driverAvatar;
+  final String? vehicleMake;
+  final String? vehicleModel;
+  final String? vehicleColor;
+  final String? vehiclePlate;
+  final double? driverLat;
+  final double? driverLng;
   final String origin;
   final String destination;
   final TripStatus status;
@@ -76,7 +144,19 @@ class TripModel {
   const TripModel({
     required this.id,
     required this.passengerId,
+    this.passengerName,
+    this.passengerPhone,
+    this.passengerAvatar,
     this.driverId,
+    this.driverName,
+    this.driverPhone,
+    this.driverAvatar,
+    this.vehicleMake,
+    this.vehicleModel,
+    this.vehicleColor,
+    this.vehiclePlate,
+    this.driverLat,
+    this.driverLng,
     required this.origin,
     required this.destination,
     required this.status,
@@ -97,23 +177,62 @@ class TripModel {
   });
 
   factory TripModel.fromJson(Map<String, dynamic> json) {
-    // Coordinates must be present — null defaults would silently mask bad data.
-    final pickupLat = (json['pickup_lat'] as num?)?.toDouble();
-    final pickupLng = (json['pickup_lng'] as num?)?.toDouble();
-    final destLat   = (json['dest_lat']   as num?)?.toDouble();
-    final destLng   = (json['dest_lng']   as num?)?.toDouble();
+    final pickupLat = (json['pickup_lat'] as num?)?.toDouble() ?? 0.0;
+    final pickupLng = (json['pickup_lng'] as num?)?.toDouble() ?? 0.0;
+    final destLat   = (json['dest_lat']   as num?)?.toDouble() ?? 0.0;
+    final destLng   = (json['dest_lng']   as num?)?.toDouble() ?? 0.0;
 
-    if (pickupLat == null || pickupLng == null || destLat == null || destLng == null) {
-      throw FormatException(
-        'TripModel.fromJson: missing coordinates in ride record (id=${json['id']}). '
-        'pickup_lat=$pickupLat pickup_lng=$pickupLng dest_lat=$destLat dest_lng=$destLng',
-      );
+    String? driverName;
+    String? driverPhone;
+    String? driverAvatar;
+    String? vehicleMake;
+    String? vehicleModel;
+    String? vehicleColor;
+    String? vehiclePlate;
+    double? driverLat;
+    double? driverLng;
+
+    if (json['driver'] != null && json['driver'] is Map) {
+      final d = json['driver'] as Map<String, dynamic>;
+      driverName = d['full_name'] as String?;
+      driverPhone = d['phone'] as String?;
+      driverAvatar = d['avatar_url'] as String?;
+      vehicleMake = d['vehicle_make'] as String?;
+      vehicleModel = d['vehicle_model'] as String?;
+      vehicleColor = d['vehicle_color'] as String?;
+      vehiclePlate = d['vehicle_plate'] as String?;
+      driverLat = (d['current_lat'] as num?)?.toDouble();
+      driverLng = (d['current_lng'] as num?)?.toDouble();
+    } else if (json['driver_name'] != null) {
+      driverName = json['driver_name'] as String?;
+    }
+
+    String? passengerName;
+    String? passengerPhone;
+    String? passengerAvatar;
+    if (json['passenger'] != null && json['passenger'] is Map) {
+      final p = json['passenger'] as Map<String, dynamic>;
+      passengerName = p['full_name'] as String?;
+      passengerPhone = p['phone'] as String?;
+      passengerAvatar = p['avatar_url'] as String?;
     }
 
     return TripModel(
       id: json['id'] as String,
       passengerId: json['passenger_id'] as String,
+      passengerName: passengerName,
+      passengerPhone: passengerPhone,
+      passengerAvatar: passengerAvatar,
       driverId: json['driver_id'] as String?,
+      driverName: driverName,
+      driverPhone: driverPhone,
+      driverAvatar: driverAvatar,
+      vehicleMake: vehicleMake,
+      vehicleModel: vehicleModel,
+      vehicleColor: vehicleColor,
+      vehiclePlate: vehiclePlate,
+      driverLat: driverLat,
+      driverLng: driverLng,
       origin: json['origin'] as String? ?? 'Pickup Location',
       destination: json['destination'] as String? ?? 'Destination',
       status: TripStatusX.fromDbString(json['status'] as String? ?? 'requested'),
@@ -134,10 +253,31 @@ class TripModel {
     );
   }
 
+  String get vehicleDescription {
+    final parts = [vehicleColor, vehicleMake, vehicleModel].where((p) => p != null && p.isNotEmpty).join(' ');
+    if (parts.isEmpty) return 'TRYP Vehicle';
+    if (vehiclePlate != null && vehiclePlate!.isNotEmpty) {
+      return '$parts ($vehiclePlate)';
+    }
+    return parts;
+  }
+
   TripModel copyWith({
     String? id,
     String? passengerId,
+    String? passengerName,
+    String? passengerPhone,
+    String? passengerAvatar,
     String? driverId,
+    String? driverName,
+    String? driverPhone,
+    String? driverAvatar,
+    String? vehicleMake,
+    String? vehicleModel,
+    String? vehicleColor,
+    String? vehiclePlate,
+    double? driverLat,
+    double? driverLng,
     String? origin,
     String? destination,
     TripStatus? status,
@@ -159,7 +299,19 @@ class TripModel {
     return TripModel(
       id: id ?? this.id,
       passengerId: passengerId ?? this.passengerId,
+      passengerName: passengerName ?? this.passengerName,
+      passengerPhone: passengerPhone ?? this.passengerPhone,
+      passengerAvatar: passengerAvatar ?? this.passengerAvatar,
       driverId: driverId ?? this.driverId,
+      driverName: driverName ?? this.driverName,
+      driverPhone: driverPhone ?? this.driverPhone,
+      driverAvatar: driverAvatar ?? this.driverAvatar,
+      vehicleMake: vehicleMake ?? this.vehicleMake,
+      vehicleModel: vehicleModel ?? this.vehicleModel,
+      vehicleColor: vehicleColor ?? this.vehicleColor,
+      vehiclePlate: vehiclePlate ?? this.vehiclePlate,
+      driverLat: driverLat ?? this.driverLat,
+      driverLng: driverLng ?? this.driverLng,
       origin: origin ?? this.origin,
       destination: destination ?? this.destination,
       status: status ?? this.status,
@@ -189,6 +341,38 @@ class TripService {
   String _generatePinCode() {
     final rng = Random();
     return (1000 + rng.nextInt(9000)).toString();
+  }
+
+  /// Fetch user profile details
+  Future<UserProfileModel?> getUserProfile(String userId) async {
+    try {
+      final res = await _supabase.from('profiles').select().eq('id', userId).maybeSingle();
+      if (res == null) return null;
+      return UserProfileModel.fromJson(res);
+    } catch (e) {
+      debugPrint('Error fetching user profile: $e');
+      return null;
+    }
+  }
+
+  /// Fetch all trips for the currently authenticated passenger
+  Future<List<TripModel>> getPassengerTrips() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return [];
+
+    try {
+      final response = await _supabase
+          .from('rides')
+          .select('*, driver:driver_id(*)')
+          .eq('passenger_id', user.id)
+          .order('requested_at', ascending: false);
+
+      final list = response as List<dynamic>;
+      return list.map((item) => TripModel.fromJson(item as Map<String, dynamic>)).toList();
+    } catch (e) {
+      debugPrint('Error fetching passenger trips: $e');
+      rethrow;
+    }
   }
 
   /// Create a new ride request in Supabase
@@ -228,9 +412,152 @@ class TripService {
       'requested_at': DateTime.now().toIso8601String(),
     };
 
-    // Do NOT catch here — let the error propagate so the UI can surface it.
-    final response = await _supabase.from('rides').insert(payload).select().single();
+    final response = await _supabase.from('rides').insert(payload).select('*, passenger:passenger_id(*)').single();
     return TripModel.fromJson(response);
+  }
+
+  /// Fetch open ride requests for online drivers
+  Future<List<TripModel>> getOpenRideRequests() async {
+    try {
+      final response = await _supabase
+          .from('rides')
+          .select('*, passenger:passenger_id(*)')
+          .eq('status', 'requested')
+          .isFilter('driver_id', null)
+          .order('requested_at', ascending: false);
+
+      final list = response as List<dynamic>;
+      return list.map((item) => TripModel.fromJson(item as Map<String, dynamic>)).toList();
+    } catch (e) {
+      debugPrint('Error fetching open ride requests: $e');
+      return [];
+    }
+  }
+
+  /// Driver accepts a ride request
+  Future<TripModel?> acceptRide(String rideId) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      // Try atomic RPC function first
+      try {
+        final rpcRes = await _supabase.rpc('accept_ride', params: {'p_ride_id': rideId});
+        if (rpcRes != null && rpcRes is Map) {
+          final fullRide = await _supabase
+              .from('rides')
+              .select('*, passenger:passenger_id(*), driver:driver_id(*)')
+              .eq('id', rideId)
+              .single();
+          return TripModel.fromJson(fullRide);
+        }
+      } catch (e) {
+        debugPrint('accept_ride RPC failed, using fallback update: $e');
+      }
+
+      // Direct update fallback
+      final response = await _supabase
+          .from('rides')
+          .update({
+            'driver_id': user.id,
+            'status': TripStatus.accepted.toDbString(),
+            'accepted_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', rideId)
+          .eq('status', 'requested')
+          .isFilter('driver_id', null)
+          .select('*, passenger:passenger_id(*), driver:driver_id(*)')
+          .single();
+
+      return TripModel.fromJson(response);
+    } catch (e) {
+      debugPrint('Error accepting ride: $e');
+      return null;
+    }
+  }
+
+  /// Driver updates availability and location in Supabase
+  Future<void> updateDriverLocation({
+    required double lat,
+    required double lng,
+    double heading = 0.0,
+    bool isOnline = true,
+  }) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await _supabase.from('profiles').update({
+        'current_lat': lat,
+        'current_lng': lng,
+        'heading': heading,
+        'is_online': isOnline,
+        'last_location_update': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+    } catch (e) {
+      debugPrint('Error updating driver location: $e');
+    }
+  }
+
+  /// Driver toggles online/offline status
+  Future<void> setDriverOnlineStatus(bool isOnline) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await _supabase.from('profiles').update({
+        'is_online': isOnline,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', user.id);
+    } catch (e) {
+      debugPrint('Error toggling online status: $e');
+    }
+  }
+
+  /// Fetch active trip for current driver
+  Future<TripModel?> getDriverActiveTrip() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      final response = await _supabase
+          .from('rides')
+          .select('*, passenger:passenger_id(*), driver:driver_id(*)')
+          .eq('driver_id', user.id)
+          .inFilter('status', ['accepted', 'arrived', 'in_trip'])
+          .order('requested_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return TripModel.fromJson(response);
+    } catch (e) {
+      debugPrint('Error fetching driver active trip: $e');
+      return null;
+    }
+  }
+
+  /// Fetch active trip for current passenger
+  Future<TripModel?> getPassengerActiveTrip() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      final response = await _supabase
+          .from('rides')
+          .select('*, passenger:passenger_id(*), driver:driver_id(*)')
+          .eq('passenger_id', user.id)
+          .inFilter('status', ['requested', 'accepted', 'arrived', 'in_trip'])
+          .order('requested_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return TripModel.fromJson(response);
+    } catch (e) {
+      debugPrint('Error fetching passenger active trip: $e');
+      return null;
+    }
   }
 
   /// Update trip status (accept, arrived, in_trip, completed, cancelled)
@@ -252,7 +579,12 @@ class TripService {
     }
 
     try {
-      final response = await _supabase.from('rides').update(updates).eq('id', rideId).select().single();
+      final response = await _supabase
+          .from('rides')
+          .update(updates)
+          .eq('id', rideId)
+          .select('*, passenger:passenger_id(*), driver:driver_id(*)')
+          .single();
       return TripModel.fromJson(response);
     } catch (e) {
       debugPrint('Error updating trip status: $e');
@@ -260,12 +592,29 @@ class TripService {
     }
   }
 
-  /// Realtime Stream for Active Ride
+  /// Fetch online drivers nearby for map plot
+  Future<List<UserProfileModel>> getOnlineDrivers() async {
+    try {
+      final response = await _supabase
+          .from('profiles')
+          .select()
+          .eq('role', 'driver')
+          .eq('is_online', true);
+
+      final list = response as List<dynamic>;
+      return list.map((e) => UserProfileModel.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      debugPrint('Error fetching online drivers: $e');
+      return [];
+    }
+  }
+
+  /// Realtime Stream for Active Ride by Ride ID
   RealtimeChannel subscribeToRide({
     required String rideId,
     required void Function(Map<String, dynamic> payload) onUpdate,
   }) {
-    final channel = _supabase.channel('public:rides:id=eq.$rideId');
+    final channel = _supabase.channel('public:rides:id=$rideId');
     channel.onPostgresChanges(
       event: PostgresChangeEvent.update,
       schema: 'public',
@@ -284,11 +633,33 @@ class TripService {
 
     return channel;
   }
+
+  /// Realtime Stream for Open Ride Requests (Driver side)
+  RealtimeChannel subscribeToPendingRides({
+    required void Function() onRideCreatedOrUpdated,
+  }) {
+    final channel = _supabase.channel('public:rides:pending');
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'rides',
+      callback: (payload) {
+        onRideCreatedOrUpdated();
+      },
+    ).subscribe();
+
+    return channel;
+  }
 }
 
 final tripServiceProvider = Provider<TripService>((ref) {
   final supabase = ref.watch(supabaseClientProvider);
   return TripService(supabase);
+});
+
+final passengerTripsProvider = FutureProvider.autoDispose<List<TripModel>>((ref) async {
+  final tripService = ref.watch(tripServiceProvider);
+  return tripService.getPassengerTrips();
 });
 
 class ActiveTripNotifier extends Notifier<TripModel?> {

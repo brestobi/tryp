@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logger/logger.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/supabase_service.dart';
@@ -23,7 +24,6 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  bool _registrationSuccess = false;
 
   @override
   void dispose() {
@@ -37,14 +37,15 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
+      final email = _emailController.text.trim();
       final authService = ref.read(authServiceProvider);
       await authService.signUpWithEmail(
-        _emailController.text.trim(),
+        email,
         _passwordController.text,
         fullName: _nameController.text.trim(),
       );
       if (!mounted) return;
-      setState(() => _registrationSuccess = true);
+      context.go(Routes.emailVerification, extra: email);
     } catch (error) {
       if (!mounted) return;
       _logger.e('Registration error: $error');
@@ -88,54 +89,7 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
       ),
       body: SafeArea(
         bottom: false,
-        child: _registrationSuccess ? _buildSuccess() : _buildForm(),
-      ),
-    );
-  }
-
-  // ── Success state ────────────────────────────────────────────────────────────
-
-  Widget _buildSuccess() {
-    final firstName = _nameController.text.trim().split(' ').first;
-    final bottomPad = MediaQuery.of(context).padding.bottom;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(28, 0, 28, bottomPad + 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: TRYPColors.success.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.check_rounded,
-              size: 44,
-              color: TRYPColors.success,
-            ),
-          ),
-          const SizedBox(height: 28),
-          Text(
-            'You\'re in, $firstName!',
-            style: TRYPTypography.headingMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Your TRYP account is ready.\nLog in to start riding.',
-            style: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.grey),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 44),
-          PrimaryButton(
-            label: 'Go to Login',
-            onPressed: () => context.go(Routes.login),
-            icon: Icons.arrow_forward_rounded,
-          ),
-        ],
+        child: _buildForm(),
       ),
     );
   }
@@ -226,7 +180,57 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
                       isLoading: _isLoading,
                       enabled: !_isLoading,
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
+
+                    // Divider
+                    const LabeledDivider(label: 'or continue with'),
+                    const SizedBox(height: 24),
+
+                    // Social login row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SocialButton(
+                            label: 'Google',
+                            icon: Icons.g_mobiledata,
+                            onTap: () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              setState(() => _isLoading = true);
+                              try {
+                                await ref.read(authServiceProvider).signInWithGoogleNative();
+                                if (!mounted) return;
+                                final client = Supabase.instance.client;
+                                final user = client.auth.currentUser;
+                                if (user != null) {
+                                  final data = await client.from('profiles').select('role').eq('id', user.id).maybeSingle();
+                                  if (data != null && data['role'] != null) {
+                                    final role = data['role'] as String;
+                                    context.go(role == 'driver' ? Routes.driverHome : Routes.passengerHome);
+                                  } else {
+                                    context.go(Routes.roleSelection);
+                                  }
+                                }
+                              } catch (e) {
+                                if (!mounted) return;
+                                setState(() => _isLoading = false);
+                                messenger.showSnackBar(
+                                  const SnackBar(content: Text('Google sign-in failed.')),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _SocialButton(
+                            label: 'Facebook',
+                            icon: Icons.facebook_rounded,
+                            onTap: () {},
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
 
                     // Terms
                     Center(
@@ -272,6 +276,43 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SocialButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _SocialButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          border: Border.all(color: TRYPColors.divider, width: 1.5),
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: TRYPColors.secondary),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TRYPTypography.labelMedium,
+            ),
+          ],
+        ),
       ),
     );
   }

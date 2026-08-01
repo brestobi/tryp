@@ -5,6 +5,9 @@ class AppConstants {
   static const String appTagline = 'Move Smart. Move Safe.';
   static const String appVersion = '1.0.0';
 
+  // Credentials
+  static const String googleWebClientId = '756456562820-7934og3tdvng2gh6nihqhm8do9fakj3s.apps.googleusercontent.com';
+
   // API Timeouts
   static const Duration apiTimeout = Duration(seconds: 30);
   static const Duration longTimeout = Duration(seconds: 60);

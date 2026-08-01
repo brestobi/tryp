@@ -6,6 +6,7 @@ import 'package:tryp/features/authentication/presentation/screens/welcome_screen
 import 'package:tryp/features/authentication/presentation/screens/login_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/register_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/phone_verification_screen.dart';
+import 'package:tryp/features/authentication/presentation/screens/email_verification_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/forgot_password_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/role_selection_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_home_screen.dart';
@@ -35,6 +36,7 @@ class Routes {
   static const String login = '/login';
   static const String register = '/register';
   static const String phoneVerification = '/phone-verification';
+  static const String emailVerification = '/email-verification';
   static const String forgotPassword = '/forgot-password';
   static const String roleSelection = '/role-selection';
 
@@ -99,6 +101,13 @@ final goRouter = GoRouter(
       path: Routes.phoneVerification,
       builder: (context, state) => PhoneVerificationScreenPage(
         phone: state.extra as String? ?? '',
+      ),
+    ),
+
+    GoRoute(
+      path: Routes.emailVerification,
+      builder: (context, state) => EmailVerificationScreenPage(
+        email: state.extra as String? ?? '',
       ),
     ),
 

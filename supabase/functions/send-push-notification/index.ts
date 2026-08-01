@@ -1,23 +1,25 @@
-// Supabase Edge Function: send-push-notification
-// Path: supabase/functions/send-push-notification/index.ts
-//
-// This function is triggered by a Supabase Database Webhook on the `rides` table.
-// It sends a Firebase Cloud Messaging (FCM) push notification to the passenger
-// or driver when a ride's status changes.
-//
-// SETUP:
-//  1. Deploy: supabase functions deploy send-push-notification
-//  2. Set secret: supabase secrets set FCM_SERVER_KEY=<your-firebase-server-key>
-//  3. Create Database Webhook in Supabase Dashboard:
-//     - Table: rides
-//     - Events: UPDATE
-//     - URL: https://<project-ref>.supabase.co/functions/v1/send-push-notification
-//     - HTTP Headers: Authorization: Bearer <supabase-service-role-key>
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const FCM_URL = "https://fcm.googleapis.com/fcm/send";
+
+interface DirectPayload {
+  user_id?: string;
+  recipient_id?: string;
+  title: string;
+  body: string;
+  data?: Record<string, string>;
+}
+
+interface NotificationTableRecord {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  type: string;
+  route_path?: string;
+  payload?: Record<string, string>;
+}
 
 interface RideRecord {
   id: string;
@@ -32,66 +34,132 @@ interface RideRecord {
 }
 
 interface WebhookPayload {
-  type: "INSERT" | "UPDATE" | "DELETE";
-  table: string;
-  record: RideRecord;
-  old_record: RideRecord;
+  type?: "INSERT" | "UPDATE" | "DELETE";
+  table?: string;
+  record?: NotificationTableRecord | RideRecord;
+  old_record?: RideRecord;
+  // Direct payload fallback
+  user_id?: string;
+  recipient_id?: string;
+  title?: string;
+  body?: string;
+  data?: Record<string, string>;
 }
 
-type NotificationConfig = {
+interface NotificationTarget {
   title: string;
   body: string;
   recipientId: string;
   data: Record<string, string>;
-};
+}
 
-function buildNotificationForStatus(
-  record: RideRecord,
-  oldRecord: RideRecord
-): NotificationConfig | null {
-  const status = record.status;
-  const prevStatus = oldRecord?.status;
+function parseWebhookOrDirectPayload(payload: WebhookPayload): NotificationTarget[] {
+  const targets: NotificationTarget[] = [];
 
-  if (status === prevStatus) return null;
+  // Case 1: Direct payload
+  if (payload.title && payload.body && (payload.user_id || payload.recipient_id)) {
+    targets.push({
+      title: payload.title,
+      body: payload.body,
+      recipientId: (payload.user_id || payload.recipient_id)!,
+      data: payload.data || {},
+    });
+    return targets;
+  }
 
-  // Notify PASSENGER about their ride status
-  const passengerNotifs: Record<string, { title: string; body: string }> = {
-    accepted: {
-      title: "🚘 Driver Found!",
-      body: `Your TRYP driver is on the way to ${record.origin}. Check the app for live tracking.`,
-    },
-    arrived: {
-      title: "📍 Driver Arrived!",
-      body: `Your driver is waiting at ${record.origin}. Show them your safety PIN to start your trip.`,
-    },
-    in_trip: {
-      title: "🛣️ Trip Started!",
-      body: `You're on your way to ${record.destination}. Estimated arrival coming soon.`,
-    },
-    completed: {
-      title: "✅ Trip Complete!",
-      body: `You've arrived at ${record.destination}. Fare: R${record.fare.toFixed(2)}. Please rate your driver.`,
-    },
-    cancelled: {
-      title: "❌ Ride Cancelled",
-      body: `Your ride to ${record.destination} has been cancelled. Tap to book a new ride.`,
-    },
-  };
+  // Case 2: INSERT on notifications table
+  if (payload.type === "INSERT" && payload.table === "notifications" && payload.record) {
+    const rec = payload.record as NotificationTableRecord;
+    targets.push({
+      title: rec.title,
+      body: rec.body,
+      recipientId: rec.user_id,
+      data: {
+        notification_id: rec.id,
+        type: rec.type || "system",
+        route: rec.route_path || "/notifications",
+        ...(rec.payload || {}),
+      },
+    });
+    return targets;
+  }
 
-  const notif = passengerNotifs[status];
-  if (!notif) return null;
+  // Case 3: UPDATE on rides table (Ride status changes)
+  if (payload.type === "UPDATE" && payload.table === "rides" && payload.record) {
+    const record = payload.record as RideRecord;
+    const oldRecord = payload.old_record as RideRecord;
+    const status = record.status;
+    const prevStatus = oldRecord?.status;
 
-  return {
-    title: notif.title,
-    body: notif.body,
-    recipientId: record.passenger_id,
-    data: {
-      ride_id: record.id,
-      status: status,
-      route: "/passenger/ride-tracking",
-      type: "ride",
-    },
-  };
+    if (status === prevStatus) return targets;
+
+    // Passenger Notifications
+    const passengerNotifs: Record<string, { title: string; body: string }> = {
+      accepted: {
+        title: "🚘 Driver Found!",
+        body: `Your TRYP driver is on the way to ${record.origin}. Tap to view live map tracking.`,
+      },
+      arrived: {
+        title: "📍 Driver Arrived!",
+        body: `Your driver has arrived at ${record.origin}. Meet your driver outside.`,
+      },
+      in_trip: {
+        title: "🛣️ Trip Started!",
+        body: `En route to ${record.destination}. Have a safe journey with TRYP!`,
+      },
+      completed: {
+        title: "✅ Trip Completed!",
+        body: `You've arrived at ${record.destination}. Total fare: R${(record.fare || 0).toFixed(2)}.`,
+      },
+      cancelled: {
+        title: "❌ Ride Cancelled",
+        body: `Your ride to ${record.destination} was cancelled. Tap to request a new ride.`,
+      },
+    };
+
+    if (passengerNotifs[status] && record.passenger_id) {
+      targets.push({
+        title: passengerNotifs[status].title,
+        body: passengerNotifs[status].body,
+        recipientId: record.passenger_id,
+        data: {
+          ride_id: record.id,
+          status: status,
+          route: "/passenger/home",
+          type: "ride",
+        },
+      });
+    }
+
+    // Driver Notifications
+    if (status === "requested" && record.driver_id) {
+      targets.push({
+        title: "🚗 New Ride Request!",
+        body: `New ${record.ride_type || "TRYP"} request near ${record.origin}. Tap to accept.`,
+        recipientId: record.driver_id,
+        data: {
+          ride_id: record.id,
+          status: status,
+          route: "/driver/active-trip",
+          type: "ride",
+        },
+      });
+    } else if (status === "cancelled" && record.driver_id) {
+      targets.push({
+        title: "⚠️ Trip Cancelled by Passenger",
+        body: `The passenger cancelled the trip to ${record.destination}.`,
+        recipientId: record.driver_id,
+        data: {
+          ride_id: record.id,
+          status: status,
+          route: "/driver/home",
+          type: "ride",
+        },
+      });
+    }
+  }
+
+  return targets;
 }
 
 async function sendFcmNotification(
@@ -102,7 +170,8 @@ async function sendFcmNotification(
 ) {
   const fcmServerKey = Deno.env.get("FCM_SERVER_KEY");
   if (!fcmServerKey) {
-    throw new Error("FCM_SERVER_KEY environment variable is not set");
+    console.warn("FCM_SERVER_KEY is not set in Edge Function secrets. Skipping FCM HTTP send.");
+    return { skipped: true, reason: "FCM_SERVER_KEY missing" };
   }
 
   const response = await fetch(FCM_URL, {
@@ -118,7 +187,7 @@ async function sendFcmNotification(
         body,
         sound: "default",
         badge: "1",
-        android_channel_id: "tryp_rides",
+        android_channel_id: "tryp_notifications",
       },
       data: {
         ...data,
@@ -129,72 +198,69 @@ async function sendFcmNotification(
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`FCM send failed: ${response.status} — ${error}`);
+    const errorText = await response.text();
+    throw new Error(`FCM send failed HTTP ${response.status}: ${errorText}`);
   }
 
   return await response.json();
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
+  if (req.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
   try {
     const payload: WebhookPayload = await req.json();
+    const targets = parseWebhookOrDirectPayload(payload);
 
-    // Only handle UPDATE events on the rides table
-    if (payload.type !== "UPDATE" || payload.table !== "rides") {
-      return new Response(JSON.stringify({ message: "Ignored" }), {
+    if (targets.length === 0) {
+      return new Response(JSON.stringify({ message: "No push notification actions required" }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    const notif = buildNotificationForStatus(payload.record, payload.old_record);
-    if (!notif) {
-      return new Response(JSON.stringify({ message: "No notification needed" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Initialize Supabase admin client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Look up the recipient's FCM push token
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("push_token, full_name")
-      .eq("id", notif.recipientId)
-      .maybeSingle();
+    const results = [];
 
-    if (error || !profile?.push_token) {
-      console.warn(`No FCM token for user ${notif.recipientId}: ${error?.message}`);
-      return new Response(
-        JSON.stringify({ message: "No push token registered for user" }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+    for (const target of targets) {
+      // Look up recipient's push_token
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("push_token, full_name")
+        .eq("id", target.recipientId)
+        .maybeSingle();
+
+      if (!profile?.push_token) {
+        console.log(`[send-push-notification] User ${target.recipientId} has no push_token registered.`);
+        results.push({ recipientId: target.recipientId, status: "no_token" });
+        continue;
+      }
+
+      const res = await sendFcmNotification(
+        profile.push_token,
+        target.title,
+        target.body,
+        target.data
       );
+
+      console.log(`[send-push-notification] Sent to ${profile.full_name || target.recipientId}:`, res);
+      results.push({ recipientId: target.recipientId, status: "sent", res });
     }
 
-    // Send via FCM
-    const result = await sendFcmNotification(
-      profile.push_token,
-      notif.title,
-      notif.body,
-      notif.data
-    );
-
-    console.log(`Push sent to ${profile.full_name} (${notif.recipientId}):`, result);
-
-    return new Response(JSON.stringify({ success: true, result }), {
+    return new Response(JSON.stringify({ success: true, results }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("Edge Function error:", err);
-    return new Response(
-      JSON.stringify({ error: (err as Error).message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    console.error("[send-push-notification] Error:", err);
+    return new Response(JSON.stringify({ error: (err as Error).message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 });

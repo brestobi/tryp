@@ -1,86 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
+import 'package:tryp/core/services/trip_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
-class TripActivityItem {
-  final String id;
-  final String destinationName;
-  final String pickupName;
-  final String date;
-  final String rideType;
-  final double fare;
-  final String status; // 'Completed', 'Cancelled'
-  final String driverName;
+/// Helper to format DateTime into human-readable strings
+String _formatTripDate(DateTime dt) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final tripDay = DateTime(dt.year, dt.month, dt.day);
 
-  const TripActivityItem({
-    required this.id,
-    required this.destinationName,
-    required this.pickupName,
-    required this.date,
-    required this.rideType,
-    required this.fare,
-    required this.status,
-    required this.driverName,
-  });
+  final timeStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+  if (tripDay == today) {
+    return 'Today, $timeStr';
+  } else if (tripDay == today.subtract(const Duration(days: 1))) {
+    return 'Yesterday, $timeStr';
+  } else {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}, $timeStr';
+  }
 }
 
-/// Passenger Activity Screen — Bolt-style:
-/// High contrast typography, clean modern trip cards, pill badges, floating TRYPBottomNavBar
-class PassengerActivityScreen extends StatefulWidget {
+/// Passenger Activity Screen — Supabase-backed:
+/// Real-time passenger trip activity (Past Trips & Upcoming Rides)
+class PassengerActivityScreen extends ConsumerStatefulWidget {
   const PassengerActivityScreen({super.key});
 
   @override
-  State<PassengerActivityScreen> createState() => _PassengerActivityScreenState();
+  ConsumerState<PassengerActivityScreen> createState() => _PassengerActivityScreenState();
 }
 
-class _PassengerActivityScreenState extends State<PassengerActivityScreen>
+class _PassengerActivityScreenState extends ConsumerState<PassengerActivityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
-  final List<TripActivityItem> _recentTrips = const [
-    TripActivityItem(
-      id: 'TRIP-9021',
-      destinationName: 'Rosebank Mall',
-      pickupName: 'Sandton City, Sandton',
-      date: 'Today, 14:30',
-      rideType: 'TRYP Go',
-      fare: 41.00,
-      status: 'Completed',
-      driverName: 'K. Mokoena',
-    ),
-    TripActivityItem(
-      id: 'TRIP-8842',
-      destinationName: 'O.R. Tambo Airport',
-      pickupName: 'Sandton City, Sandton',
-      date: '24 Jul 2026, 09:15',
-      rideType: 'TRYP Exec',
-      fare: 258.00,
-      status: 'Completed',
-      driverName: 'David K.',
-    ),
-    TripActivityItem(
-      id: 'TRIP-7710',
-      destinationName: 'Mall of Africa',
-      pickupName: 'Waterfall Estate, Midrand',
-      date: '18 Jul 2026, 18:45',
-      rideType: 'TRYP Comfort',
-      fare: 109.38,
-      status: 'Completed',
-      driverName: 'Thabo N.',
-    ),
-    TripActivityItem(
-      id: 'TRIP-6490',
-      destinationName: 'Johannesburg Park Station',
-      pickupName: 'Rosebank, Johannesburg',
-      date: '10 Jul 2026, 11:20',
-      rideType: 'TRYP Go',
-      fare: 65.50,
-      status: 'Cancelled',
-      driverName: 'John D.',
-    ),
-  ];
 
   @override
   void initState() {
@@ -96,6 +54,8 @@ class _PassengerActivityScreenState extends State<PassengerActivityScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tripsAsync = ref.watch(passengerTripsProvider);
+
     return Scaffold(
       backgroundColor: TRYPColors.white,
       appBar: AppBar(
@@ -136,63 +96,110 @@ class _PassengerActivityScreenState extends State<PassengerActivityScreen>
       ),
       body: Stack(
         children: [
-          TabBarView(
-            controller: _tabController,
-            children: [
-              // Past Trips Tab
-              ListView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-                itemCount: _recentTrips.length,
-                itemBuilder: (context, index) {
-                  final trip = _recentTrips[index];
-                  return _TripCard(trip: trip);
-                },
-              ),
+          tripsAsync.when(
+            data: (trips) {
+              final pastTrips = trips
+                  .where((t) => t.status == TripStatus.completed || t.status == TripStatus.cancelled)
+                  .toList();
 
-              // Upcoming Trips Tab (Empty State)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(28.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: TRYPColors.inputFill,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(
-                          Icons.calendar_today_rounded,
-                          size: 32,
-                          color: TRYPColors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'No Upcoming Rides',
-                        style: TRYPTypography.headingMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'You don\'t have any scheduled trips right now.',
-                        style: TRYPTypography.bodyMedium.copyWith(
-                          color: TRYPColors.grey,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 28),
-                      PrimaryButton(
-                        label: 'Book a Ride Now',
-                        onPressed: () => context.go(Routes.rideRequest),
-                        width: 200,
-                      ),
-                    ],
+              final upcomingTrips = trips
+                  .where((t) =>
+                      t.status == TripStatus.requested ||
+                      t.status == TripStatus.accepted ||
+                      t.status == TripStatus.arrived ||
+                      t.status == TripStatus.inTrip)
+                  .toList();
+
+              return TabBarView(
+                controller: _tabController,
+                children: [
+                  // Past Trips Tab
+                  RefreshIndicator(
+                    onRefresh: () async => ref.refresh(passengerTripsProvider.future),
+                    child: pastTrips.isEmpty
+                        ? _buildEmptyState(
+                            icon: Icons.history_rounded,
+                            title: 'No Past Trips',
+                            description: 'Your completed and cancelled rides will appear here.',
+                          )
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                            itemCount: pastTrips.length,
+                            itemBuilder: (context, index) {
+                              return _TripCard(trip: pastTrips[index]);
+                            },
+                          ),
                   ),
+
+                  // Upcoming Trips Tab
+                  RefreshIndicator(
+                    onRefresh: () async => ref.refresh(passengerTripsProvider.future),
+                    child: upcomingTrips.isEmpty
+                        ? _buildEmptyState(
+                            icon: Icons.calendar_today_rounded,
+                            title: 'No Upcoming Rides',
+                            description: 'You don\'t have any active or scheduled trips right now.',
+                          )
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                            itemCount: upcomingTrips.length,
+                            itemBuilder: (context, index) {
+                              return _TripCard(trip: upcomingTrips[index]);
+                            },
+                          ),
+                  ),
+                ],
+              );
+            },
+            loading: () => const Center(
+              child: CircularProgressIndicator(
+                color: TRYPColors.secondary,
+              ),
+            ),
+            error: (err, stack) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(28.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: TRYPColors.error.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.error_outline_rounded,
+                        size: 32,
+                        color: TRYPColors.error,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Failed to load activity',
+                      style: TRYPTypography.headingMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      err.toString(),
+                      style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+                      textAlign: TextAlign.center,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 24),
+                    PrimaryButton(
+                      label: 'Retry',
+                      onPressed: () => ref.refresh(passengerTripsProvider),
+                      width: 140,
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
 
           // Shared Floating Bottom Navigation Bar
@@ -206,16 +213,106 @@ class _PassengerActivityScreenState extends State<PassengerActivityScreen>
       ),
     );
   }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.65,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(28.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: TRYPColors.inputFill,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                icon,
+                size: 32,
+                color: TRYPColors.grey,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: TRYPTypography.headingMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              description,
+              style: TRYPTypography.bodyMedium.copyWith(
+                color: TRYPColors.grey,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            PrimaryButton(
+              label: 'Book a Ride Now',
+              onPressed: () => context.go(Routes.rideRequest),
+              width: 200,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _TripCard extends StatelessWidget {
-  final TripActivityItem trip;
+  final TripModel trip;
 
   const _TripCard({required this.trip});
 
   @override
   Widget build(BuildContext context) {
-    final isCompleted = trip.status == 'Completed';
+    final isCompleted = trip.status == TripStatus.completed;
+    final isCancelled = trip.status == TripStatus.cancelled;
+
+    Color statusBgColor;
+    Color statusTextColor;
+    String statusText;
+
+    if (isCompleted) {
+      statusBgColor = TRYPColors.success.withValues(alpha: 0.12);
+      statusTextColor = TRYPColors.success;
+      statusText = 'Completed';
+    } else if (isCancelled) {
+      statusBgColor = TRYPColors.error.withValues(alpha: 0.12);
+      statusTextColor = TRYPColors.error;
+      statusText = 'Cancelled';
+    } else {
+      statusBgColor = TRYPColors.secondary.withValues(alpha: 0.12);
+      statusTextColor = TRYPColors.secondary;
+      switch (trip.status) {
+        case TripStatus.requested:
+          statusText = 'Requested';
+          break;
+        case TripStatus.accepted:
+          statusText = 'Accepted';
+          break;
+        case TripStatus.arrived:
+          statusText = 'Driver Arrived';
+          break;
+        case TripStatus.inTrip:
+          statusText = 'In Trip';
+          break;
+        default:
+          statusText = 'Active';
+      }
+    }
+
+    final driverDisplayName = trip.driverName?.isNotEmpty == true
+        ? trip.driverName!
+        : (trip.driverId != null ? 'Assigned Driver' : (isCancelled ? 'N/A' : 'Searching...'));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -237,14 +334,18 @@ class _TripCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isCompleted
                       ? TRYPColors.primary.withValues(alpha: 0.2)
-                      : TRYPColors.error.withValues(alpha: 0.1),
+                      : (isCancelled
+                          ? TRYPColors.error.withValues(alpha: 0.1)
+                          : TRYPColors.secondary.withValues(alpha: 0.15)),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   isCompleted
                       ? Icons.directions_car_rounded
-                      : Icons.close_rounded,
-                  color: isCompleted ? TRYPColors.secondary : TRYPColors.error,
+                      : (isCancelled ? Icons.close_rounded : Icons.navigation_rounded),
+                  color: isCompleted
+                      ? TRYPColors.secondary
+                      : (isCancelled ? TRYPColors.error : TRYPColors.secondary),
                   size: 22,
                 ),
               ),
@@ -254,17 +355,27 @@ class _TripCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      trip.destinationName,
+                      trip.destination,
                       style: TRYPTypography.titleLarge.copyWith(fontSize: 16),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      trip.date,
+                      _formatTripDate(trip.requestedAt),
                       style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'From: ${trip.origin}',
+                      style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontSize: 11),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -279,15 +390,13 @@ class _TripCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
-                      color: isCompleted
-                          ? TRYPColors.success.withValues(alpha: 0.12)
-                          : TRYPColors.error.withValues(alpha: 0.12),
+                      color: statusBgColor,
                       borderRadius: BorderRadius.circular(100),
                     ),
                     child: Text(
-                      trip.status,
+                      statusText,
                       style: TRYPTypography.labelSmall.copyWith(
-                        color: isCompleted ? TRYPColors.success : TRYPColors.error,
+                        color: statusTextColor,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -308,7 +417,7 @@ class _TripCard extends StatelessWidget {
                   const Icon(Icons.person_outline_rounded, size: 16, color: TRYPColors.grey),
                   const SizedBox(width: 6),
                   Text(
-                    'Driver: ${trip.driverName}',
+                    'Driver: $driverDisplayName',
                     style: TRYPTypography.bodySmall,
                   ),
                 ],

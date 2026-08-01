@@ -50,7 +50,15 @@ class PushNotificationService {
       _handleNotificationTap(initialMessage);
     }
 
-    // Register the FCM token with Supabase
+    // Listen for Supabase Auth state changes to automatically register FCM token on sign-in
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.signedIn || data.event == AuthChangeEvent.tokenRefreshed) {
+        debugPrint('🔑 Supabase session active (${data.event.name}), registering FCM push token...');
+        _registerTokenWithSupabase();
+      }
+    });
+
+    // Register the FCM token with Supabase if user is already logged in
     await _registerTokenWithSupabase();
 
     // Listen for token refresh

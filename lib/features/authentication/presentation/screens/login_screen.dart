@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logger/logger.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/supabase_service.dart';
@@ -30,6 +31,27 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
     super.dispose();
   }
 
+  Future<void> _handlePostLoginRedirect() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+
+    if (user == null) return;
+
+    // Check if profile exists and has a role
+    final data = await client.from('profiles').select('role').eq('id', user.id).maybeSingle();
+
+    if (data != null && data['role'] != null) {
+      final role = data['role'] as String;
+      if (role == 'driver') {
+        context.go(Routes.driverHome);
+      } else {
+        context.go(Routes.passengerHome);
+      }
+    } else {
+      context.go(Routes.roleSelection);
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -40,13 +62,17 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
         _passwordController.text,
       );
       if (!mounted) return;
-      context.go(Routes.roleSelection);
+      await _handlePostLoginRedirect();
     } catch (error) {
       if (!mounted) return;
       _logger.e('Login error: $error');
+      final message = error is AuthException
+          ? error.message
+          : 'Login failed. Please check your credentials and try again.';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Incorrect email or password. Please try again.'),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: TRYPColors.error,
         ),
       );
     } finally {
@@ -179,10 +205,14 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
                                 icon: Icons.g_mobiledata,
                                 onTap: () async {
                                   final messenger = ScaffoldMessenger.of(context);
+                                  setState(() => _isLoading = true); // Start loading
                                   try {
-                                    await ref.read(authServiceProvider).signInWithGoogle();
+                                    await ref.read(authServiceProvider).signInWithGoogleNative();
+                                    if (!mounted) return;
+                                    await _handlePostLoginRedirect();
                                   } catch (e) {
                                     if (!mounted) return;
+                                    setState(() => _isLoading = false); // Stop loading on error
                                     messenger.showSnackBar(
                                       const SnackBar(
                                           content: Text('Google sign-in failed.')),

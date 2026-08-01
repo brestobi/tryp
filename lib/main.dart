@@ -12,6 +12,9 @@ import 'package:tryp/core/services/push_notification_service.dart';
 void main() async {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    
+    // Load environment variables first
+    await Environment.load();
 
     // Global Error Widget builder to show on-screen logs when crashes occur
     ErrorWidget.builder = (FlutterErrorDetails details) {
@@ -62,9 +65,13 @@ void main() async {
     };
 
     try {
-      await Environment.load();
+      // 1. Initialize Supabase first (so client is ready for token storage & auth)
+      await Supabase.initialize(
+        url: Environment.supabaseUrl,
+        publishableKey: Environment.supabaseAnonKey,
+      );
 
-      // Safely initialize Firebase (requires google-services.json / native Firebase config)
+      // 2. Initialize Firebase & Push Notifications safely
       try {
         await Firebase.initializeApp();
         final pushService = PushNotificationService();
@@ -72,11 +79,6 @@ void main() async {
       } catch (e) {
         debugPrint('⚠️ Firebase/FCM initialization warning (push notifications disabled): $e');
       }
-
-      await Supabase.initialize(
-        url: Environment.supabaseUrl,
-        publishableKey: Environment.supabaseAnonKey,
-      );
 
       runApp(
         const ProviderScope(
