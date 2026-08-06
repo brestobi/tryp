@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/supabase_service.dart';
+import 'package:tryp/core/services/welcome_notification_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 import 'package:tryp/core/utils/validators.dart';
 
@@ -38,7 +39,11 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
     if (user == null) return;
 
     // Check if profile exists and has a role
-    final data = await client.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    final data = await client
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
 
     if (data != null && data['role'] != null) {
       final role = data['role'] as String;
@@ -62,6 +67,20 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
         _passwordController.text,
       );
       if (!mounted) return;
+
+      WelcomeNotificationService.showWelcomeNotification(
+        callback: (title, body) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$title\n$body'),
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: TRYPColors.secondary,
+            ),
+          );
+        },
+      );
+
       await _handlePostLoginRedirect();
     } catch (error) {
       if (!mounted) return;
@@ -70,10 +89,7 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
           ? error.message
           : 'Login failed. Please check your credentials and try again.';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: TRYPColors.error,
-        ),
+        SnackBar(content: Text(message), backgroundColor: TRYPColors.error),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -85,190 +101,204 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: TRYPColors.white,
-      // Minimal back button — icon only, no AppBar chrome
-      appBar: AppBar(
-        backgroundColor: TRYPColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: TRYPColors.secondary, size: 24),
-          onPressed: () => context.canPop() ? context.pop() : context.go(Routes.onboarding),
-        ),
-      ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 8),
-
-                        // Headline
-                        Text(
-                          'Welcome back.',
-                          style: TRYPTypography.headingLarge,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Log in to continue',
-                          style: TRYPTypography.bodyLarge.copyWith(
-                            color: TRYPColors.grey,
-                          ),
-                        ),
-                        const SizedBox(height: 36),
-
-                        // Email
-                        CustomTextField(
-                          hint: 'Email address',
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          prefixIcon: Icons.email_outlined,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Email is required';
-                            }
-                            if (!Validators.isValidEmail(value)) {
-                              return 'Enter a valid email address';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-
-                        // Password
-                        CustomTextField(
-                          hint: 'Password',
-                          controller: _passwordController,
-                          obscureText: true,
-                          prefixIcon: Icons.lock_outline_rounded,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Password is required';
-                            }
-                            if (!Validators.isValidPasswordLength(value)) {
-                              return 'Password must be at least 8 characters';
-                            }
-                            return null;
-                          },
-                        ),
-
-                        // Forgot password — right-aligned
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () => context.go(Routes.forgotPassword),
-                            style: TextButton.styleFrom(
-                              foregroundColor: TRYPColors.secondary,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 10),
-                            ),
-                            child: Text(
-                              'Forgot password?',
-                              style: TRYPTypography.labelMedium.copyWith(
-                                color: TRYPColors.secondary,
-                                decoration: TextDecoration.underline,
-                                decorationColor: TRYPColors.grey,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Login CTA
-                        PrimaryButton(
-                          label: 'Log in',
-                          onPressed: _submit,
-                          isLoading: _isLoading,
-                          enabled: !_isLoading,
-                        ),
-                        const SizedBox(height: 28),
-
-                        // Divider
-                        const LabeledDivider(label: 'or continue with'),
-                        const SizedBox(height: 24),
-
-                        // Social login row
-                        Row(
+      backgroundColor: TRYPColors.background,
+      body: SafeArea(
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go(Routes.onboarding),
+                    icon: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: TRYPColors.primary,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: TRYPColors.inputFill,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+                    decoration: BoxDecoration(
+                      color: TRYPColors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: _SocialButton(
-                                label: 'Google',
-                                icon: Icons.g_mobiledata,
-                                onTap: () async {
-                                  final messenger = ScaffoldMessenger.of(context);
-                                  setState(() => _isLoading = true); // Start loading
-                                  try {
-                                    await ref.read(authServiceProvider).signInWithGoogleNative();
-                                    if (!mounted) return;
-                                    await _handlePostLoginRedirect();
-                                  } catch (e) {
-                                    if (!mounted) return;
-                                    setState(() => _isLoading = false); // Stop loading on error
-                                    messenger.showSnackBar(
-                                      const SnackBar(
-                                          content: Text('Google sign-in failed.')),
-                                    );
-                                  }
-                                },
+                            const SizedBox(height: 8),
+                            Text(
+                              'Welcome back',
+                              style: TRYPTypography.headingLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Log in to continue your ride.',
+                              style: TRYPTypography.bodyLarge.copyWith(
+                                color: TRYPColors.grey,
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _SocialButton(
-                                label: 'Facebook',
-                                icon: Icons.facebook_rounded,
-                                onTap: () {},
+                            const SizedBox(height: 28),
+
+                            CustomTextField(
+                              hint: 'Email address',
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              prefixIcon: Icons.email_outlined,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Email is required';
+                                }
+                                if (!Validators.isValidEmail(value)) {
+                                  return 'Enter a valid email address';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
+
+                            CustomTextField(
+                              hint: 'Password',
+                              controller: _passwordController,
+                              obscureText: true,
+                              prefixIcon: Icons.lock_outline_rounded,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Password is required';
+                                }
+                                if (!Validators.isValidPasswordLength(value)) {
+                                  return 'Password must be at least 8 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () =>
+                                    context.go(Routes.forgotPassword),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: TRYPColors.primary,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Forgot password?',
+                                  style: TRYPTypography.labelMedium.copyWith(
+                                    color: TRYPColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            PrimaryButton(
+                              label: 'Log in',
+                              onPressed: _submit,
+                              isLoading: _isLoading,
+                              enabled: !_isLoading,
+                              backgroundColor: TRYPColors.primary,
+                              foregroundColor: TRYPColors.white,
+                            ),
+                            const SizedBox(height: 24),
+
+                            const LabeledDivider(label: 'or continue with'),
+                            const SizedBox(height: 20),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _SocialButton(
+                                    label: 'Google',
+                                    icon: Icons.g_mobiledata,
+                                    onTap: () async {
+                                      final messenger = ScaffoldMessenger.of(
+                                        context,
+                                      );
+                                      setState(() => _isLoading = true);
+                                      try {
+                                        await ref
+                                            .read(authServiceProvider)
+                                            .signInWithGoogleNative();
+                                        if (!mounted) return;
+                                        await _handlePostLoginRedirect();
+                                      } catch (e) {
+                                        if (!mounted) return;
+                                        setState(() => _isLoading = false);
+                                        messenger.showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Google sign-in failed.',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _SocialButton(
+                                    label: 'Apple',
+                                    icon: Icons.apple,
+                                    onTap: () {},
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 26),
+                            Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "Don't have an account? ",
+                                    style: TRYPTypography.bodyMedium.copyWith(
+                                      color: TRYPColors.grey,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () => context.go(Routes.register),
+                                    child: Text(
+                                      'Register',
+                                      style: TRYPTypography.bodyMedium.copyWith(
+                                        color: TRYPColors.primary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 32),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-
-              // Bottom: don't have account
-              Padding(
-                padding: EdgeInsets.only(
-                  left: 28,
-                  right: 28,
-                  bottom: bottomPad + 24,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Don't have an account? ",
-                      style: TRYPTypography.bodyMedium.copyWith(
-                        color: TRYPColors.grey,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => context.go(Routes.register),
-                      child: Text(
-                        'Register',
-                        style: TRYPTypography.bodyMedium.copyWith(
-                          color: TRYPColors.secondary,
-                          fontWeight: FontWeight.w700,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                SizedBox(height: bottomPad),
+              ],
+            ),
           ),
         ),
       ),
@@ -306,10 +336,7 @@ class _SocialButton extends StatelessWidget {
           children: [
             Icon(icon, size: 22, color: TRYPColors.secondary),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: TRYPTypography.labelMedium,
-            ),
+            Text(label, style: TRYPTypography.labelMedium),
           ],
         ),
       ),

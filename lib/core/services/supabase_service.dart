@@ -100,12 +100,8 @@ class AuthService {
         throw AuthException('Sign up failed: missing user session or user data');
       }
 
-      await _supabase.from('profiles').insert({
-        'id': user.id,
-        'full_name': fullName,
-        'email': email,
-      });
-
+      // Profile is created automatically by database trigger 'on_auth_user_created'
+      
       return response;
     } on AuthException catch (error) {
       _logger.e('Sign up auth error: ${error.message}');

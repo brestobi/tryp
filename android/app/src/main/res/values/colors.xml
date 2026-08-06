@@ -2,4 +2,5 @@
 <resources>
     <!-- TRYP primary yellow for FCM notification accent color -->
     <color name="notification_color">#FFD700</color>
+	<color name="ic_launcher_background">#FFFFFF</color>
 </resources>

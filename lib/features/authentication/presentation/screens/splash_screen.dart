@@ -85,16 +85,11 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                     color: TRYPColors.primary,
                     borderRadius: BorderRadius.circular(26),
                   ),
-                  child: const Center(
-                    child: Text(
-                      'T',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 50,
-                        fontWeight: FontWeight.w900,
-                        color: TRYPColors.secondary,
-                        height: 1.05,
-                      ),
+                  child: Center(
+                    child: Image.asset(
+                      'assets/images/tryp_logo_light.png',
+                      width: 60,
+                      height: 60,
                     ),
                   ),
                 ),

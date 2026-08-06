@@ -120,16 +120,19 @@ class DocumentStorageService {
       // 2. Insert into driver_documents table for admin inspector view
       final docType = _mapDocKeyToDocType(docKey);
       try {
-        await _supabase.from('driver_documents').insert({
-          'driver_id': user.id,
-          'document_type': docType,
-          'document_url': publicUrl,
-          'status': 'pending',
-          'submitted_at': DateTime.now().toIso8601String(),
-        });
-        debugPrint('✅ Driver documents table inserted successfully.');
+        await _supabase.from('driver_documents').upsert(
+          {
+            'driver_id': user.id,
+            'document_type': docType,
+            'document_url': publicUrl,
+            'status': 'pending',
+            'submitted_at': DateTime.now().toIso8601String(),
+          },
+          onConflict: 'driver_id, document_type',
+        );
+        debugPrint('✅ Driver documents table updated/inserted successfully.');
       } catch (e) {
-        debugPrint('❌ Error inserting into driver_documents table: $e');
+        debugPrint('❌ Error updating/inserting into driver_documents table: $e');
         rethrow;
       }
 

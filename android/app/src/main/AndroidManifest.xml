@@ -10,7 +10,7 @@
     <application
         android:label="TRYP"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
 
         <activity
             android:name=".MainActivity"
@@ -42,7 +42,7 @@
         <!-- FCM: Default notification channel for Android 8.0+ -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="tryp_rides" />
+            android:value="tryp_notifications" />
 
         <!-- FCM: Default notification icon -->
         <meta-data

@@ -372,13 +372,14 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
     final onboardingAsync = ref.watch(driverOnboardingStateProvider);
 
     return Scaffold(
-      backgroundColor: TRYPColors.white,
+      backgroundColor: TRYPColors.primary,
       appBar: AppBar(
-        backgroundColor: TRYPColors.white,
+        backgroundColor: TRYPColors.primary,
+        foregroundColor: TRYPColors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: TRYPColors.secondary),
+          icon: const Icon(Icons.arrow_back_rounded, color: TRYPColors.white),
           onPressed: () {
             if (_currentStep > 0 && _currentStep < 4) {
               setState(() => _currentStep--);
@@ -389,11 +390,11 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
         ),
         title: Text(
           'Driver Verification Onboarding',
-          style: TRYPTypography.headingSmall.copyWith(fontSize: 18),
+          style: TRYPTypography.headingSmall.copyWith(fontSize: 18, color: TRYPColors.white),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: TRYPColors.secondary),
+            icon: const Icon(Icons.refresh_rounded, color: TRYPColors.accent),
             onPressed: () => ref.read(driverOnboardingStateProvider.notifier).loadData(),
             tooltip: 'Refresh Profile',
           ),
@@ -458,11 +459,18 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                   ],
 
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _buildStepView(data),
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+                      decoration: const BoxDecoration(
+                        color: TRYPColors.white,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(24),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          child: _buildStepView(data),
+                        ),
                       ),
                     ),
                   ),
@@ -1091,13 +1099,13 @@ class _StepDot extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 12,
-          backgroundColor: isActive ? TRYPColors.primary : TRYPColors.lightGrey,
+          backgroundColor: isActive ? TRYPColors.accent : TRYPColors.lightGrey,
           child: Text(
             '${step + 1}',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: isActive ? TRYPColors.secondary : TRYPColors.grey,
+              color: isActive ? TRYPColors.primary : TRYPColors.grey,
             ),
           ),
         ),
@@ -1105,7 +1113,7 @@ class _StepDot extends StatelessWidget {
         Text(
           label,
           style: TRYPTypography.bodySmall.copyWith(
-            color: isActive ? TRYPColors.secondary : TRYPColors.grey,
+            color: isActive ? TRYPColors.primary : TRYPColors.grey,
             fontSize: 9,
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),

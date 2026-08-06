@@ -285,7 +285,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                     children: [
                       Text(request.passengerName ?? 'Verified Passenger', style: TRYPTypography.headingSmall.copyWith(fontSize: 16)),
                       Text(
-                        request.passengerPhone.isNotEmpty ? request.passengerPhone : 'Payment: ${request.paymentMethod}',
+                        request.passengerPhone != null && request.passengerPhone!.isNotEmpty ? request.passengerPhone! : 'Payment: ${request.paymentMethod}',
                         style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
                       ),
                     ],
@@ -501,9 +501,9 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
     final isVerified = _driverStatus == 'approved';
 
     return Scaffold(
-      backgroundColor: TRYPColors.secondary,
+      backgroundColor: TRYPColors.primary,
       appBar: AppBar(
-        backgroundColor: TRYPColors.secondary,
+        backgroundColor: TRYPColors.primary,
         foregroundColor: TRYPColors.white,
         elevation: 0,
         title: Row(
@@ -511,12 +511,12 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: TRYPColors.primary,
+                color: TRYPColors.accent,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 'TRYP DRIVER',
-                style: TextStyle(color: TRYPColors.secondary, fontWeight: FontWeight.bold, fontSize: 12),
+                style: TextStyle(color: TRYPColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),
           ],
@@ -641,10 +641,10 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                     Container(
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.4),
+                        color: TRYPColors.dark.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: _isOnline ? TRYPColors.primary : TRYPColors.grey.withValues(alpha: 0.3),
+                          color: _isOnline ? TRYPColors.accent : TRYPColors.grey.withValues(alpha: 0.3),
                           width: 1.5,
                         ),
                       ),
@@ -676,7 +676,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                               ),
                               Text(
                                 '$_driverRating ★',
-                                style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.primary, fontWeight: FontWeight.bold),
+                                style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.accent, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -685,7 +685,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                           const SizedBox(height: 4),
                           Text(
                             'R${_todayEarnings.toStringAsFixed(2)}',
-                            style: TRYPTypography.headingLarge.copyWith(color: TRYPColors.primary, fontSize: 32),
+                            style: TRYPTypography.headingLarge.copyWith(color: TRYPColors.accent, fontSize: 32),
                           ),
                           const SizedBox(height: 20),
 

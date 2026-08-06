@@ -21,41 +21,9 @@ import 'package:tryp/features/driver/presentation/screens/driver_onboarding_scre
 import 'package:tryp/features/driver/presentation/screens/driver_documents_screen.dart';
 import 'package:tryp/features/driver/presentation/screens/active_trip_screen.dart';
 import 'package:tryp/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:tryp/app/routes.dart';
 
-/// TRYP Navigation Routes
-class Routes {
-  // Common & Notifications
-  static const String notifications = '/notifications';
-
-  // Splash & Onboarding
-  static const String splash = '/splash';
-  static const String onboarding = '/onboarding';
-
-  // Authentication
-  static const String welcome = '/welcome';
-  static const String login = '/login';
-  static const String register = '/register';
-  static const String phoneVerification = '/phone-verification';
-  static const String emailVerification = '/email-verification';
-  static const String forgotPassword = '/forgot-password';
-  static const String roleSelection = '/role-selection';
-
-  // Passenger
-  static const String passengerHome = '/passenger/home';
-  static const String passengerProfile = '/passenger/profile';
-  static const String profileSetup = '/passenger/setup-profile';
-  static const String rideRequest = '/passenger/ride-request';
-  static const String rideTracking = '/passenger/ride-tracking';
-  static const String passengerActivity = '/passenger/activity';
-  static const String tripHistory = '/passenger/trips';
-
-  // Driver
-  static const String driverHome = '/driver/home';
-  static const String driverProfile = '/driver/profile';
-  static const String driverOnboarding = '/driver/onboarding';
-  static const String driverDocuments = '/driver/documents';
-  static const String activeTrip = '/driver/active-trip';
-}
+export 'routes.dart';
 
 /// GoRouter Configuration
 final goRouter = GoRouter(
@@ -99,16 +67,14 @@ final goRouter = GoRouter(
 
     GoRoute(
       path: Routes.phoneVerification,
-      builder: (context, state) => PhoneVerificationScreenPage(
-        phone: state.extra as String? ?? '',
-      ),
+      builder: (context, state) =>
+          PhoneVerificationScreenPage(phone: state.extra as String? ?? ''),
     ),
 
     GoRoute(
       path: Routes.emailVerification,
-      builder: (context, state) => EmailVerificationScreenPage(
-        email: state.extra as String? ?? '',
-      ),
+      builder: (context, state) =>
+          EmailVerificationScreenPage(email: state.extra as String? ?? ''),
     ),
 
     GoRoute(
@@ -151,7 +117,6 @@ final goRouter = GoRouter(
       builder: (context, state) => const PassengerActivityScreen(),
     ),
 
-
     // Driver Routes
     GoRoute(
       path: Routes.driverHome,
@@ -186,9 +151,6 @@ class ErrorScreen extends StatelessWidget {
   const ErrorScreen({super.key, this.error});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        body: Center(
-          child: Text('Error: ${error?.toString()}'),
-        ),
-      );
+  Widget build(BuildContext context) =>
+      Scaffold(body: Center(child: Text('Error: ${error?.toString()}')));
 }

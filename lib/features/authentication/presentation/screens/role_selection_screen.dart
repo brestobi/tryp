@@ -34,21 +34,15 @@ class RoleSelectionScreenPage extends StatelessWidget {
               Container(
                 width: 44,
                 height: 44,
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: TRYPColors.primary,
+                  color: TRYPColors.white,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: TRYPColors.divider),
                 ),
-                child: const Center(
-                  child: Text(
-                    'T',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: TRYPColors.secondary,
-                      height: 1,
-                    ),
-                  ),
+                child: Image.asset(
+                  'assets/images/tryp_logo_dark.jpg',
+                  fit: BoxFit.contain,
                 ),
               ),
               const SizedBox(height: 28),
@@ -60,7 +54,9 @@ class RoleSelectionScreenPage extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'Choose your role to continue',
-                style: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.grey),
+                style: TRYPTypography.bodyLarge.copyWith(
+                  color: TRYPColors.grey,
+                ),
               ),
               const SizedBox(height: 40),
 
@@ -139,11 +135,7 @@ class _RoleCardState extends State<_RoleCard> {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Center(
-                child: Icon(
-                  widget.icon,
-                  size: 26,
-                  color: TRYPColors.secondary,
-                ),
+                child: Icon(widget.icon, size: 26, color: TRYPColors.secondary),
               ),
             ),
             const SizedBox(width: 16),
@@ -151,10 +143,7 @@ class _RoleCardState extends State<_RoleCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.title,
-                    style: TRYPTypography.titleLarge,
-                  ),
+                  Text(widget.title, style: TRYPTypography.titleLarge),
                   const SizedBox(height: 4),
                   Text(
                     widget.subtitle,

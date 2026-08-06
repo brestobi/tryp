@@ -6,16 +6,19 @@ import 'package:go_router/go_router.dart';
 import 'package:logger/logger.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/core/services/supabase_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
 /// Email Verification Screen
 class EmailVerificationScreenPage extends ConsumerStatefulWidget {
   final String email;
+  final bool isSignUp;
 
   const EmailVerificationScreenPage({
     super.key,
     required this.email,
+    this.isSignUp = true,
   });
 
   @override
@@ -26,7 +29,10 @@ class EmailVerificationScreenPage extends ConsumerStatefulWidget {
 class _EmailVerificationScreenPageState
     extends ConsumerState<EmailVerificationScreenPage> {
   final _logger = Logger();
-  final _codeController = TextEditingController();
+  
+  // 8 controllers for 8 digits
+  final List<TextEditingController> _controllers = List.generate(8, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes = List.generate(8, (_) => FocusNode());
 
   bool _isVerifying = false;
   bool _isSending = false;
@@ -44,7 +50,12 @@ class _EmailVerificationScreenPageState
 
   @override
   void dispose() {
-    _codeController.dispose();
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    for (var focusNode in _focusNodes) {
+      focusNode.dispose();
+    }
     _countdownTimer?.cancel();
     super.dispose();
   }
@@ -81,23 +92,25 @@ class _EmailVerificationScreenPageState
       _errorMessage = null;
     });
     try {
-      final authService = ref.read(authServiceProvider);
-      await authService.sendEmailOTP(widget.email);
+      if (!widget.isSignUp) {
+        final authService = ref.read(authServiceProvider);
+        await authService.sendEmailOTP(widget.email);
+      }
       if (!mounted) return;
       _startCountdown();
     } catch (e) {
       _logger.e('Failed to send OTP: $e');
       if (!mounted) return;
-      setState(() => _errorMessage = 'Failed to send OTP.');
+      setState(() => _errorMessage = 'Failed to send verification code.');
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
   }
 
   Future<void> _verifyCode() async {
-    final code = _codeController.text.trim();
-    if (code.isEmpty || code.length != 6) {
-      setState(() => _errorMessage = 'Please enter a valid 6-digit code.');
+    final code = _controllers.map((c) => c.text).join();
+    if (code.length != 8) {
+      setState(() => _errorMessage = 'Please enter a valid 8-digit code.');
       return;
     }
 
@@ -107,14 +120,18 @@ class _EmailVerificationScreenPageState
     });
 
     try {
-      final authService = ref.read(authServiceProvider);
-      await authService.verifyEmailOTP(widget.email, code);
+      final supabase = ref.read(supabaseClientProvider);
+      await supabase.auth.verifyOTP(
+        email: widget.email,
+        token: code,
+        type: widget.isSignUp ? OtpType.signup : OtpType.email,
+      );
       if (!mounted) return;
       context.go(Routes.roleSelection);
     } catch (e) {
       _logger.e('OTP verification failed: $e');
       if (!mounted) return;
-      setState(() => _errorMessage = 'Invalid or expired code.');
+      setState(() => _errorMessage = 'Invalid or expired code. Check your email and try again.');
     } finally {
       if (mounted) setState(() => _isVerifying = false);
     }
@@ -138,25 +155,49 @@ class _EmailVerificationScreenPageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Verify Email', style: TRYPTypography.headingLarge),
+              Text('Verify your email', style: TRYPTypography.headingLarge),
               const SizedBox(height: 10),
-              Text('We sent a code to ${widget.email}', style: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.grey)),
-              const SizedBox(height: 30),
-              TextFormField(
-                controller: _codeController,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: 6,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: TRYPTypography.headingMedium.copyWith(letterSpacing: 8),
-                decoration: InputDecoration(
-                  hintText: '------',
-                  counterText: '',
-                  filled: true,
-                  fillColor: TRYPColors.inputFill,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                ),
+              Text(
+                widget.isSignUp
+                    ? 'We sent an 8-digit confirmation code to\n${widget.email}'
+                    : 'Enter the code sent to ${widget.email}',
+                style: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.grey),
               ),
+              const SizedBox(height: 30),
+              
+              // Custom PIN Input Field
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(8, (index) {
+                  return SizedBox(
+                    width: 35,
+                    child: TextFormField(
+                      controller: _controllers[index],
+                      focusNode: _focusNodes[index],
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      maxLength: 1,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: TRYPTypography.headingSmall,
+                      decoration: InputDecoration(
+                        counterText: '',
+                        filled: true,
+                        fillColor: TRYPColors.inputFill,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onChanged: (value) {
+                        if (value.isNotEmpty && index < 7) {
+                          _focusNodes[index + 1].requestFocus();
+                        } else if (value.isEmpty && index > 0) {
+                          _focusNodes[index - 1].requestFocus();
+                        }
+                      },
+                    ),
+                  );
+                }),
+              ),
+
               if (_errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 10),

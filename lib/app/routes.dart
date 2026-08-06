@@ -1,0 +1,34 @@
+/// Centralized application route paths.
+class Routes {
+  // Common & Notifications
+  static const String notifications = '/notifications';
+
+  // Splash & Onboarding
+  static const String splash = '/splash';
+  static const String onboarding = '/onboarding';
+
+  // Authentication
+  static const String welcome = '/welcome';
+  static const String login = '/login';
+  static const String register = '/register';
+  static const String phoneVerification = '/phone-verification';
+  static const String emailVerification = '/email-verification';
+  static const String forgotPassword = '/forgot-password';
+  static const String roleSelection = '/role-selection';
+
+  // Passenger
+  static const String passengerHome = '/passenger/home';
+  static const String passengerProfile = '/passenger/profile';
+  static const String profileSetup = '/passenger/setup-profile';
+  static const String rideRequest = '/passenger/ride-request';
+  static const String rideTracking = '/passenger/ride-tracking';
+  static const String passengerActivity = '/passenger/activity';
+  static const String tripHistory = '/passenger/trips';
+
+  // Driver
+  static const String driverHome = '/driver/home';
+  static const String driverProfile = '/driver/profile';
+  static const String driverOnboarding = '/driver/onboarding';
+  static const String driverDocuments = '/driver/documents';
+  static const String activeTrip = '/driver/active-trip';
+}

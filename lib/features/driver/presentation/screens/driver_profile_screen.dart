@@ -7,15 +7,18 @@ class DriverProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: TRYPColors.secondary,
+      backgroundColor: TRYPColors.white,
       appBar: AppBar(
-        backgroundColor: TRYPColors.secondary,
-        foregroundColor: TRYPColors.white,
+        backgroundColor: TRYPColors.white,
+        foregroundColor: TRYPColors.primary,
         elevation: 0,
         title: const Text('Driver Profile'),
       ),
       body: const Center(
-        child: Text('Driver profile content goes here'),
+        child: Text(
+          'Driver profile content goes here',
+          style: TextStyle(color: TRYPColors.primary),
+        ),
       ),
     );
   }

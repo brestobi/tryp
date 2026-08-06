@@ -301,25 +301,33 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: TRYPColors.white,
-        body: Center(child: CircularProgressIndicator(color: TRYPColors.primary)),
+        backgroundColor: TRYPColors.primary,
+        body: Center(child: CircularProgressIndicator(color: TRYPColors.accent)),
       );
     }
 
     if (_currentTrip == null) {
       return Scaffold(
-        backgroundColor: TRYPColors.white,
-        appBar: AppBar(title: const Text('Trip Tracking')),
+        backgroundColor: TRYPColors.primary,
+        appBar: AppBar(
+          backgroundColor: TRYPColors.primary,
+          foregroundColor: TRYPColors.white,
+          title: const Text('Trip Tracking'),
+        ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.directions_car_rounded, size: 48, color: TRYPColors.grey),
+              const Icon(Icons.directions_car_rounded, size: 48, color: TRYPColors.accent),
               const SizedBox(height: 12),
-              Text('No active trip to track', style: TRYPTypography.headingSmall),
+              Text('No active trip to track', style: TRYPTypography.headingSmall.copyWith(color: TRYPColors.white)),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => context.go(Routes.passengerHome),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: TRYPColors.accent,
+                  foregroundColor: TRYPColors.primary,
+                ),
                 child: const Text('Go to Passenger Home'),
               ),
             ],
@@ -362,20 +370,20 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
     }
 
     return Scaffold(
-      backgroundColor: TRYPColors.white,
+      backgroundColor: TRYPColors.primary,
       appBar: AppBar(
-        backgroundColor: TRYPColors.white,
-        foregroundColor: TRYPColors.secondary,
+        backgroundColor: TRYPColors.primary,
+        foregroundColor: TRYPColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: const Icon(Icons.arrow_back_rounded, color: TRYPColors.white),
           onPressed: () => context.go(Routes.passengerHome),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(headerTitle, style: TRYPTypography.headingSmall.copyWith(fontSize: 16)),
-            Text(statusSubtitle, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontSize: 11)),
+            Text(headerTitle, style: TRYPTypography.headingSmall.copyWith(fontSize: 16, color: TRYPColors.white)),
+            Text(statusSubtitle, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.muted, fontSize: 11)),
           ],
         ),
         actions: [
@@ -417,10 +425,10 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: TRYPColors.white,
+                color: TRYPColors.dark,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, -6)),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(0, -6)),
                 ],
               ),
               child: Column(
@@ -431,18 +439,19 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                     const SizedBox(height: 14),
                     Text(
                       'Waiting for a driver to accept...',
-                      style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                      style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold, color: TRYPColors.white),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Drivers in your area have received your request',
-                      style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+                      style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.muted),
                     ),
                     const SizedBox(height: 20),
                     OutlinedButton(
                       onPressed: _cancelRide,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
+                        foregroundColor: TRYPColors.accent,
+                        side: const BorderSide(color: TRYPColors.accent, width: 1.4),
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -454,12 +463,12 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                       children: [
                         CircleAvatar(
                           radius: 26,
-                          backgroundColor: TRYPColors.primary,
+                          backgroundColor: TRYPColors.accent,
                           backgroundImage: (trip.driverAvatar != null && trip.driverAvatar!.isNotEmpty)
                               ? NetworkImage(trip.driverAvatar!)
                               : null,
                           child: (trip.driverAvatar == null || trip.driverAvatar!.isEmpty)
-                              ? const Icon(Icons.person_rounded, color: TRYPColors.secondary, size: 28)
+                              ? const Icon(Icons.person_rounded, color: TRYPColors.primary, size: 28)
                               : null,
                         ),
                         const SizedBox(width: 14),
@@ -469,18 +478,18 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                             children: [
                               Text(
                                 trip.driverName ?? 'Assigned TRYP Driver',
-                                style: TRYPTypography.headingSmall.copyWith(fontSize: 17),
+                                style: TRYPTypography.headingSmall.copyWith(fontSize: 17, color: TRYPColors.white),
                               ),
                               Text(
                                 trip.vehicleDescription,
-                                style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontWeight: FontWeight.bold),
+                                style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.muted, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
                           onPressed: () => _makeCall(trip.driverPhone ?? ''),
-                          icon: const Icon(Icons.phone_rounded, color: TRYPColors.primary, size: 28),
+                          icon: const Icon(Icons.phone_rounded, color: TRYPColors.accent, size: 28),
                           tooltip: 'Call Driver',
                         ),
                       ],
@@ -496,9 +505,9 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                         margin: const EdgeInsets.only(bottom: 14),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: TRYPColors.primary.withValues(alpha: 0.15),
+                          color: TRYPColors.accentSoft,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: TRYPColors.primary),
+                          border: Border.all(color: TRYPColors.accent),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -506,8 +515,8 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('YOUR SAFETY PIN', style: TRYPTypography.labelSmall.copyWith(fontWeight: FontWeight.bold, color: TRYPColors.secondary)),
-                                Text('Give this 4-digit PIN to your driver to start ride', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontSize: 11)),
+                                Text('YOUR SAFETY PIN', style: TRYPTypography.labelSmall.copyWith(fontWeight: FontWeight.bold, color: TRYPColors.primary)),
+                                Text('Give this 4-digit PIN to your driver to start ride', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.primary, fontSize: 11)),
                               ],
                             ),
                             Container(
@@ -518,7 +527,7 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                               ),
                               child: Text(
                                 trip.pinCode,
-                                style: TRYPTypography.headingMedium.copyWith(color: TRYPColors.secondary, letterSpacing: 4, fontWeight: FontWeight.w900),
+                                style: TRYPTypography.headingMedium.copyWith(color: TRYPColors.white, letterSpacing: 4, fontWeight: FontWeight.w900),
                               ),
                             ),
                           ],
@@ -528,8 +537,8 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Fare (${trip.paymentMethod}):', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
-                        Text('R${trip.fare.toStringAsFixed(2)}', style: TRYPTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: TRYPColors.secondary)),
+                        Text('Fare (${trip.paymentMethod}):', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.muted)),
+                        Text('R${trip.fare.toStringAsFixed(2)}', style: TRYPTypography.titleLarge.copyWith(fontWeight: FontWeight.bold, color: TRYPColors.accent)),
                       ],
                     ),
                   ],

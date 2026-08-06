@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/location_service.dart';
+import 'package:tryp/core/services/supabase_service.dart';
 import 'package:tryp/core/services/trip_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
@@ -162,16 +163,50 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     } catch (_) {}
   }
 
-  Future<void> _updateTripStatus(TripStatus nextStatus) async {
+  Future<void> _updateTripStatus(TripStatus nextStatus, {bool asDriverCompletion = false}) async {
     if (_activeTrip == null) return;
     setState(() => _isLoading = true);
 
     try {
       final tripService = ref.read(tripServiceProvider);
-      final updated = await tripService.updateTripStatus(
-        rideId: _activeTrip!.id,
-        status: nextStatus,
-      );
+      
+      TripModel? updated;
+      
+      if (asDriverCompletion) {
+        // Dual-confirmation logic
+        final supabase = ref.read(supabaseClientProvider);
+        await supabase.from('rides')
+            .update({'driver_completed': true})
+            .eq('id', _activeTrip!.id);
+            
+        // Check if passenger already completed
+        final ride = await supabase.from('rides')
+            .select('passenger_completed')
+            .eq('id', _activeTrip!.id)
+            .single();
+            
+        if (ride['passenger_completed'] == true) {
+          // Both completed, fully complete the ride
+          updated = await tripService.updateTripStatus(
+            rideId: _activeTrip!.id,
+            status: TripStatus.completed,
+          );
+        } else {
+          // Just driver completed, reload to show "Waiting for passenger"
+          updated = await tripService.updateTripStatus(
+            rideId: _activeTrip!.id,
+            status: TripStatus.inTrip, // Keep in trip
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Waiting for passenger to complete trip...')),
+          );
+        }
+      } else {
+        updated = await tripService.updateTripStatus(
+          rideId: _activeTrip!.id,
+          status: nextStatus,
+        );
+      }
 
       if (!mounted) return;
 
@@ -373,7 +408,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
       case TripStatus.inTrip:
         headerTitle = 'Trip in Progress';
         actionButtonLabel = 'Complete Trip • Collect R${trip.fare.toStringAsFixed(2)}';
-        onActionButtonPressed = () => _updateTripStatus(TripStatus.completed);
+        onActionButtonPressed = () => _updateTripStatus(TripStatus.completed, asDriverCompletion: true);
         break;
       case TripStatus.completed:
         headerTitle = 'Trip Completed';
@@ -539,7 +574,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                   PrimaryButton(
                     label: actionButtonLabel,
                     isLoading: _isLoading,
-                    onPressed: onActionButtonPressed,
+                    onPressed: onActionButtonPressed ?? () {},
                   ),
                 ],
               ),

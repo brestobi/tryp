@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -14,9 +15,60 @@ Future<void> _firebaseBackgroundMessageHandler(RemoteMessage message) async {
 
 class PushNotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+    'tryp_notifications',
+    'TRYP Notifications',
+    description: 'TRYP ride and account notifications',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+  );
+
+  Future<void> _initializeLocalNotifications() async {
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _localNotifications.initialize(initSettings);
+
+    if (Platform.isAndroid) {
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(_channel);
+    }
+  }
+
+  Future<void> _showLocalNotification(RemoteMessage message) async {
+    final title = message.notification?.title ?? 'TRYP';
+    final body = message.notification?.body ?? 'You have a new update';
+
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channel.id,
+          _channel.name,
+          channelDescription: _channel.description,
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+        ),
+        iOS: const DarwinNotificationDetails(),
+      ),
+      payload: message.data['route'] ?? '/home',
+    );
+  }
 
   /// Initialize Firebase Messaging, request permissions, and register token
   Future<void> initialize() async {
+    await _initializeLocalNotifications();
+
     // Request notification permissions (iOS + Android 13+)
     final settings = await _messaging.requestPermission(
       alert: true,
@@ -39,7 +91,10 @@ class PushNotificationService {
     FirebaseMessaging.onBackgroundMessage(_firebaseBackgroundMessageHandler);
 
     // Handle foreground messages
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    FirebaseMessaging.onMessage.listen((message) async {
+      await _showLocalNotification(message);
+      _handleForegroundMessage(message);
+    });
 
     // Handle notification tap when app is in background (but not terminated)
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
@@ -122,8 +177,10 @@ class PushNotificationService {
       }
 
       if (token != null) {
-        debugPrint('📱 FCM Token: ${token.substring(0, 20)}...');
+        debugPrint('📱 FCM Token acquired: $token');
         await _saveTokenToSupabase(token);
+      } else {
+        debugPrint('⚠️ No FCM token was returned for this device.');
       }
     } catch (e) {
       debugPrint('❌ Error registering FCM token: $e');

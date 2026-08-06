@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/app.dart';
 import 'package:tryp/config/environment.dart';
 import 'package:tryp/core/services/push_notification_service.dart';
+import 'package:tryp/firebase_options.dart';
 
 
 void main() async {
@@ -71,9 +72,12 @@ void main() async {
         publishableKey: Environment.supabaseAnonKey,
       );
 
-      // 2. Initialize Firebase & Push Notifications safely
+      // 2. Initialize Firebase Messaging so Android can receive real OS-level
+      //    push notifications in the background and while the app is active.
       try {
-        await Firebase.initializeApp();
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
         final pushService = PushNotificationService();
         await pushService.initialize();
       } catch (e) {

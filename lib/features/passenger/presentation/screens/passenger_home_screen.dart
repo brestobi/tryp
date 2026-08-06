@@ -101,11 +101,11 @@ const List<LocationItem> saLandmarks = [
 ];
 
 enum PassengerRideMode {
-  idle,           // Showing "Where to?" bar & map
-  searchOverlay,  // Searching destination/pickup
-  tierSelection,  // Selecting TRYP Go / Comfort / XL / Exec tier
-  dispatching,    // Searching for driver (pulsing radar)
-  activeTrip,     // Driver assigned & en route
+  idle, // Showing "Where to?" bar & map
+  searchOverlay, // Searching destination/pickup
+  tierSelection, // Selecting TRYP Go / Comfort / XL / Exec tier
+  dispatching, // Searching for driver (pulsing radar)
+  activeTrip, // Driver assigned & en route
 }
 
 /// Demolished & Rebuilt Passenger Home Screen — Bolt Style:
@@ -114,10 +114,12 @@ class PassengerHomeScreenPage extends ConsumerStatefulWidget {
   const PassengerHomeScreenPage({super.key});
 
   @override
-  ConsumerState<PassengerHomeScreenPage> createState() => _PassengerHomeScreenPageState();
+  ConsumerState<PassengerHomeScreenPage> createState() =>
+      _PassengerHomeScreenPageState();
 }
 
-class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPage>
+class _PassengerHomeScreenPageState
+    extends ConsumerState<PassengerHomeScreenPage>
     with SingleTickerProviderStateMixin {
   GoogleMapController? _mapController;
   PassengerRideMode _mode = PassengerRideMode.idle;
@@ -135,7 +137,8 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
   LocationItem? _currentLocation;
 
   // Search state
-  final TextEditingController _destinationSearchController = TextEditingController();
+  final TextEditingController _destinationSearchController =
+      TextEditingController();
   final TextEditingController _pickupSearchController = TextEditingController();
   List<LocationItem> _searchResults = saLandmarks;
   Timer? _searchDebounceTimer;
@@ -225,7 +228,7 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
     }
   }
 
-  void _updateMapMarkers() {
+  Future<void> _updateMapMarkers() async {
     final markers = <Marker>{};
 
     // Pickup Marker (Green)
@@ -245,7 +248,10 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
           markerId: const MarkerId('destination'),
           position: LatLng(_destination!.lat, _destination!.lng),
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          infoWindow: InfoWindow(title: 'Destination', snippet: _destination!.name),
+          infoWindow: InfoWindow(
+            title: 'Destination',
+            snippet: _destination!.name,
+          ),
         ),
       );
     }
@@ -260,7 +266,9 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
             Marker(
               markerId: MarkerId('driver_${driver.id}'),
               position: LatLng(driver.currentLat!, driver.currentLng!),
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueYellow,
+              ),
               infoWindow: InfoWindow(
                 title: driver.fullName,
                 snippet: driver.vehicleDescription,
@@ -324,10 +332,18 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
   void _animateMapBounds() {
     if (_mapController == null || _destination == null) return;
 
-    final swLat = _pickup.lat < _destination!.lat ? _pickup.lat : _destination!.lat;
-    final swLng = _pickup.lng < _destination!.lng ? _pickup.lng : _destination!.lng;
-    final neLat = _pickup.lat > _destination!.lat ? _pickup.lat : _destination!.lat;
-    final neLng = _pickup.lng > _destination!.lng ? _pickup.lng : _destination!.lng;
+    final swLat = _pickup.lat < _destination!.lat
+        ? _pickup.lat
+        : _destination!.lat;
+    final swLng = _pickup.lng < _destination!.lng
+        ? _pickup.lng
+        : _destination!.lng;
+    final neLat = _pickup.lat > _destination!.lat
+        ? _pickup.lat
+        : _destination!.lat;
+    final neLng = _pickup.lng > _destination!.lng
+        ? _pickup.lng
+        : _destination!.lng;
 
     final bounds = LatLngBounds(
       southwest: LatLng(swLat - 0.01, swLng - 0.01),
@@ -368,16 +384,21 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
       ref.read(activeTripStateProvider.notifier).stateTrip = newTrip;
 
       // Add Notification
-      ref.read(notificationsProvider.notifier).addNotification(
-        title: 'Ride Requested! 🚘',
-        body: 'Searching for nearby drivers to ${_destination!.name} (R${fare.toStringAsFixed(2)})',
-        type: NotificationType.ride,
-        routePath: Routes.passengerHome,
-      );
+      ref
+          .read(notificationsProvider.notifier)
+          .addNotification(
+            title: 'Ride Requested! 🚘',
+            body:
+                'Searching for nearby drivers to ${_destination!.name} (R${fare.toStringAsFixed(2)})',
+            type: NotificationType.ride,
+            routePath: Routes.passengerHome,
+          );
 
       // Handle payment if online, or switch to tracking
       if (_paymentMethod != 'Cash') {
-        final email = Supabase.instance.client.auth.currentUser?.email ?? 'passenger@tryp.app';
+        final email =
+            Supabase.instance.client.auth.currentUser?.email ??
+            'passenger@tryp.app';
         final refCode = PaymentService.generateReference();
 
         if (mounted) {
@@ -399,7 +420,9 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
         onUpdate: (payload) async {
           if (!mounted) return;
           final updatedStatus = payload['status'] as String?;
-          if (updatedStatus == 'accepted' || updatedStatus == 'arrived' || updatedStatus == 'in_trip') {
+          if (updatedStatus == 'accepted' ||
+              updatedStatus == 'arrived' ||
+              updatedStatus == 'in_trip') {
             final fullTrip = await tripService.getPassengerActiveTrip();
             if (fullTrip != null && mounted) {
               ref.read(activeTripStateProvider.notifier).stateTrip = fullTrip;
@@ -407,7 +430,8 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                 _mode = PassengerRideMode.activeTrip;
               });
 
-              final driverName = fullTrip.driverName ?? 'A verified TRYP driver';
+              final driverName =
+                  fullTrip.driverName ?? 'A verified TRYP driver';
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('$driverName accepted your ride request! 🚙'),
@@ -421,7 +445,9 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
             });
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Ride request was cancelled by driver or system.'),
+                content: Text(
+                  'Ride request was cancelled by driver or system.',
+                ),
                 backgroundColor: TRYPColors.error,
               ),
             );
@@ -464,18 +490,26 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
       if (!mounted) return;
 
       if (apiResults.isNotEmpty) {
-        final apiItems = apiResults.map((loc) => LocationItem(
-          name: loc.shortName,
-          address: loc.address,
-          lat: loc.latitude,
-          lng: loc.longitude,
-          icon: Icons.place_rounded,
-          city: 'Search Result',
-        )).toList();
+        final apiItems = apiResults
+            .map(
+              (loc) => LocationItem(
+                name: loc.shortName,
+                address: loc.address,
+                lat: loc.latitude,
+                lng: loc.longitude,
+                icon: Icons.place_rounded,
+                city: 'Search Result',
+              ),
+            )
+            .toList();
 
         setState(() {
-          final existingNames = localMatches.map((e) => e.name.toLowerCase()).toSet();
-          final uniqueApi = apiItems.where((item) => !existingNames.contains(item.name.toLowerCase()));
+          final existingNames = localMatches
+              .map((e) => e.name.toLowerCase())
+              .toSet();
+          final uniqueApi = apiItems.where(
+            (item) => !existingNames.contains(item.name.toLowerCase()),
+          );
           _searchResults = [...localMatches, ...uniqueApi];
         });
       }
@@ -498,12 +532,28 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
             Text('Payment Method', style: TRYPTypography.headingSmall),
             const SizedBox(height: 16),
             ListTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               tileColor: TRYPColors.inputFill,
-              leading: const Icon(Icons.payments_rounded, color: Colors.green, size: 28),
-              title: Text('Cash', style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+              leading: const Icon(
+                Icons.payments_rounded,
+                color: Colors.green,
+                size: 28,
+              ),
+              title: Text(
+                'Cash',
+                style: TRYPTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               subtitle: const Text('Pay driver directly in cash upon arrival'),
-              trailing: _paymentMethod == 'Cash' ? const Icon(Icons.check_circle_rounded, color: TRYPColors.secondary) : null,
+              trailing: _paymentMethod == 'Cash'
+                  ? const Icon(
+                      Icons.check_circle_rounded,
+                      color: TRYPColors.secondary,
+                    )
+                  : null,
               onTap: () {
                 setState(() => _paymentMethod = 'Cash');
                 Navigator.pop(context);
@@ -511,12 +561,28 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
             ),
             const SizedBox(height: 10),
             ListTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               tileColor: TRYPColors.inputFill,
-              leading: const Icon(Icons.credit_card_rounded, color: TRYPColors.secondary, size: 28),
-              title: Text('Paystack Card / Online', style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+              leading: const Icon(
+                Icons.credit_card_rounded,
+                color: TRYPColors.secondary,
+                size: 28,
+              ),
+              title: Text(
+                'Paystack Card / Online',
+                style: TRYPTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               subtitle: const Text('Credit/Debit card via Paystack'),
-              trailing: _paymentMethod == 'Paystack Card' ? const Icon(Icons.check_circle_rounded, color: TRYPColors.secondary) : null,
+              trailing: _paymentMethod == 'Paystack Card'
+                  ? const Icon(
+                      Icons.check_circle_rounded,
+                      color: TRYPColors.secondary,
+                    )
+                  : null,
               onTap: () {
                 setState(() => _paymentMethod = 'Paystack Card');
                 Navigator.pop(context);
@@ -524,12 +590,28 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
             ),
             const SizedBox(height: 10),
             ListTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               tileColor: TRYPColors.inputFill,
-              leading: const Icon(Icons.account_balance_wallet_rounded, color: Colors.purple, size: 28),
-              title: Text('TRYP Wallet', style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+              leading: const Icon(
+                Icons.account_balance_wallet_rounded,
+                color: Colors.purple,
+                size: 28,
+              ),
+              title: Text(
+                'TRYP Wallet',
+                style: TRYPTypography.titleMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               subtitle: const Text('Pay from in-app TRYP balance'),
-              trailing: _paymentMethod == 'TRYP Wallet' ? const Icon(Icons.check_circle_rounded, color: TRYPColors.secondary) : null,
+              trailing: _paymentMethod == 'TRYP Wallet'
+                  ? const Icon(
+                      Icons.check_circle_rounded,
+                      color: TRYPColors.secondary,
+                    )
+                  : null,
               onTap: () {
                 setState(() => _paymentMethod = 'TRYP Wallet');
                 Navigator.pop(context);
@@ -546,9 +628,11 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
     final unreadNotifs = ref.watch(unreadNotificationCountProvider);
 
     return Scaffold(
-      backgroundColor: TRYPColors.secondary,
+      backgroundColor: TRYPColors.primary,
       extendBodyBehindAppBar: true,
-      appBar: _mode == PassengerRideMode.searchOverlay ? null : _buildTopAppBar(unreadNotifs),
+      appBar: _mode == PassengerRideMode.searchOverlay
+          ? null
+          : _buildTopAppBar(unreadNotifs),
       body: Stack(
         children: [
           // ── 1. Full-screen Interactive Map ─────────────────────────────
@@ -570,7 +654,8 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
           ),
 
           // ── 2. Floating My Location FAB ────────────────────────────────
-          if (_mode == PassengerRideMode.idle || _mode == PassengerRideMode.tierSelection)
+          if (_mode == PassengerRideMode.idle ||
+              _mode == PassengerRideMode.tierSelection)
             Positioned(
               right: 20,
               bottom: _mode == PassengerRideMode.idle ? 230 : 380,
@@ -602,7 +687,10 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                 child: Center(
                   child: ScaleTransition(
                     scale: Tween<double>(begin: 0.8, end: 1.6).animate(
-                      CurvedAnimation(parent: _radarAnimController, curve: Curves.easeOut),
+                      CurvedAnimation(
+                        parent: _radarAnimController,
+                        curve: Curves.easeOut,
+                      ),
                     ),
                     child: Container(
                       width: 140,
@@ -613,7 +701,11 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                         border: Border.all(color: TRYPColors.primary, width: 2),
                       ),
                       child: const Center(
-                        child: Icon(Icons.directions_car_filled_rounded, size: 48, color: TRYPColors.white),
+                        child: Icon(
+                          Icons.directions_car_filled_rounded,
+                          size: 48,
+                          color: TRYPColors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -622,18 +714,11 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
             ),
 
           // ── 4. Dynamic Interactive Bottom Panel ───────────────────────
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildBottomPanel(),
-          ),
+          Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomPanel()),
 
           // ── 5. Full Screen Search Overlay Sheet ───────────────────────
           if (_mode == PassengerRideMode.searchOverlay)
-            Positioned.fill(
-              child: _buildSearchOverlayScreen(),
-            ),
+            Positioned.fill(child: _buildSearchOverlayScreen()),
         ],
       ),
     );
@@ -647,12 +732,14 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
       automaticallyImplyLeading: false,
       title: Row(
         children: [
-          // Logo Badge Pill
+          // Logo badge using the branded image asset.
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            width: 48,
+            height: 40,
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: TRYPColors.primary,
-              borderRadius: BorderRadius.circular(100),
+              color: TRYPColors.white,
+              borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.15),
@@ -661,20 +748,9 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                 ),
               ],
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.directions_car_rounded, size: 18, color: TRYPColors.secondary),
-                const SizedBox(width: 6),
-                Text(
-                  'TRYP',
-                  style: TRYPTypography.labelLarge.copyWith(
-                    color: TRYPColors.secondary,
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
+            child: Image.asset(
+              'assets/images/tryp_logo_dark.jpg',
+              fit: BoxFit.contain,
             ),
           ),
           const SizedBox(width: 10),
@@ -689,7 +765,11 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.location_on_rounded, size: 14, color: Colors.green),
+                  const Icon(
+                    Icons.location_on_rounded,
+                    size: 14,
+                    color: Colors.green,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
@@ -725,7 +805,10 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
           child: Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_none_rounded, color: TRYPColors.secondary),
+                icon: const Icon(
+                  Icons.notifications_none_rounded,
+                  color: TRYPColors.secondary,
+                ),
                 onPressed: () => context.push(Routes.notifications),
               ),
               if (unreadNotifs > 0)
@@ -742,7 +825,11 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                     child: Center(
                       child: Text(
                         '$unreadNotifs',
-                        style: const TextStyle(color: TRYPColors.secondary, fontSize: 9, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: TRYPColors.secondary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -770,8 +857,6 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
 
   // ── MODE A: Idle Sheet with "Where to?" bar & Bottom Nav ───────────
   Widget _buildIdleSheet() {
-    final bottomPad = MediaQuery.of(context).padding.bottom;
-
     return Container(
       decoration: const BoxDecoration(
         color: TRYPColors.white,
@@ -806,7 +891,10 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                 setState(() => _mode = PassengerRideMode.searchOverlay);
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
+                ),
                 decoration: BoxDecoration(
                   color: TRYPColors.inputFill,
                   borderRadius: BorderRadius.circular(18),
@@ -817,10 +905,14 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: TRYPColors.secondary,
+                        color: TRYPColors.accent,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.search_rounded, color: TRYPColors.white, size: 20),
+                      child: const Icon(
+                        Icons.search_rounded,
+                        color: TRYPColors.primary,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -833,16 +925,29 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: TRYPColors.white,
+                        color: TRYPColors.accentSoft,
                         borderRadius: BorderRadius.circular(100),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.access_time_rounded, size: 14, color: TRYPColors.secondary),
+                          const Icon(
+                            Icons.access_time_rounded,
+                            size: 14,
+                            color: TRYPColors.primary,
+                          ),
                           const SizedBox(width: 4),
-                          Text('Now', style: TRYPTypography.labelSmall.copyWith(color: TRYPColors.secondary, fontWeight: FontWeight.bold)),
+                          Text(
+                            'Now',
+                            style: TRYPTypography.labelSmall.copyWith(
+                              color: TRYPColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -851,46 +956,7 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
               ),
             ),
           ),
-          const SizedBox(height: 14),
-
-          // Saved Places Chips Carousel
-          SizedBox(
-            height: 64,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: saLandmarks.take(4).map((landmark) {
-                return GestureDetector(
-                  onTap: () => _selectDestination(landmark),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: TRYPColors.inputFill,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(landmark.icon, size: 18, color: TRYPColors.secondary),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(landmark.name, style: TRYPTypography.labelMedium.copyWith(fontWeight: FontWeight.bold)),
-                            Text(landmark.city, style: TRYPTypography.bodySmall.copyWith(fontSize: 10)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           const TRYPBottomNavBar(currentIndex: 0),
         ],
       ),
@@ -910,12 +976,18 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_rounded, color: TRYPColors.secondary),
+                    icon: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: TRYPColors.secondary,
+                    ),
                     onPressed: () {
                       setState(() => _mode = PassengerRideMode.idle);
                     },
                   ),
-                  Text('Plan your ride', style: TRYPTypography.headingMedium.copyWith(fontSize: 20)),
+                  Text(
+                    'Plan your ride',
+                    style: TRYPTypography.headingMedium.copyWith(fontSize: 20),
+                  ),
                 ],
               ),
             ),
@@ -936,7 +1008,10 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                       Container(
                         width: 10,
                         height: 10,
-                        decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -951,7 +1026,9 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                             border: InputBorder.none,
                             isDense: true,
                           ),
-                          style: TRYPTypography.bodyLarge.copyWith(fontWeight: FontWeight.w600),
+                          style: TRYPTypography.bodyLarge.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -964,7 +1041,10 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                       Container(
                         width: 10,
                         height: 10,
-                        decoration: const BoxDecoration(color: TRYPColors.primary, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(
+                          color: TRYPColors.primary,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -980,7 +1060,9 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                             border: InputBorder.none,
                             isDense: true,
                           ),
-                          style: TRYPTypography.bodyLarge.copyWith(fontWeight: FontWeight.w700),
+                          style: TRYPTypography.bodyLarge.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
@@ -1005,10 +1087,22 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                         color: TRYPColors.inputFill,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(item.icon, color: TRYPColors.secondary, size: 20),
+                      child: Icon(
+                        item.icon,
+                        color: TRYPColors.secondary,
+                        size: 20,
+                      ),
                     ),
-                    title: Text(item.name, style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
-                    subtitle: Text(item.address, style: TRYPTypography.bodySmall),
+                    title: Text(
+                      item.name,
+                      style: TRYPTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text(
+                      item.address,
+                      style: TRYPTypography.bodySmall,
+                    ),
                     onTap: () {
                       if (_isSearchingPickup) {
                         setState(() {
@@ -1036,10 +1130,38 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
     final duration = _calculatedDurationMins;
 
     final tiers = [
-      {'id': 'TRYP Go', 'name': 'TRYP Go', 'desc': 'Affordable everyday hatchbacks', 'icon': Icons.directions_car_rounded, 'cap': 4, 'eta': '3 min'},
-      {'id': 'TRYP Comfort', 'name': 'TRYP Comfort', 'desc': 'Spacious sedans with top drivers', 'icon': Icons.local_taxi_rounded, 'cap': 4, 'eta': '2 min'},
-      {'id': 'TRYP XL', 'name': 'TRYP XL', 'desc': 'SUVs & Minivans for groups', 'icon': Icons.airport_shuttle_rounded, 'cap': 6, 'eta': '5 min'},
-      {'id': 'TRYP Exec', 'name': 'TRYP Exec', 'desc': 'Premium luxury executive rides', 'icon': Icons.workspace_premium_rounded, 'cap': 4, 'eta': '4 min'},
+      {
+        'id': 'TRYP Go',
+        'name': 'TRYP Go',
+        'desc': 'Affordable everyday hatchbacks',
+        'icon': Icons.directions_car_rounded,
+        'cap': 4,
+        'eta': '3 min',
+      },
+      {
+        'id': 'TRYP Comfort',
+        'name': 'TRYP Comfort',
+        'desc': 'Spacious sedans with top drivers',
+        'icon': Icons.directions_car_rounded,
+        'cap': 4,
+        'eta': '2 min',
+      },
+      {
+        'id': 'TRYP XL',
+        'name': 'TRYP XL',
+        'desc': 'SUVs & Minivans for groups',
+        'icon': Icons.airport_shuttle_rounded,
+        'cap': 6,
+        'eta': '5 min',
+      },
+      {
+        'id': 'TRYP Exec',
+        'name': 'TRYP Exec',
+        'desc': 'Premium luxury executive rides',
+        'icon': Icons.workspace_premium_rounded,
+        'cap': 4,
+        'eta': '4 min',
+      },
     ];
 
     final activeFare = FareCalculatorService.calculateFare(
@@ -1048,12 +1170,21 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
     );
 
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        MediaQuery.of(context).padding.bottom + 16,
+      ),
       decoration: const BoxDecoration(
         color: TRYPColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -6)),
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 20,
+            offset: Offset(0, -6),
+          ),
         ],
       ),
       child: Column(
@@ -1064,7 +1195,10 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
             child: Container(
               width: 38,
               height: 4,
-              decoration: BoxDecoration(color: TRYPColors.divider, borderRadius: BorderRadius.circular(100)),
+              decoration: BoxDecoration(
+                color: TRYPColors.divider,
+                borderRadius: BorderRadius.circular(100),
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -1073,15 +1207,28 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: TRYPColors.secondary),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: TRYPColors.secondary,
+                ),
                 onPressed: () => setState(() => _mode = PassengerRideMode.idle),
               ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Trip to ${_destination?.name ?? "Destination"}', style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
-                    Text('${dist.toStringAsFixed(1)} km • ~$duration mins', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+                    Text(
+                      'Trip to ${_destination?.name ?? "Destination"}',
+                      style: TRYPTypography.titleMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${dist.toStringAsFixed(1)} km • ~$duration mins',
+                      style: TRYPTypography.bodySmall.copyWith(
+                        color: TRYPColors.grey,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1093,7 +1240,10 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
           ...tiers.map((tier) {
             final tierId = tier['id'] as String;
             final isSelected = _selectedRideType == tierId;
-            final fareAmt = FareCalculatorService.calculateFare(distanceKm: dist, rideTypeId: tierId);
+            final fareAmt = FareCalculatorService.calculateFare(
+              distanceKm: dist,
+              rideTypeId: tierId,
+            );
 
             return GestureDetector(
               onTap: () => setState(() => _selectedRideType = tierId),
@@ -1101,7 +1251,9 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: isSelected ? TRYPColors.primary.withValues(alpha: 0.12) : TRYPColors.white,
+                  color: isSelected
+                      ? TRYPColors.primary.withValues(alpha: 0.12)
+                      : TRYPColors.white,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: isSelected ? TRYPColors.primary : TRYPColors.divider,
@@ -1113,10 +1265,16 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: isSelected ? TRYPColors.primary : TRYPColors.inputFill,
+                        color: isSelected
+                            ? TRYPColors.primary
+                            : TRYPColors.inputFill,
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(tier['icon'] as IconData, color: TRYPColors.secondary, size: 24),
+                      child: Icon(
+                        tier['icon'] as IconData,
+                        color: TRYPColors.secondary,
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -1125,18 +1283,36 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                         children: [
                           Row(
                             children: [
-                              Text(tier['name'] as String, style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+                              Text(
+                                tier['name'] as String,
+                                style: TRYPTypography.titleMedium.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               const SizedBox(width: 6),
-                              Text('• ${tier["eta"]}', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+                              Text(
+                                '• ${tier["eta"]}',
+                                style: TRYPTypography.bodySmall.copyWith(
+                                  color: TRYPColors.grey,
+                                ),
+                              ),
                             ],
                           ),
-                          Text(tier['desc'] as String, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontSize: 11)),
+                          Text(
+                            tier['desc'] as String,
+                            style: TRYPTypography.bodySmall.copyWith(
+                              color: TRYPColors.grey,
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     Text(
                       'R${fareAmt.toStringAsFixed(2)}',
-                      style: TRYPTypography.titleLarge.copyWith(fontWeight: FontWeight.w800),
+                      style: TRYPTypography.titleLarge.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ],
                 ),
@@ -1153,18 +1329,34 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
                 child: GestureDetector(
                   onTap: _showPaymentMethodPicker,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: TRYPColors.inputFill,
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.payment_rounded, size: 18, color: TRYPColors.secondary),
+                        const Icon(
+                          Icons.payment_rounded,
+                          size: 18,
+                          color: TRYPColors.secondary,
+                        ),
                         const SizedBox(width: 8),
-                        Text(_paymentMethod, style: TRYPTypography.labelMedium.copyWith(fontWeight: FontWeight.bold)),
+                        Text(
+                          _paymentMethod,
+                          style: TRYPTypography.labelMedium.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const Spacer(),
-                        const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: TRYPColors.grey),
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 18,
+                          color: TRYPColors.grey,
+                        ),
                       ],
                     ),
                   ),
@@ -1175,7 +1367,8 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
           const SizedBox(height: 14),
 
           PrimaryButton(
-            label: 'Request $_selectedRideType • R${activeFare.toStringAsFixed(2)}',
+            label:
+                'Request $_selectedRideType • R${activeFare.toStringAsFixed(2)}',
             isLoading: _isLoading,
             onPressed: _requestRide,
           ),
@@ -1187,7 +1380,12 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
   // ── MODE D: Dispatching Radar Sheet ─────────────────────────────────
   Widget _buildDispatchingSheet() {
     return Container(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).padding.bottom + 24),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        24,
+        24,
+        MediaQuery.of(context).padding.bottom + 24,
+      ),
       decoration: const BoxDecoration(
         color: TRYPColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1197,16 +1395,25 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
         children: [
           const CircularProgressIndicator(color: TRYPColors.secondary),
           const SizedBox(height: 16),
-          Text('Connecting to nearby drivers...', style: TRYPTypography.headingSmall),
+          Text(
+            'Connecting to nearby drivers...',
+            style: TRYPTypography.headingSmall,
+          ),
           const SizedBox(height: 6),
-          Text('Matching you with top-rated ${_selectedRideType} drivers near ${_pickup.name}',
-              textAlign: TextAlign.center, style: TRYPTypography.bodySmall),
+          Text(
+            'Matching you with top-rated ${_selectedRideType} drivers near ${_pickup.name}',
+            textAlign: TextAlign.center,
+            style: TRYPTypography.bodySmall,
+          ),
           const SizedBox(height: 20),
           OutlinedButton(
-            onPressed: () => setState(() => _mode = PassengerRideMode.tierSelection),
+            onPressed: () =>
+                setState(() => _mode = PassengerRideMode.tierSelection),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100),
+              ),
             ),
             child: const Text('Cancel Request'),
           ),
@@ -1219,11 +1426,17 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
   Widget _buildActiveTripSheet() {
     final activeTrip = ref.watch(activeTripStateProvider);
     final driverName = activeTrip?.driverName ?? 'Assigned Driver';
-    final vehicleDesc = activeTrip?.vehicleDescription ?? 'TRYP Verified Vehicle';
+    final vehicleDesc =
+        activeTrip?.vehicleDescription ?? 'TRYP Verified Vehicle';
     final avatarUrl = activeTrip?.driverAvatar;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).padding.bottom + 24),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        24,
+        24,
+        MediaQuery.of(context).padding.bottom + 24,
+      ),
       decoration: const BoxDecoration(
         color: TRYPColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1236,27 +1449,55 @@ class _PassengerHomeScreenPageState extends ConsumerState<PassengerHomeScreenPag
               CircleAvatar(
                 radius: 24,
                 backgroundColor: TRYPColors.primary,
-                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty) ? NetworkImage(avatarUrl) : null,
-                child: (avatarUrl == null || avatarUrl.isEmpty) ? const Icon(Icons.person_rounded, color: TRYPColors.secondary) : null,
+                backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                    ? NetworkImage(avatarUrl)
+                    : null,
+                child: (avatarUrl == null || avatarUrl.isEmpty)
+                    ? const Icon(
+                        Icons.person_rounded,
+                        color: TRYPColors.secondary,
+                      )
+                    : null,
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(driverName, style: TRYPTypography.titleLarge.copyWith(fontWeight: FontWeight.bold)),
+                    Text(
+                      driverName,
+                      style: TRYPTypography.titleLarge.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     Text(vehicleDesc, style: TRYPTypography.bodySmall),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: TRYPColors.primary, borderRadius: BorderRadius.circular(100)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: TRYPColors.primary,
+                  borderRadius: BorderRadius.circular(100),
+                ),
                 child: Row(
                   children: [
-                    const Icon(Icons.star_rounded, size: 14, color: TRYPColors.secondary),
+                    const Icon(
+                      Icons.star_rounded,
+                      size: 14,
+                      color: TRYPColors.secondary,
+                    ),
                     const SizedBox(width: 4),
-                    Text('4.9', style: TRYPTypography.labelSmall.copyWith(fontWeight: FontWeight.bold, color: TRYPColors.secondary)),
+                    Text(
+                      '4.9',
+                      style: TRYPTypography.labelSmall.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: TRYPColors.secondary,
+                      ),
+                    ),
                   ],
                 ),
               ),

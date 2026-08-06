@@ -12,7 +12,8 @@ String _formatTripDate(DateTime dt) {
   final today = DateTime(now.year, now.month, now.day);
   final tripDay = DateTime(dt.year, dt.month, dt.day);
 
-  final timeStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  final timeStr =
+      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
   if (tripDay == today) {
     return 'Today, $timeStr';
@@ -20,8 +21,18 @@ String _formatTripDate(DateTime dt) {
     return 'Yesterday, $timeStr';
   } else {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}, $timeStr';
   }
@@ -33,10 +44,12 @@ class PassengerActivityScreen extends ConsumerStatefulWidget {
   const PassengerActivityScreen({super.key});
 
   @override
-  ConsumerState<PassengerActivityScreen> createState() => _PassengerActivityScreenState();
+  ConsumerState<PassengerActivityScreen> createState() =>
+      _PassengerActivityScreenState();
 }
 
-class _PassengerActivityScreenState extends ConsumerState<PassengerActivityScreen>
+class _PassengerActivityScreenState
+    extends ConsumerState<PassengerActivityScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -65,9 +78,7 @@ class _PassengerActivityScreenState extends ConsumerState<PassengerActivityScree
         automaticallyImplyLeading: false,
         title: Text(
           'Activity',
-          style: TRYPTypography.headingLarge.copyWith(
-            fontSize: 26,
-          ),
+          style: TRYPTypography.headingLarge.copyWith(fontSize: 26),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
@@ -99,15 +110,21 @@ class _PassengerActivityScreenState extends ConsumerState<PassengerActivityScree
           tripsAsync.when(
             data: (trips) {
               final pastTrips = trips
-                  .where((t) => t.status == TripStatus.completed || t.status == TripStatus.cancelled)
+                  .where(
+                    (t) =>
+                        t.status == TripStatus.completed ||
+                        t.status == TripStatus.cancelled,
+                  )
                   .toList();
 
               final upcomingTrips = trips
-                  .where((t) =>
-                      t.status == TripStatus.requested ||
-                      t.status == TripStatus.accepted ||
-                      t.status == TripStatus.arrived ||
-                      t.status == TripStatus.inTrip)
+                  .where(
+                    (t) =>
+                        t.status == TripStatus.requested ||
+                        t.status == TripStatus.accepted ||
+                        t.status == TripStatus.arrived ||
+                        t.status == TripStatus.inTrip,
+                  )
                   .toList();
 
               return TabBarView(
@@ -115,12 +132,14 @@ class _PassengerActivityScreenState extends ConsumerState<PassengerActivityScree
                 children: [
                   // Past Trips Tab
                   RefreshIndicator(
-                    onRefresh: () async => ref.refresh(passengerTripsProvider.future),
+                    onRefresh: () async =>
+                        ref.refresh(passengerTripsProvider.future),
                     child: pastTrips.isEmpty
                         ? _buildEmptyState(
                             icon: Icons.history_rounded,
                             title: 'No Past Trips',
-                            description: 'Your completed and cancelled rides will appear here.',
+                            description:
+                                'Your completed and cancelled rides will appear here.',
                           )
                         : ListView.builder(
                             physics: const AlwaysScrollableScrollPhysics(),
@@ -134,12 +153,14 @@ class _PassengerActivityScreenState extends ConsumerState<PassengerActivityScree
 
                   // Upcoming Trips Tab
                   RefreshIndicator(
-                    onRefresh: () async => ref.refresh(passengerTripsProvider.future),
+                    onRefresh: () async =>
+                        ref.refresh(passengerTripsProvider.future),
                     child: upcomingTrips.isEmpty
                         ? _buildEmptyState(
                             icon: Icons.calendar_today_rounded,
                             title: 'No Upcoming Rides',
-                            description: 'You don\'t have any active or scheduled trips right now.',
+                            description:
+                                'You don\'t have any active or scheduled trips right now.',
                           )
                         : ListView.builder(
                             physics: const AlwaysScrollableScrollPhysics(),
@@ -154,9 +175,7 @@ class _PassengerActivityScreenState extends ConsumerState<PassengerActivityScree
               );
             },
             loading: () => const Center(
-              child: CircularProgressIndicator(
-                color: TRYPColors.secondary,
-              ),
+              child: CircularProgressIndicator(color: TRYPColors.secondary),
             ),
             error: (err, stack) => Center(
               child: Padding(
@@ -185,7 +204,9 @@ class _PassengerActivityScreenState extends ConsumerState<PassengerActivityScree
                     const SizedBox(height: 8),
                     Text(
                       err.toString(),
-                      style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+                      style: TRYPTypography.bodyMedium.copyWith(
+                        color: TRYPColors.grey,
+                      ),
                       textAlign: TextAlign.center,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
@@ -202,12 +223,12 @@ class _PassengerActivityScreenState extends ConsumerState<PassengerActivityScree
             ),
           ),
 
-          // Shared Floating Bottom Navigation Bar
+          // Shared full-width flat bottom navigation bar
           const Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: TRYPBottomNavBar(currentIndex: 2),
+            child: TRYPBottomNavBar(currentIndex: 1),
           ),
         ],
       ),
@@ -235,23 +256,14 @@ class _PassengerActivityScreenState extends ConsumerState<PassengerActivityScree
                 color: TRYPColors.inputFill,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(
-                icon,
-                size: 32,
-                color: TRYPColors.grey,
-              ),
+              child: Icon(icon, size: 32, color: TRYPColors.grey),
             ),
             const SizedBox(height: 20),
-            Text(
-              title,
-              style: TRYPTypography.headingMedium,
-            ),
+            Text(title, style: TRYPTypography.headingMedium),
             const SizedBox(height: 8),
             Text(
               description,
-              style: TRYPTypography.bodyMedium.copyWith(
-                color: TRYPColors.grey,
-              ),
+              style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
@@ -312,7 +324,9 @@ class _TripCard extends StatelessWidget {
 
     final driverDisplayName = trip.driverName?.isNotEmpty == true
         ? trip.driverName!
-        : (trip.driverId != null ? 'Assigned Driver' : (isCancelled ? 'N/A' : 'Searching...'));
+        : (trip.driverId != null
+              ? 'Assigned Driver'
+              : (isCancelled ? 'N/A' : 'Searching...'));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -335,14 +349,16 @@ class _TripCard extends StatelessWidget {
                   color: isCompleted
                       ? TRYPColors.primary.withValues(alpha: 0.2)
                       : (isCancelled
-                          ? TRYPColors.error.withValues(alpha: 0.1)
-                          : TRYPColors.secondary.withValues(alpha: 0.15)),
+                            ? TRYPColors.error.withValues(alpha: 0.1)
+                            : TRYPColors.secondary.withValues(alpha: 0.15)),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   isCompleted
                       ? Icons.directions_car_rounded
-                      : (isCancelled ? Icons.close_rounded : Icons.navigation_rounded),
+                      : (isCancelled
+                            ? Icons.close_rounded
+                            : Icons.navigation_rounded),
                   color: isCompleted
                       ? TRYPColors.secondary
                       : (isCancelled ? TRYPColors.error : TRYPColors.secondary),
@@ -363,12 +379,17 @@ class _TripCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       _formatTripDate(trip.requestedAt),
-                      style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+                      style: TRYPTypography.bodySmall.copyWith(
+                        color: TRYPColors.grey,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'From: ${trip.origin}',
-                      style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontSize: 11),
+                      style: TRYPTypography.bodySmall.copyWith(
+                        color: TRYPColors.grey,
+                        fontSize: 11,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -388,7 +409,10 @@ class _TripCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: statusBgColor,
                       borderRadius: BorderRadius.circular(100),
@@ -414,7 +438,11 @@ class _TripCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.person_outline_rounded, size: 16, color: TRYPColors.grey),
+                  const Icon(
+                    Icons.person_outline_rounded,
+                    size: 16,
+                    color: TRYPColors.grey,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     'Driver: $driverDisplayName',
@@ -434,7 +462,11 @@ class _TripCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.refresh_rounded, size: 16, color: TRYPColors.secondary),
+                    const Icon(
+                      Icons.refresh_rounded,
+                      size: 16,
+                      color: TRYPColors.secondary,
+                    ),
                   ],
                 ),
               ),

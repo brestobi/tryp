@@ -75,207 +75,233 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: TRYPColors.white,
-      appBar: AppBar(
-        backgroundColor: TRYPColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: TRYPColors.secondary, size: 24),
-          onPressed: () =>
-              context.canPop() ? context.pop() : context.go(Routes.onboarding),
-        ),
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: _buildForm(),
-      ),
-    );
-  }
-
-  // ── Registration form ────────────────────────────────────────────────────────
-
-  Widget _buildForm() {
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 8),
-                    Text('Create account.', style: TRYPTypography.headingLarge),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Sign up to start riding',
-                      style: TRYPTypography.bodyLarge.copyWith(
-                        color: TRYPColors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 36),
-
-                    // Full name
-                    CustomTextField(
-                      hint: 'Full name',
-                      controller: _nameController,
-                      keyboardType: TextInputType.name,
-                      prefixIcon: Icons.person_outline_rounded,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Full name is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Email
-                    CustomTextField(
-                      hint: 'Email address',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      prefixIcon: Icons.email_outlined,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Email is required';
-                        }
-                        if (!Validators.isValidEmail(value)) {
-                          return 'Enter a valid email address';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Password
-                    CustomTextField(
-                      hint: 'Create a password',
-                      controller: _passwordController,
-                      obscureText: true,
-                      prefixIcon: Icons.lock_outline_rounded,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Password is required';
-                        }
-                        if (!Validators.isValidPasswordLength(value)) {
-                          return 'Password must be at least 8 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 28),
-
-                    // Register CTA
-                    PrimaryButton(
-                      label: 'Create account',
-                      onPressed: _submit,
-                      isLoading: _isLoading,
-                      enabled: !_isLoading,
-                    ),
-                    const SizedBox(height: 28),
-
-                    // Divider
-                    const LabeledDivider(label: 'or continue with'),
-                    const SizedBox(height: 24),
-
-                    // Social login row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _SocialButton(
-                            label: 'Google',
-                            icon: Icons.g_mobiledata,
-                            onTap: () async {
-                              final messenger = ScaffoldMessenger.of(context);
-                              setState(() => _isLoading = true);
-                              try {
-                                await ref.read(authServiceProvider).signInWithGoogleNative();
-                                if (!mounted) return;
-                                final client = Supabase.instance.client;
-                                final user = client.auth.currentUser;
-                                if (user != null) {
-                                  final data = await client.from('profiles').select('role').eq('id', user.id).maybeSingle();
-                                  if (data != null && data['role'] != null) {
-                                    final role = data['role'] as String;
-                                    context.go(role == 'driver' ? Routes.driverHome : Routes.passengerHome);
-                                  } else {
-                                    context.go(Routes.roleSelection);
-                                  }
-                                }
-                              } catch (e) {
-                                if (!mounted) return;
-                                setState(() => _isLoading = false);
-                                messenger.showSnackBar(
-                                  const SnackBar(content: Text('Google sign-in failed.')),
-                                );
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _SocialButton(
-                            label: 'Facebook',
-                            icon: Icons.facebook_rounded,
-                            onTap: () {},
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-
-                    // Terms
-                    Center(
-                      child: Text(
-                        'By continuing you agree to our Terms of Service\nand Privacy Policy.',
-                        style: TRYPTypography.bodySmall,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Bottom: already have an account
-          Padding(
-            padding: EdgeInsets.only(
-              left: 28,
-              right: 28,
-              bottom: bottomPad + 24,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+    return Scaffold(
+      backgroundColor: TRYPColors.background,
+      body: SafeArea(
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: Column(
               children: [
-                Text(
-                  'Already have an account? ',
-                  style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
-                ),
-                GestureDetector(
-                  onTap: () => context.go(Routes.login),
-                  child: Text(
-                    'Log in',
-                    style: TRYPTypography.bodyMedium.copyWith(
-                      color: TRYPColors.secondary,
-                      fontWeight: FontWeight.w700,
-                      decoration: TextDecoration.underline,
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go(Routes.onboarding),
+                    icon: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: TRYPColors.primary,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: TRYPColors.inputFill,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+                    decoration: BoxDecoration(
+                      color: TRYPColors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 8),
+                            Text(
+                              'Create account',
+                              style: TRYPTypography.headingLarge.copyWith(
+                                color: TRYPColors.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Start your ride with TRYP.',
+                              style: TRYPTypography.bodyLarge.copyWith(
+                                color: TRYPColors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+
+                            CustomTextField(
+                              hint: 'Full name',
+                              controller: _nameController,
+                              keyboardType: TextInputType.name,
+                              prefixIcon: Icons.person_outline_rounded,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Full name is required';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
+
+                            CustomTextField(
+                              hint: 'Email address',
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              prefixIcon: Icons.email_outlined,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Email is required';
+                                }
+                                if (!Validators.isValidEmail(value)) {
+                                  return 'Enter a valid email address';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
+
+                            CustomTextField(
+                              hint: 'Create a password',
+                              controller: _passwordController,
+                              obscureText: true,
+                              prefixIcon: Icons.lock_outline_rounded,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Password is required';
+                                }
+                                if (!Validators.isValidPasswordLength(value)) {
+                                  return 'Password must be at least 8 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 24),
+
+                            PrimaryButton(
+                              label: 'Create account',
+                              onPressed: _submit,
+                              isLoading: _isLoading,
+                              enabled: !_isLoading,
+                              backgroundColor: TRYPColors.primary,
+                              foregroundColor: TRYPColors.white,
+                            ),
+                            const SizedBox(height: 24),
+
+                            const LabeledDivider(label: 'or continue with'),
+                            const SizedBox(height: 20),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _SocialButton(
+                                    label: 'Google',
+                                    icon: Icons.g_mobiledata,
+                                    onTap: () async {
+                                      final messenger = ScaffoldMessenger.of(
+                                        context,
+                                      );
+                                      setState(() => _isLoading = true);
+                                      try {
+                                        await ref
+                                            .read(authServiceProvider)
+                                            .signInWithGoogleNative();
+                                        if (!mounted) return;
+                                        final client = Supabase.instance.client;
+                                        final user = client.auth.currentUser;
+                                        if (user != null) {
+                                          final data = await client
+                                              .from('profiles')
+                                              .select('role')
+                                              .eq('id', user.id)
+                                              .maybeSingle();
+                                          if (data != null &&
+                                              data['role'] != null) {
+                                            final role = data['role'] as String;
+                                            context.go(
+                                              role == 'driver'
+                                                  ? Routes.driverHome
+                                                  : Routes.passengerHome,
+                                            );
+                                          } else {
+                                            context.go(Routes.roleSelection);
+                                          }
+                                        }
+                                      } catch (e) {
+                                        if (!mounted) return;
+                                        setState(() => _isLoading = false);
+                                        messenger.showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Google sign-in failed.',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _SocialButton(
+                                    label: 'Apple',
+                                    icon: Icons.apple,
+                                    onTap: () {},
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 26),
+
+                            Center(
+                              child: Text(
+                                'By continuing you agree to our Terms of Service\nand Privacy Policy.',
+                                style: TRYPTypography.bodySmall.copyWith(
+                                  color: TRYPColors.grey,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Already have an account? ',
+                                    style: TRYPTypography.bodyMedium.copyWith(
+                                      color: TRYPColors.grey,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () => context.go(Routes.login),
+                                    child: Text(
+                                      'Log in',
+                                      style: TRYPTypography.bodyMedium.copyWith(
+                                        color: TRYPColors.primary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: bottomPad),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -307,10 +333,7 @@ class _SocialButton extends StatelessWidget {
           children: [
             Icon(icon, size: 22, color: TRYPColors.secondary),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: TRYPTypography.labelMedium,
-            ),
+            Text(label, style: TRYPTypography.labelMedium),
           ],
         ),
       ),

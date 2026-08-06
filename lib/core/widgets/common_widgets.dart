@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tryp/app/routes.dart';
 import 'package:tryp/app/theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -14,8 +15,10 @@ class PrimaryButton extends StatelessWidget {
   final double? width;
   final double height;
   final IconData? icon;
+
   /// Override button background color (defaults to TRYPColors.secondary = black)
   final Color? backgroundColor;
+
   /// Override text / icon color (defaults to white)
   final Color? foregroundColor;
 
@@ -50,7 +53,7 @@ class PrimaryButton extends StatelessWidget {
           elevation: 0,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(100),
+            borderRadius: BorderRadius.circular(18),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
           textStyle: TRYPTypography.buttonText.copyWith(color: fg),
@@ -72,7 +75,10 @@ class PrimaryButton extends StatelessWidget {
                     Icon(icon, size: 20, color: fg),
                     const SizedBox(width: 8),
                   ],
-                  Text(label, style: TRYPTypography.buttonText.copyWith(color: fg)),
+                  Text(
+                    label,
+                    style: TRYPTypography.buttonText.copyWith(color: fg),
+                  ),
                 ],
               ),
       ),
@@ -81,7 +87,7 @@ class PrimaryButton extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Yellow Accent Button  — for accent CTAs (like Bolt's green primary)
+// Accent Button — kept as a compatibility wrapper for existing call sites.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class AccentButton extends StatelessWidget {
@@ -115,7 +121,7 @@ class AccentButton extends StatelessWidget {
       height: height,
       icon: icon,
       backgroundColor: TRYPColors.primary,
-      foregroundColor: TRYPColors.secondary,
+      foregroundColor: TRYPColors.white,
     );
   }
 }
@@ -150,13 +156,15 @@ class SecondaryButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: enabled && !isLoading ? onPressed : null,
         style: OutlinedButton.styleFrom(
-          foregroundColor: TRYPColors.secondary,
-          side: const BorderSide(color: TRYPColors.divider, width: 1.5),
+          foregroundColor: TRYPColors.primary,
+          side: const BorderSide(color: TRYPColors.primary, width: 1.2),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(100),
+            borderRadius: BorderRadius.circular(18),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-          textStyle: TRYPTypography.buttonText,
+          textStyle: TRYPTypography.buttonText.copyWith(
+            color: TRYPColors.primary,
+          ),
         ),
         child: isLoading
             ? const SizedBox(
@@ -164,10 +172,17 @@ class SecondaryButton extends StatelessWidget {
                 width: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(TRYPColors.secondary),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    TRYPColors.secondary,
+                  ),
                 ),
               )
-            : Text(label, style: TRYPTypography.buttonText),
+            : Text(
+                label,
+                style: TRYPTypography.buttonText.copyWith(
+                  color: TRYPColors.primary,
+                ),
+              ),
       ),
     );
   }
@@ -241,7 +256,9 @@ class _CustomTextFieldState extends State<CustomTextField> {
       suffixWidget = GestureDetector(
         onTap: () => setState(() => _obscureText = !_obscureText),
         child: Icon(
-          _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+          _obscureText
+              ? Icons.visibility_off_outlined
+              : Icons.visibility_outlined,
           color: TRYPColors.grey,
           size: 20,
         ),
@@ -388,12 +405,18 @@ class EmptyState extends StatelessWidget {
               child: Icon(icon, size: 36, color: TRYPColors.grey),
             ),
             const SizedBox(height: 20),
-            Text(title, style: TRYPTypography.headingSmall, textAlign: TextAlign.center),
+            Text(
+              title,
+              style: TRYPTypography.headingSmall,
+              textAlign: TextAlign.center,
+            ),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
               Text(
                 subtitle!,
-                style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+                style: TRYPTypography.bodyMedium.copyWith(
+                  color: TRYPColors.grey,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -438,7 +461,11 @@ class ErrorDisplay extends StatelessWidget {
               color: TRYPColors.error.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.error_outline_rounded, size: 36, color: TRYPColors.error),
+            child: const Icon(
+              Icons.error_outline_rounded,
+              size: 36,
+              color: TRYPColors.error,
+            ),
           ),
           const SizedBox(height: 20),
           Text(
@@ -481,10 +508,7 @@ class LabeledDivider extends StatelessWidget {
         const Expanded(child: Divider(color: TRYPColors.divider, thickness: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            label,
-            style: TRYPTypography.bodySmall,
-          ),
+          child: Text(label, style: TRYPTypography.bodySmall),
         ),
         const Expanded(child: Divider(color: TRYPColors.divider, thickness: 1)),
       ],
@@ -493,66 +517,53 @@ class LabeledDivider extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Bolt-style Floating Bottom Navigation Bar — available across passenger screens
+// Flat bottom navigation bar — full width, no floating container or radius.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class TRYPBottomNavBar extends StatelessWidget {
   final int currentIndex;
-  final Function(int index)? onTap;
-
-  const TRYPBottomNavBar({
-    super.key,
-    required this.currentIndex,
-    this.onTap,
-  });
+  const TRYPBottomNavBar({super.key, required this.currentIndex});
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).padding.bottom;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomPad > 0 ? bottomPad + 4 : 14),
-      child: Container(
-        height: 64,
-        decoration: BoxDecoration(
-          color: TRYPColors.secondary,
-          borderRadius: BorderRadius.circular(100),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _TRYPNavItem(
-              icon: Icons.directions_car_rounded,
-              label: 'Rides',
-              selected: currentIndex == 0,
-              onTap: () => onTap != null ? onTap!(0) : context.go('/passenger/home'),
-            ),
-            _TRYPNavItem(
-              icon: Icons.receipt_long_rounded,
-              label: 'Activity',
-              selected: currentIndex == 1,
-              onTap: () => onTap != null ? onTap!(1) : context.go('/passenger/activity'),
-            ),
-            _TRYPNavItem(
-              icon: Icons.notifications_none_rounded,
-              label: 'Inbox',
-              selected: currentIndex == 2,
-              onTap: () => onTap != null ? onTap!(2) : context.go('/notifications'),
-            ),
-            _TRYPNavItem(
-              icon: Icons.person_rounded,
-              label: 'Account',
-              selected: currentIndex == 3,
-              onTap: () => onTap != null ? onTap!(3) : context.go('/passenger/profile'),
-            ),
-          ],
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: TRYPColors.white,
+        border: Border(top: BorderSide(color: TRYPColors.divider, width: 1)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: [
+              _TRYPNavItem(
+                icon: Icons.directions_car_rounded,
+                label: 'Rides',
+                selected: currentIndex == 0,
+                onTap: () => context.go(Routes.passengerHome),
+              ),
+              _TRYPNavItem(
+                icon: Icons.receipt_long_rounded,
+                label: 'Activity',
+                selected: currentIndex == 1,
+                onTap: () => context.go(Routes.passengerActivity),
+              ),
+              _TRYPNavItem(
+                icon: Icons.notifications_none_rounded,
+                label: 'Inbox',
+                selected: currentIndex == 2,
+                onTap: () => context.go(Routes.notifications),
+              ),
+              _TRYPNavItem(
+                icon: Icons.person_rounded,
+                label: 'Account',
+                selected: currentIndex == 3,
+                onTap: () => context.go(Routes.passengerProfile),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -574,40 +585,46 @@ class _TRYPNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? TRYPColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 22,
-              color: selected ? TRYPColors.secondary : TRYPColors.white.withValues(alpha: 0.7),
-            ),
-            if (selected) ...[
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TRYPTypography.labelMedium.copyWith(
-                  color: TRYPColors.secondary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
+    final color = selected ? TRYPColors.primary : TRYPColors.grey;
+
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: InkWell(
+          onTap: onTap,
+          splashColor: TRYPColors.inputFill,
+          highlightColor: TRYPColors.inputFill,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: selected ? TRYPColors.primary : Colors.transparent,
+                  width: 2,
                 ),
               ),
-            ],
-          ],
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 22, color: color),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: TRYPTypography.labelSmall.copyWith(
+                    color: color,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
-
