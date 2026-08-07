@@ -1,0 +1,244 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+/// TRYP Color Palette — simple monochrome ride-hailing UI.
+class TRYPColors {
+  // Brand and action colors.
+  static const Color primary = Color(0xFF000000);
+  static const Color primaryAlt = Color(0xFF1A1A1A);
+  static const Color secondary = Color(0xFF111111);
+  // Neutral emphasis color for legacy highlighted UI elements.
+  static const Color accent = Color(0xFF555555);
+  static const Color accentSoft = Color(0xFFF1F1F1);
+
+  // Surfaces.
+  static const Color surface = Color(0xFFF7F7F7);
+  static const Color background = Color(0xFFFFFFFF);
+  static const Color dark = Color(0xFF000000);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color card = Color(0xFFFFFFFF);
+  static const Color inputFill = Color(0xFFF5F5F5);
+  static const Color divider = Color(0xFFE5E5E5);
+
+  // Supporting colors.
+  static const Color grey = Color(0xFF6B6B6B);
+  static const Color muted = Color(0xFF8A8A8A);
+  static const Color secondaryLight = Color(0xFFBDBDBD);
+  static const Color greyLight = Color(0xFFE5E5E5);
+  static const Color lightGrey = Color(0xFFF1F1F1);
+  static const Color success = Color(0xFF218739);
+  static const Color liveTracking = Color(0xFF2563EB);
+  static const Color error = Color(0xFFD92D20);
+  static const Color warning = Color(0xFFB54708);
+
+  // Backward-compatible alias used by existing screens.
+  static const Color amber = accent;
+}
+
+/// TRYP Typography — clean, neutral, and highly legible.
+class TRYPTypography {
+  static TextStyle get headingXL => GoogleFonts.inter(
+    fontSize: 34,
+    fontWeight: FontWeight.w800,
+    color: TRYPColors.dark,
+    letterSpacing: -0.9,
+  );
+
+  static TextStyle get headingLarge => GoogleFonts.inter(
+    fontSize: 29,
+    fontWeight: FontWeight.w700,
+    color: TRYPColors.dark,
+    letterSpacing: -0.5,
+  );
+
+  static TextStyle get headingMedium => GoogleFonts.inter(
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    color: TRYPColors.dark,
+    letterSpacing: -0.3,
+  );
+
+  static TextStyle get headingSmall => GoogleFonts.inter(
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    color: TRYPColors.dark,
+  );
+
+  static TextStyle get titleLarge => GoogleFonts.inter(
+    fontSize: 18,
+    fontWeight: FontWeight.w700,
+    color: TRYPColors.dark,
+  );
+
+  static TextStyle get titleMedium => GoogleFonts.inter(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: TRYPColors.dark,
+  );
+
+  static TextStyle get bodyLarge => GoogleFonts.inter(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: TRYPColors.dark,
+  );
+
+  static TextStyle get bodyMedium => GoogleFonts.inter(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    color: TRYPColors.secondary,
+  );
+
+  static TextStyle get bodySmall => GoogleFonts.inter(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: TRYPColors.muted,
+  );
+
+  static TextStyle get labelLarge => GoogleFonts.inter(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: TRYPColors.primary,
+  );
+
+  static TextStyle get labelMedium => GoogleFonts.inter(
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: TRYPColors.primary,
+  );
+
+  static TextStyle get labelSmall => GoogleFonts.inter(
+    fontSize: 12,
+    fontWeight: FontWeight.w600,
+    color: TRYPColors.grey,
+  );
+
+  static TextStyle get buttonText => GoogleFonts.inter(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: TRYPColors.white,
+    letterSpacing: 0.1,
+  );
+}
+
+/// TRYP Theme — white canvas, black actions, and quiet gray controls.
+class TRYPTheme {
+  static ThemeData get lightTheme => ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.light,
+    colorScheme: const ColorScheme.light(
+      primary: TRYPColors.primary,
+      onPrimary: TRYPColors.white,
+      secondary: TRYPColors.secondary,
+      onSecondary: TRYPColors.white,
+      surface: TRYPColors.white,
+      onSurface: TRYPColors.dark,
+      error: TRYPColors.error,
+      onError: TRYPColors.white,
+    ),
+    scaffoldBackgroundColor: TRYPColors.background,
+    canvasColor: TRYPColors.background,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: TRYPColors.background,
+      foregroundColor: TRYPColors.primary,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+    ),
+    cardTheme: CardThemeData(
+      color: TRYPColors.card,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: TRYPColors.divider),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: TRYPColors.primary,
+        foregroundColor: TRYPColors.white,
+        disabledBackgroundColor: TRYPColors.greyLight,
+        disabledForegroundColor: TRYPColors.grey,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: TRYPTypography.buttonText,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        minimumSize: const Size(double.infinity, 56),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: TRYPColors.primary,
+        side: const BorderSide(color: TRYPColors.primary, width: 1.2),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: TRYPTypography.buttonText.copyWith(
+          color: TRYPColors.primary,
+        ),
+        minimumSize: const Size(double.infinity, 56),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: TRYPColors.primary,
+        textStyle: TRYPTypography.labelMedium,
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: TRYPColors.inputFill,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: TRYPColors.primary, width: 1.4),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: TRYPColors.error),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: TRYPColors.error, width: 1.4),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      hintStyle: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.muted),
+      errorStyle: TRYPTypography.bodySmall.copyWith(color: TRYPColors.error),
+    ),
+    dividerTheme: const DividerThemeData(
+      color: TRYPColors.divider,
+      thickness: 1,
+      space: 1,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: TRYPColors.primary,
+      contentTextStyle: TRYPTypography.bodyMedium.copyWith(
+        color: TRYPColors.white,
+      ),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ),
+  );
+
+  static ThemeData get darkTheme => ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    colorScheme: const ColorScheme.dark(
+      primary: TRYPColors.white,
+      onPrimary: TRYPColors.dark,
+      secondary: TRYPColors.white,
+      onSecondary: TRYPColors.dark,
+      surface: Color(0xFF111111),
+      onSurface: TRYPColors.white,
+      error: TRYPColors.error,
+    ),
+    scaffoldBackgroundColor: TRYPColors.dark,
+  );
+}

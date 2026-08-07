@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "16356250251",
+    "project_id": "tryp-75e26",
+    "storage_bucket": "tryp-75e26.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:16356250251:android:8eecdcff1b8e7252377a8e",
+        "android_client_info": {
+          "package_name": "com.hungrydevelopers.tryp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWcnYx6DDXtyung5pTbPgpEa-_mtNKV2g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:16356250251:android:8eecdcff1b8e7252377a8f",
+        "android_client_info": {
+          "package_name": "com.hungrydevelopers.tryp_driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWcnYx6DDXtyung5pTbPgpEa-_mtNKV2g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
