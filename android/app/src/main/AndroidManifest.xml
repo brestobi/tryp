@@ -47,7 +47,7 @@
         <!-- FCM: Default notification icon -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/ic_launcher" />
+            android:resource="@drawable/tryp_notification" />
 
         <!-- FCM: Default notification color -->
         <meta-data

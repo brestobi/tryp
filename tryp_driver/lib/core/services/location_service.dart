@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:dio/dio.dart';
+import 'package:tryp_driver/config/environment.dart';
 
 class UserLocation {
   final double latitude;
@@ -39,8 +40,9 @@ class RouteResult {
 }
 
 class LocationService {
-  static const String _googleMapsApiKey = 'AIzaSyBRezyrM8OMsEeMjHpoD6w70zLhfBLUmsk';
   final Dio _dio = Dio();
+
+  String get _googleMapsApiKey => Environment.googleMapsApiKey;
 
   /// Request permission and get the device's current GPS position
   Future<Position?> getCurrentPosition() async {

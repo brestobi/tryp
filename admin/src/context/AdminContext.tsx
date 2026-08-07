@@ -371,10 +371,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const promoteUserToAdmin = async (userId: string) => {
-    await dbUpdateUserProfile(userId, false, { role: 'admin' });
+    await dbUpdateUserProfile(userId, { role: 'admin' });
     await writeAuditLog('PROMOTE_TO_ADMIN', userId, 'user', `Promoted user to admin role.`);
     addNotification({ type: 'success', title: 'User Promoted', message: `User promoted to admin successfully.`, timestamp: new Date().toISOString() });
-    refresh(); // Refresh to update user lists
+    loadAll(); // Refresh to update user lists
   };
 
   const markNotificationsRead = () => {

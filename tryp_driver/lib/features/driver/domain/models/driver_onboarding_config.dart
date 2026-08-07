@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tryp_driver/core/utils/validators.dart';
 
 /// Vehicle Category Configuration
 class VehicleCategoryInfo {
@@ -100,43 +101,85 @@ class DriverOnboardingConfig {
   ];
 
   static const List<BankInfo> supportedBanks = [
-    BankInfo(id: 'fnb', name: 'FNB (First National Bank)', defaultBranchCode: '250655'),
+    BankInfo(
+      id: 'fnb',
+      name: 'FNB (First National Bank)',
+      defaultBranchCode: '250655',
+    ),
     BankInfo(id: 'capitec', name: 'Capitec Bank', defaultBranchCode: '470010'),
-    BankInfo(id: 'standard_bank', name: 'Standard Bank', defaultBranchCode: '051001'),
+    BankInfo(
+      id: 'standard_bank',
+      name: 'Standard Bank',
+      defaultBranchCode: '051001',
+    ),
     BankInfo(id: 'absa', name: 'Absa Bank', defaultBranchCode: '632005'),
     BankInfo(id: 'nedbank', name: 'Nedbank', defaultBranchCode: '198765'),
     BankInfo(id: 'tymebank', name: 'TymeBank', defaultBranchCode: '678910'),
-    BankInfo(id: 'discovery', name: 'Discovery Bank', defaultBranchCode: '679000'),
+    BankInfo(
+      id: 'discovery',
+      name: 'Discovery Bank',
+      defaultBranchCode: '679000',
+    ),
     BankInfo(id: 'bank_zero', name: 'Bank Zero', defaultBranchCode: '888000'),
   ];
 
+  static const List<String> vehicleColors = [
+    'Black',
+    'White',
+    'Silver',
+    'Grey',
+    'Blue',
+    'Red',
+    'Green',
+    'Brown',
+    'Gold',
+    'Other',
+  ];
+
+  static List<String> get vehicleYears {
+    final currentYear = DateTime.now().year;
+    return [for (var year = currentYear; year >= 2000; year--) year.toString()];
+  }
+
   static const List<RequiredDocumentType> requiredDocuments = [
+    RequiredDocumentType(
+      key: 'selfie',
+      title: 'Live Selfie Verification',
+      description: 'A live face photo captured in the app',
+      requirement:
+          'Use the front camera. Remove sunglasses and make sure your face is clearly visible.',
+      icon: Icons.face_retouching_natural_rounded,
+    ),
     RequiredDocumentType(
       key: 'prdp',
       title: 'PrDP Driver\'s License',
       description: 'Professional Driving Permit for South Africa',
-      requirement: 'Front & back clear photo scan. License card must be valid and unexpired.',
+      requirement:
+          'Front & back clear photo scan. License card must be valid and unexpired.',
       icon: Icons.badge_rounded,
     ),
     RequiredDocumentType(
       key: 'vehicle_registration',
       title: 'Vehicle Registration (RC)',
       description: 'Official vehicle logbook document',
-      requirement: 'Page showing VIN, engine number, and registered owner details.',
+      requirement:
+          'Page showing VIN, engine number, and registered owner details.',
       icon: Icons.directions_car_rounded,
     ),
     RequiredDocumentType(
       key: 'insurance',
       title: 'Commercial E-Hailing Insurance',
       description: 'Passenger liability insurance policy cover',
-      requirement: 'Policy schedule showing active coverage for commercial passenger transport.',
+      requirement:
+          'Policy schedule showing active coverage for commercial passenger transport.',
       icon: Icons.shield_rounded,
     ),
     RequiredDocumentType(
       key: 'roadworthiness',
       title: 'Certificate of Roadworthiness',
       description: 'DEKRA or approved SABS inspection slip',
-      requirement: 'Must be issued within the last 12 months for safety compliance.',
+      requirement:
+          'Must be issued within the last 12 months for safety compliance.',
       icon: Icons.verified_rounded,
     ),
   ];
@@ -192,14 +235,19 @@ class DriverOnboardingData {
     this.updatedAt,
   });
 
-  factory DriverOnboardingData.fromProfile(Map<String, dynamic> json, {List<Map<String, dynamic>>? docs}) {
+  factory DriverOnboardingData.fromProfile(
+    Map<String, dynamic> json, {
+    List<Map<String, dynamic>>? docs,
+  }) {
     final docUrlsMap = <String, String?>{};
     final docStatusMap = <String, String>{};
 
     for (final docType in DriverOnboardingConfig.requiredDocuments) {
       final key = docType.key;
       docUrlsMap[key] = json['doc_$key'] as String?;
-      docStatusMap[key] = (json['doc_${key}_status'] as String?) ?? (docUrlsMap[key] != null ? 'pending' : 'not_uploaded');
+      docStatusMap[key] =
+          (json['doc_${key}_status'] as String?) ??
+          (docUrlsMap[key] != null ? 'pending' : 'not_uploaded');
     }
 
     if (docs != null && docs.isNotEmpty) {
@@ -221,7 +269,8 @@ class DriverOnboardingData {
     return DriverOnboardingData(
       id: (json['id'] as String?) ?? '',
       fullName: (json['full_name'] as String?) ?? '',
-      phone: (json['phone_number'] as String?) ?? (json['phone'] as String?) ?? '',
+      phone:
+          (json['phone_number'] as String?) ?? (json['phone'] as String?) ?? '',
       idNumber: (json['id_number'] as String?) ?? '',
       licenseNumber: (json['license_number'] as String?) ?? '',
       operatingCity: (json['operating_city'] as String?) ?? 'Johannesburg',
@@ -235,7 +284,9 @@ class DriverOnboardingData {
       bankAccountNumber: (json['bank_account_number'] as String?) ?? '',
       bankBranchCode: (json['bank_branch_code'] as String?) ?? '',
       bankAccountHolder: (json['bank_account_holder'] as String?) ?? '',
-      driverStatus: (json['driver_status'] as String?) ?? DriverVerificationStatus.pending,
+      driverStatus:
+          (json['driver_status'] as String?) ??
+          DriverVerificationStatus.pending,
       documentUrls: docUrlsMap,
       documentStatuses: docStatusMap,
       updatedAt: json['updated_at'] as String?,
@@ -311,20 +362,29 @@ class DriverOnboardingData {
   }
 
   bool get isPersonalDetailsComplete =>
-      fullName.trim().isNotEmpty &&
-      phone.trim().isNotEmpty &&
-      idNumber.trim().isNotEmpty &&
-      licenseNumber.trim().isNotEmpty;
+      fullName.trim().length >= 3 &&
+      Validators.isValidPhone(phone) &&
+      Validators.isValidIdOrPassport(idNumber) &&
+      Validators.isValidLicenseNumber(licenseNumber) &&
+      operatingCity.trim().isNotEmpty;
 
   bool get isVehicleDetailsComplete =>
-      vehicleMake.trim().isNotEmpty &&
-      vehicleModel.trim().isNotEmpty &&
-      vehiclePlate.trim().isNotEmpty;
+      vehicleMake.trim().length >= 2 &&
+      vehicleModel.trim().length >= 2 &&
+      Validators.isValidVehicleYear(vehicleYear) &&
+      DriverOnboardingConfig.vehicleColors.contains(vehicleColor) &&
+      Validators.isValidVehiclePlate(vehiclePlate) &&
+      DriverOnboardingConfig.vehicleCategories.any(
+        (category) => category.id == vehicleCategory,
+      );
 
   bool get isBankDetailsComplete =>
-      bankName.trim().isNotEmpty &&
-      bankAccountNumber.trim().isNotEmpty &&
-      bankAccountHolder.trim().isNotEmpty;
+      DriverOnboardingConfig.supportedBanks.any(
+        (bank) => bank.name == bankName,
+      ) &&
+      Validators.isValidAccountNumber(bankAccountNumber) &&
+      Validators.isValidBranchCode(bankBranchCode) &&
+      bankAccountHolder.trim().length >= 3;
 
   bool get areAllDocumentsUploaded {
     for (final doc in DriverOnboardingConfig.requiredDocuments) {

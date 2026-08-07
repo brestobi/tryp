@@ -4,12 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-enum NotificationType {
-  ride,
-  promo,
-  system,
-  payment,
-}
+enum NotificationType { ride, promo, system, payment }
 
 extension NotificationTypeX on NotificationType {
   String toDbString() {
@@ -169,9 +164,13 @@ class NotificationNotifier extends AsyncNotifier<List<TRYPNotification>> {
             try {
               final notif = TRYPNotification.fromJson(payload.newRecord);
               final current = state.asData?.value ?? [];
-              state = AsyncData(current.map((n) => n.id == notif.id ? notif : n).toList());
+              state = AsyncData(
+                current.map((n) => n.id == notif.id ? notif : n).toList(),
+              );
             } catch (e) {
-              debugPrint('NotificationNotifier: realtime update parse error: $e');
+              debugPrint(
+                'NotificationNotifier: realtime update parse error: $e',
+              );
             }
           },
         )
@@ -217,15 +216,17 @@ class NotificationNotifier extends AsyncNotifier<List<TRYPNotification>> {
       return;
     }
     try {
-      await _supabase.from('notifications').insert({
-        'user_id': userId,
-        'title': title,
-        'body': body,
-        'type': type.toDbString(),
-        'route_path': routePath,
-        'payload': payload,
-        'is_read': false,
-      });
+      await _supabase.rpc(
+        'send_notification',
+        params: {
+          'target_uid': userId,
+          'p_title': title,
+          'p_body': body,
+          'p_type': type.toDbString(),
+          'p_route_path': routePath,
+          'p_payload': payload,
+        },
+      );
     } catch (e) {
       debugPrint('NotificationNotifier.addNotification error: $e');
     }
@@ -277,8 +278,8 @@ class NotificationNotifier extends AsyncNotifier<List<TRYPNotification>> {
 
 final notificationsProvider =
     AsyncNotifierProvider<NotificationNotifier, List<TRYPNotification>>(
-  NotificationNotifier.new,
-);
+      NotificationNotifier.new,
+    );
 
 final unreadNotificationCountProvider = Provider<int>((ref) {
   final asyncList = ref.watch(notificationsProvider);

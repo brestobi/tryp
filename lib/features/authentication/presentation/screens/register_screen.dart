@@ -208,29 +208,27 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
                                       );
                                       setState(() => _isLoading = true);
                                       try {
-                                        await ref
+                                        final signedIn = await ref
                                             .read(authServiceProvider)
                                             .signInWithGoogleNative();
+                                        if (!mounted || !signedIn) return;
+                                        final route =
+                                            await googlePostAuthRoute();
                                         if (!mounted) return;
-                                        final client = Supabase.instance.client;
-                                        final user = client.auth.currentUser;
-                                        if (user != null) {
-                                          final data = await client
-                                              .from('profiles')
-                                              .select('role')
-                                              .eq('id', user.id)
-                                              .maybeSingle();
-                                          if (data != null &&
-                                              data['role'] != null) {
-                                            final role = data['role'] as String;
-                                            context.go(
-                                              role == 'driver'
-                                                  ? Routes.driverHome
-                                                  : Routes.passengerHome,
-                                            );
-                                          } else {
-                                            context.go(Routes.roleSelection);
-                                          }
+                                        if (route != null) {
+                                          context.go(route);
+                                        } else {
+                                          await ref
+                                              .read(authServiceProvider)
+                                              .signOut();
+                                          messenger.showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'This account belongs to the TRYP Driver app. Use the passenger app account to continue.',
+                                              ),
+                                              backgroundColor: TRYPColors.error,
+                                            ),
+                                          );
                                         }
                                       } catch (e) {
                                         if (!mounted) return;

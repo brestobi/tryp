@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logger/logger.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:tryp_driver/app/app_variant.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/services/supabase_service.dart';
@@ -44,7 +42,7 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
         email,
         _passwordController.text,
         fullName: _nameController.text.trim(),
-        role: AppRole.driver,
+        role: 'driver',
       );
       if (!mounted) return;
       context.go(Routes.emailVerification, extra: email);
@@ -252,27 +250,35 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
                                       );
                                       setState(() => _isLoading = true);
                                       try {
-                                        await ref
+                                        final signedIn = await ref
                                             .read(authServiceProvider)
                                             .signInWithGoogleNative();
                                         if (!mounted) return;
-
-                                        // Set driver role on Supabase profile
-                                        final client = Supabase.instance.client;
-                                        final user = client.auth.currentUser;
-                                        if (user != null) {
-                                          await client.from('profiles').upsert({
-                                            'id': user.id,
-                                            'role': 'driver',
-                                            'driver_status': 'pending',
-                                            'updated_at': DateTime.now()
-                                                .toIso8601String(),
-                                          });
+                                        if (!signedIn) {
+                                          setState(() => _isLoading = false);
+                                          return;
                                         }
+
+                                        // The server allows this only for a
+                                        // newly-created Google profile. An
+                                        // existing passenger is rejected.
+                                        await ref
+                                            .read(authServiceProvider)
+                                            .claimDriverRole();
 
                                         if (!mounted) return;
                                         context.go(Routes.driverOnboarding);
                                       } catch (e) {
+                                        // A failed claim must not leave a
+                                        // passenger session active in the
+                                        // driver app.
+                                        try {
+                                          await ref
+                                              .read(authServiceProvider)
+                                              .signOut();
+                                        } catch (_) {
+                                          // Preserve the original auth error.
+                                        }
                                         if (!mounted) return;
                                         setState(() => _isLoading = false);
                                         messenger.showSnackBar(

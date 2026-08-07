@@ -13,11 +13,12 @@ import {
   Download,
   ShieldCheck,
   Check,
-  AlertCircle
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 
 export const DriverKYCInspector: React.FC = () => {
-  const { drivers, approveDriver, rejectDriver, flagDriverDocument, approveDriverDocument } = useAdmin();
+  const { drivers, approveDriver, rejectDriver, flagDriverDocument, approveDriverDocument, addNotification } = useAdmin();
 
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'under_review' | 'approved' | 'rejected'>('pending');
   const [selectedDriverId, setSelectedDriverId] = useState<string>(drivers[0]?.id || '');
@@ -34,6 +35,13 @@ export const DriverKYCInspector: React.FC = () => {
 
   const [showRejectModal, setShowRejectModal] = useState<boolean>(false);
   const [rejectReason, setRejectReason] = useState<string>('Documents failed verification standard compliance');
+
+  // In-flight action state (prevents double submits & shows progress)
+  const [busyAction, setBusyAction] = useState<null | 'doc' | 'flag' | 'reject' | 'driver'>(null);
+  const [actionError, setActionError] = useState<{
+    action: 'doc' | 'flag' | 'reject' | 'driver';
+    message: string;
+  } | null>(null);
 
   const filteredDrivers = drivers.filter(d => {
     if (filterStatus === 'all') return true;
@@ -56,25 +64,96 @@ export const DriverKYCInspector: React.FC = () => {
 
   const docTypeLabels: Record<string, string> = {
     prdp_license: 'PrDP Driving License',
+    selfie: 'Selfie Capture',
     vehicle_registration: 'Vehicle Registration (RC)',
     insurance: 'Passenger Comprehensive Insurance',
     roadworthiness: 'DEKRA Roadworthiness Certificate'
   };
 
-  const handleFlagSubmit = (e: React.FormEvent) => {
+  const handleFlagSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeDriver || !activeDocument) return;
+    if (!activeDriver || !activeDocument || busyAction) return;
     const finalReason = `${flagTag}: ${flagNotes.trim() || 'No additional note provided'}`;
-    flagDriverDocument(activeDriver.id, activeDocument.id, finalReason);
-    setShowFlagModal(false);
-    setFlagNotes('');
+    setBusyAction('flag');
+    setActionError(null);
+    try {
+      await flagDriverDocument(activeDriver.id, activeDocument.id, finalReason);
+      setShowFlagModal(false);
+      setFlagNotes('');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to flag document';
+      setActionError({ action: 'flag', message });
+      addNotification({
+        type: 'error',
+        title: 'Document Flag Failed',
+        message,
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setBusyAction(null);
+    }
   };
 
-  const handleRejectSubmit = (e: React.FormEvent) => {
+  const handleRejectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeDriver) return;
-    rejectDriver(activeDriver.id, rejectReason);
-    setShowRejectModal(false);
+    if (!activeDriver || busyAction) return;
+    setBusyAction('reject');
+    setActionError(null);
+    try {
+      await rejectDriver(activeDriver.id, rejectReason);
+      setShowRejectModal(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to reject application';
+      setActionError({ action: 'reject', message });
+      addNotification({
+        type: 'error',
+        title: 'Application Reject Failed',
+        message,
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleApproveDoc = async () => {
+    if (!activeDriver || !activeDocument || busyAction) return;
+    setBusyAction('doc');
+    setActionError(null);
+    try {
+      await approveDriverDocument(activeDriver.id, activeDocument.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to approve document';
+      setActionError({ action: 'doc', message });
+      addNotification({
+        type: 'error',
+        title: 'Document Approval Failed',
+        message,
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handleApproveDriver = async () => {
+    if (!activeDriver || busyAction) return;
+    setBusyAction('driver');
+    setActionError(null);
+    try {
+      await approveDriver(activeDriver.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to approve driver';
+      setActionError({ action: 'driver', message });
+      addNotification({
+        type: 'error',
+        title: 'Driver Approval Failed',
+        message,
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setBusyAction(null);
+    }
   };
 
   return (
@@ -377,17 +456,23 @@ export const DriverKYCInspector: React.FC = () => {
                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                   {activeDocument && activeDocument.status !== 'approved' && (
                     <button
-                      onClick={() => approveDriverDocument(activeDriver.id, activeDocument.id)}
-                      className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors flex items-center space-x-1.5"
+                      onClick={handleApproveDoc}
+                      disabled={busyAction !== null}
+                      className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors flex items-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span>Approve This Doc</span>
+                      {busyAction === 'doc' ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                      ) : (
+                        <Check className="w-4 h-4 text-emerald-400" />
+                      )}
+                      <span>{busyAction === 'doc' ? 'Approving...' : 'Approve This Doc'}</span>
                     </button>
                   )}
                   {activeDocument && (
                     <button
                       onClick={() => setShowFlagModal(true)}
-                      className="px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold transition-colors flex items-center space-x-1.5"
+                      disabled={busyAction !== null}
+                      className="px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold transition-colors flex items-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <AlertTriangle className="w-4 h-4 text-amber-400" />
                       <span>Flag Doc For Re-upload</span>
@@ -398,20 +483,32 @@ export const DriverKYCInspector: React.FC = () => {
                 <div className="flex items-center space-x-3 w-full sm:w-auto justify-end">
                   <button
                     onClick={() => setShowRejectModal(true)}
-                    className="px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-xs font-bold transition-all flex items-center space-x-1.5"
+                    disabled={busyAction !== null}
+                    className="px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-xs font-bold transition-all flex items-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <XCircle className="w-4 h-4" />
                     <span>Reject Application</span>
                   </button>
 
                   <button
-                    onClick={() => approveDriver(activeDriver.id)}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-400 transition-all flex items-center space-x-2"
+                    onClick={handleApproveDriver}
+                    disabled={busyAction !== null}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-400 transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ShieldCheck className="w-4.5 h-4.5" />
-                    <span>Approve Driver & Grant Badge</span>
+                    {busyAction === 'driver' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="w-4.5 h-4.5" />
+                    )}
+                    <span>{busyAction === 'driver' ? 'Approving...' : 'Approve Driver & Grant Badge'}</span>
                   </button>
                 </div>
+              </div>
+            )}
+
+            {actionError && (actionError.action === 'doc' || actionError.action === 'driver') && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">
+                {actionError.message}
               </div>
             )}
           </div>
@@ -429,7 +526,8 @@ export const DriverKYCInspector: React.FC = () => {
               </h3>
               <button
                 onClick={() => setShowFlagModal(false)}
-                className="text-slate-400 hover:text-white"
+                disabled={busyAction === 'flag'}
+                className="text-slate-400 hover:text-white disabled:opacity-40"
               >
                 ✕
               </button>
@@ -466,19 +564,28 @@ export const DriverKYCInspector: React.FC = () => {
                 This action flags the document in Supabase Storage and dispatches an immediate push notification to the driver's mobile app.
               </div>
 
+              {actionError?.action === 'flag' && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">
+                  {actionError.message}
+                </div>
+              )}
+
               <div className="flex justify-end space-x-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowFlagModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium"
+                  disabled={busyAction === 'flag'}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 shadow-lg shadow-amber-500/20"
+                  disabled={busyAction === 'flag'}
+                  className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
-                  Confirm & Dispatch Flag
+                  {busyAction === 'flag' && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{busyAction === 'flag' ? 'Dispatching...' : 'Confirm & Dispatch Flag'}</span>
                 </button>
               </div>
             </form>
@@ -497,7 +604,8 @@ export const DriverKYCInspector: React.FC = () => {
               </h3>
               <button
                 onClick={() => setShowRejectModal(false)}
-                className="text-slate-400 hover:text-white"
+                disabled={busyAction === 'reject'}
+                className="text-slate-400 hover:text-white disabled:opacity-40"
               >
                 ✕
               </button>
@@ -514,19 +622,28 @@ export const DriverKYCInspector: React.FC = () => {
                 />
               </div>
 
+              {actionError?.action === 'reject' && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">
+                  {actionError.message}
+                </div>
+              )}
+
               <div className="flex justify-end space-x-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowRejectModal(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium"
+                  disabled={busyAction === 'reject'}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 font-medium disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-500 shadow-lg shadow-red-500/20"
+                  disabled={busyAction === 'reject'}
+                  className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-500 shadow-lg shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
-                  Reject & Update Status
+                  {busyAction === 'reject' && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{busyAction === 'reject' ? 'Rejecting...' : 'Reject & Update Status'}</span>
                 </button>
               </div>
             </form>

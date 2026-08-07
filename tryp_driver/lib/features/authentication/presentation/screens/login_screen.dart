@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:tryp_driver/app/app_variant.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/services/supabase_service.dart';
@@ -73,7 +72,17 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
       }
     } catch (e) {
       _logger.e('Error checking post login role: $e');
-      if (mounted) context.go(Routes.driverHome);
+      if (!mounted) return;
+      await ref.read(authServiceProvider).signOut();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'We could not verify this driver account. Please try again.',
+          ),
+          backgroundColor: TRYPColors.error,
+        ),
+      );
     }
   }
 
@@ -303,24 +312,18 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
                                       );
                                       setState(() => _isLoading = true);
                                       try {
-                                        await ref
+                                        final signedIn = await ref
                                             .read(authServiceProvider)
                                             .signInWithGoogleNative();
                                         if (!mounted) return;
-
-                                        // Ensure profile role is set to driver
-                                        final client = Supabase.instance.client;
-                                        final user = client.auth.currentUser;
-                                        if (user != null) {
-                                          await client.from('profiles').upsert({
-                                            'id': user.id,
-                                            'role': 'driver',
-                                            'updated_at': DateTime.now()
-                                                .toIso8601String(),
-                                          });
+                                        if (!signedIn) {
+                                          setState(() => _isLoading = false);
+                                          return;
                                         }
 
-                                        if (!mounted) return;
+                                        // Never assign a role during login. The
+                                        // post-login profile check rejects
+                                        // passenger accounts without changing them.
                                         await _handlePostLoginRedirect();
                                       } catch (e) {
                                         if (!mounted) return;

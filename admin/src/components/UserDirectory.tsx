@@ -10,6 +10,7 @@ import {
   Edit,
   Trash2,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import type { DriverProfile, PassengerProfile } from '../types/admin';
 
@@ -21,10 +22,19 @@ export const UserDirectory: React.FC = () => {
     toggleUserStatus,
     updateUserProfile,
     deleteUser,
+    promoteUserToAdmin,
+    addNotification,
   } = useAdmin();
 
   const [activeTab, setActiveTab] = useState<'drivers' | 'passengers'>('drivers');
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  // Inline row action pending state (Promote / Suspend / Activate)
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+
+  // Modal submitting state (Edit / Delete / Wallet)
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   // Wallet adjustment modal state
   const [walletModalUser, setWalletModalUser] = useState<{
@@ -83,43 +93,109 @@ export const UserDirectory: React.FC = () => {
     );
   });
 
-  const handleWalletSubmit = (e: React.FormEvent) => {
+  const handleWalletSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!walletModalUser) return;
+    if (!walletModalUser || submitting) return;
     const finalAmount =
       adjustType === 'add' ? Math.abs(adjustAmount) : -Math.abs(adjustAmount);
-    adjustUserWallet(
-      walletModalUser.id,
-      finalAmount,
-      walletModalUser.isDriver,
-      adjustReason
-    );
-    setWalletModalUser(null);
-    setAdjustAmount(100);
+    setSubmitting(true);
+    setModalError(null);
+    try {
+      await adjustUserWallet(
+        walletModalUser.id,
+        finalAmount,
+        walletModalUser.isDriver,
+        adjustReason
+      );
+      setWalletModalUser(null);
+      setAdjustAmount(100);
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : 'Wallet adjustment failed');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editModalUser) return;
-    await updateUserProfile(editModalUser.id, editModalUser.isDriver, {
-      fullName: editModalUser.fullName,
-      phone: editModalUser.phone,
-      vehicleMake: editModalUser.vehicleMake,
-      vehicleModel: editModalUser.vehicleModel,
-      vehicleYear: editModalUser.vehicleYear,
-      vehiclePlate: editModalUser.vehiclePlate,
-      vehicleColor: editModalUser.vehicleColor,
-      operatingCity: editModalUser.operatingCity,
-      rating: editModalUser.rating,
-    });
-    setEditModalUser(null);
+    if (!editModalUser || submitting) return;
+    setSubmitting(true);
+    setModalError(null);
+    try {
+      await updateUserProfile(editModalUser.id, editModalUser.isDriver, {
+        fullName: editModalUser.fullName,
+        phone: editModalUser.phone,
+        vehicleMake: editModalUser.vehicleMake,
+        vehicleModel: editModalUser.vehicleModel,
+        vehicleYear: editModalUser.vehicleYear,
+        vehiclePlate: editModalUser.vehiclePlate,
+        vehicleColor: editModalUser.vehicleColor,
+        operatingCity: editModalUser.operatingCity,
+        rating: editModalUser.rating,
+      });
+      setEditModalUser(null);
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : 'Failed to save profile changes');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDeleteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!deleteModalUser) return;
-    await deleteUser(deleteModalUser.id, deleteModalUser.isDriver);
-    setDeleteModalUser(null);
+    if (!deleteModalUser || submitting) return;
+    setSubmitting(true);
+    setModalError(null);
+    try {
+      await deleteUser(deleteModalUser.id, deleteModalUser.isDriver);
+      setDeleteModalUser(null);
+    } catch (err) {
+      setModalError(err instanceof Error ? err.message : 'Failed to delete user');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePromote = async (userId: string) => {
+    if (pendingIds.has(userId)) return;
+    setPendingIds((prev) => new Set(prev).add(userId));
+    try {
+      await promoteUserToAdmin(userId);
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Promotion Failed',
+        message: err instanceof Error ? err.message : 'Failed to promote user to admin.',
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
+  };
+
+  const handleToggleStatus = async (userId: string, isDriver: boolean) => {
+    if (pendingIds.has(userId)) return;
+    setPendingIds((prev) => new Set(prev).add(userId));
+    try {
+      await toggleUserStatus(userId, isDriver);
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Status Update Failed',
+        message: err instanceof Error ? err.message : 'Failed to update account status.',
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
   };
 
   return (
@@ -242,14 +318,19 @@ export const UserDirectory: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-right space-x-1.5">
                     <button
-                      onClick={() => promoteUserToAdmin(drv.id)}
+                      onClick={() => handlePromote(drv.id)}
+                      disabled={pendingIds.has(drv.id)}
                       title="Promote to Admin"
-                      className="px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/40 text-[11px] font-semibold"
+                      className="px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/40 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                     >
-                      Promote
+                      {pendingIds.has(drv.id) ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : null}
+                      <span>Promote</span>
                     </button>
                     <button
-                      onClick={() =>
+                      onClick={() => {
+                        setModalError(null);
                         setEditModalUser({
                           id: drv.id,
 
@@ -264,8 +345,8 @@ export const UserDirectory: React.FC = () => {
                             vehicleColor: drv.vehicleColor,
                             operatingCity: drv.operatingCity,
                             rating: drv.rating,
-                          })
-                        }
+                          });
+                        }}
                         title="Edit Driver Profile"
                         className="px-2 py-1 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/40 text-[11px] font-semibold"
                       >
@@ -273,36 +354,42 @@ export const UserDirectory: React.FC = () => {
                         Edit
                       </button>
                       <button
-                        onClick={() =>
+                        onClick={() => {
+                          setModalError(null);
                           setWalletModalUser({
                             id: drv.id,
                             name: drv.fullName,
                             isDriver: true,
                             currentBalance: drv.walletBalance,
-                          })
-                        }
+                          });
+                        }}
                         className="px-2 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/40 text-[11px] font-semibold"
                       >
                         Wallet
                       </button>
                       <button
-                        onClick={() => toggleUserStatus(drv.id, true)}
-                        className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors border ${
+                        onClick={() => handleToggleStatus(drv.id, true)}
+                        disabled={pendingIds.has(drv.id)}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors border flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                           drv.driverStatus === 'approved'
                             ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
                             : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
                         }`}
                       >
-                        {drv.driverStatus === 'approved' ? 'Suspend' : 'Activate'}
+                        {pendingIds.has(drv.id) ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : null}
+                        <span>{drv.driverStatus === 'approved' ? 'Suspend' : 'Activate'}</span>
                       </button>
                       <button
-                        onClick={() =>
+                        onClick={() => {
+                          setModalError(null);
                           setDeleteModalUser({
                             id: drv.id,
                             name: drv.fullName,
                             isDriver: true,
-                          })
-                        }
+                          });
+                        }}
                         title="Delete User Account"
                         className="p-1 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
                       >
@@ -379,14 +466,19 @@ export const UserDirectory: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-right space-x-1.5">
                       <button
-                        onClick={() => promoteUserToAdmin(pas.id)}
+                        onClick={() => handlePromote(pas.id)}
+                        disabled={pendingIds.has(pas.id)}
                         title="Promote to Admin"
-                        className="px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/40 text-[11px] font-semibold"
+                        className="px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/40 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                       >
-                        Promote
+                        {pendingIds.has(pas.id) ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : null}
+                        <span>Promote</span>
                       </button>
                       <button
-                        onClick={() =>
+                        onClick={() => {
+                          setModalError(null);
                           setEditModalUser({
                             id: pas.id,
                             fullName: pas.fullName,
@@ -394,8 +486,8 @@ export const UserDirectory: React.FC = () => {
                             email: pas.email,
                             isDriver: false,
                             rating: pas.rating,
-                          })
-                        }
+                          });
+                        }}
                         title="Edit Passenger Profile"
                         className="px-2 py-1 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/40 text-[11px] font-semibold"
                       >
@@ -403,36 +495,42 @@ export const UserDirectory: React.FC = () => {
                         Edit
                       </button>
                       <button
-                        onClick={() =>
+                        onClick={() => {
+                          setModalError(null);
                           setWalletModalUser({
                             id: pas.id,
                             name: pas.fullName,
                             isDriver: false,
                             currentBalance: pas.walletBalance,
-                          })
-                        }
+                          });
+                        }}
                         className="px-2 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/40 text-[11px] font-semibold"
                       >
                         Wallet
                       </button>
                       <button
-                        onClick={() => toggleUserStatus(pas.id, false)}
-                        className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors border ${
+                        onClick={() => handleToggleStatus(pas.id, false)}
+                        disabled={pendingIds.has(pas.id)}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors border flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                           pas.status === 'active'
                             ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
                             : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
                         }`}
                       >
-                        {pas.status === 'active' ? 'Suspend' : 'Activate'}
+                        {pendingIds.has(pas.id) ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : null}
+                        <span>{pas.status === 'active' ? 'Suspend' : 'Activate'}</span>
                       </button>
                       <button
-                        onClick={() =>
+                        onClick={() => {
+                          setModalError(null);
                           setDeleteModalUser({
                             id: pas.id,
                             name: pas.fullName,
                             isDriver: false,
-                          })
-                        }
+                          });
+                        }}
                         title="Delete User Account"
                         className="p-1 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
                       >
@@ -458,7 +556,8 @@ export const UserDirectory: React.FC = () => {
               </h3>
               <button
                 onClick={() => setEditModalUser(null)}
-                className="text-slate-400 hover:text-white"
+                disabled={submitting}
+                className="text-slate-400 hover:text-white disabled:opacity-40"
               >
                 ✕
               </button>
@@ -566,19 +665,28 @@ export const UserDirectory: React.FC = () => {
                 />
               </div>
 
+              {modalError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">
+                  {modalError}
+                </div>
+              )}
+
               <div className="flex justify-end space-x-3 pt-3 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setEditModalUser(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-500/20"
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
-                  Save Profile Changes
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{submitting ? 'Saving...' : 'Save Profile Changes'}</span>
                 </button>
               </div>
             </form>
@@ -601,19 +709,28 @@ export const UserDirectory: React.FC = () => {
               Are you sure you want to delete <strong className="text-white">{deleteModalUser.name}</strong> from the database? This action will remove their profile record and cannot be undone.
             </p>
 
+            {modalError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">
+                {modalError}
+              </div>
+            )}
+
             <form onSubmit={handleDeleteSubmit} className="flex justify-end space-x-3 pt-2">
               <button
                 type="button"
                 onClick={() => setDeleteModalUser(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs"
+                disabled={submitting}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg shadow-red-500/20"
+                disabled={submitting}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                Confirm Delete
+                {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{submitting ? 'Deleting...' : 'Confirm Delete'}</span>
               </button>
             </form>
           </div>
@@ -629,7 +746,11 @@ export const UserDirectory: React.FC = () => {
                 <Wallet className="w-5 h-5 text-emerald-400" />
                 <span>Adjust User Wallet Balance</span>
               </h3>
-              <button onClick={() => setWalletModalUser(null)} className="text-slate-400 hover:text-white">
+              <button
+                onClick={() => setWalletModalUser(null)}
+                disabled={submitting}
+                className="text-slate-400 hover:text-white disabled:opacity-40"
+              >
                 ✕
               </button>
             </div>
@@ -697,19 +818,28 @@ export const UserDirectory: React.FC = () => {
                 />
               </div>
 
+              {modalError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">
+                  {modalError}
+                </div>
+              )}
+
               <div className="flex justify-end space-x-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setWalletModalUser(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300"
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-500 shadow-lg shadow-emerald-500/20"
+                  disabled={submitting}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-500 shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
-                  Execute Balance Adjustment
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{submitting ? 'Adjusting...' : 'Execute Balance Adjustment'}</span>
                 </button>
               </div>
             </form>

@@ -23,7 +23,7 @@ class _PassengerProfileSetupScreenState
   final _workAddressController = TextEditingController();
   final _emergencyNameController = TextEditingController();
   final _emergencyPhoneController = TextEditingController();
-  
+
   String _preferredPayment = 'Cash';
   bool _isLoading = false;
   int _currentStep = 0;
@@ -75,6 +75,7 @@ class _PassengerProfileSetupScreenState
           'emergency_contact_name': _emergencyNameController.text.trim(),
           'emergency_contact_phone': _emergencyPhoneController.text.trim(),
           'preferred_payment': _preferredPayment,
+          'onboarding_completed': true,
           'updated_at': DateTime.now().toIso8601String(),
         });
       }
@@ -96,12 +97,15 @@ class _PassengerProfileSetupScreenState
         backgroundColor: TRYPColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: TRYPColors.secondary),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: TRYPColors.secondary,
+          ),
           onPressed: () {
             if (_currentStep > 0) {
               setState(() => _currentStep--);
             } else {
-              context.go(Routes.roleSelection);
+              context.go(Routes.onboarding);
             }
           },
         ),
@@ -123,14 +127,29 @@ class _PassengerProfileSetupScreenState
             children: [
               // Step Progress Indicator
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
-                    _StepIndicator(step: 0, currentStep: _currentStep, label: 'Personal'),
+                    _StepIndicator(
+                      step: 0,
+                      currentStep: _currentStep,
+                      label: 'Personal',
+                    ),
                     const Expanded(child: Divider(thickness: 2, height: 1)),
-                    _StepIndicator(step: 1, currentStep: _currentStep, label: 'Places'),
+                    _StepIndicator(
+                      step: 1,
+                      currentStep: _currentStep,
+                      label: 'Places',
+                    ),
                     const Expanded(child: Divider(thickness: 2, height: 1)),
-                    _StepIndicator(step: 2, currentStep: _currentStep, label: 'Safety'),
+                    _StepIndicator(
+                      step: 2,
+                      currentStep: _currentStep,
+                      label: 'Safety',
+                    ),
                   ],
                 ),
               ),
@@ -149,7 +168,9 @@ class _PassengerProfileSetupScreenState
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: PrimaryButton(
-                  label: _currentStep == 2 ? 'Finish & Start Riding' : 'Continue',
+                  label: _currentStep == 2
+                      ? 'Finish & Start Riding'
+                      : 'Continue',
                   onPressed: () {
                     if (_currentStep < 2) {
                       if (_formKey.currentState!.validate()) {
@@ -192,7 +213,8 @@ class _PassengerProfileSetupScreenState
               hint: 'e.g. Thandi Mokoena',
               controller: _nameController,
               prefixIcon: Icons.person_outline_rounded,
-              validator: (v) => (v == null || v.isEmpty) ? 'Full name is required' : null,
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? 'Full name is required' : null,
             ),
             const SizedBox(height: 16),
             CustomTextField(
@@ -201,13 +223,11 @@ class _PassengerProfileSetupScreenState
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               prefixIcon: Icons.phone_outlined,
-              validator: (v) => (v == null || v.isEmpty) ? 'Phone number is required' : null,
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? 'Phone number is required' : null,
             ),
             const SizedBox(height: 20),
-            Text(
-              'Preferred Payment Method',
-              style: TRYPTypography.labelLarge,
-            ),
+            Text('Preferred Payment Method', style: TRYPTypography.labelLarge),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -359,7 +379,9 @@ class _PaymentChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: selected ? TRYPColors.primary.withValues(alpha: 0.2) : TRYPColors.lightGrey,
+            color: selected
+                ? TRYPColors.primary.withValues(alpha: 0.2)
+                : TRYPColors.lightGrey,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: selected ? TRYPColors.primary : Colors.transparent,

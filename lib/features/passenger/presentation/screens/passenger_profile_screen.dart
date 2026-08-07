@@ -669,107 +669,6 @@ class _PassengerProfileScreenState
 
                       const SizedBox(height: 24),
 
-                      // Become a Driver Promo Banner
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [TRYPColors.dark, TRYPColors.primary],
-                          ),
-                          borderRadius: BorderRadius.circular(22),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 16,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: TRYPColors.primary,
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: const Icon(
-                                    Icons.time_to_leave_rounded,
-                                    color: TRYPColors.secondary,
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Become a TRYP Driver',
-                                        style: TRYPTypography.headingSmall
-                                            .copyWith(
-                                              color: TRYPColors.white,
-                                              fontSize: 17,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Earn daily with flexible hours',
-                                        style: TRYPTypography.bodySmall
-                                            .copyWith(
-                                              color: TRYPColors.primary,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            Text(
-                              'Drive on your own schedule. Keep your earnings and get payouts directly to your bank.',
-                              style: TRYPTypography.bodySmall.copyWith(
-                                color: TRYPColors.grey,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: () =>
-                                    context.go(Routes.driverOnboarding),
-                                icon: const Icon(
-                                  Icons.arrow_forward_rounded,
-                                  size: 18,
-                                ),
-                                label: const Text('Start Driver Onboarding'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: TRYPColors.primary,
-                                  foregroundColor: TRYPColors.secondary,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  textStyle: TRYPTypography.labelLarge.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
                       // Test Push Notification
                       ListTile(
                         tileColor: TRYPColors.lightGrey,
@@ -791,23 +690,6 @@ class _PassengerProfileScreenState
                       const SizedBox(height: 10),
 
                       // Quick Shortcuts
-                      ListTile(
-                        tileColor: TRYPColors.lightGrey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        leading: const Icon(
-                          Icons.directions_car_filled_rounded,
-                          color: TRYPColors.primary,
-                        ),
-                        title: const Text('Become a Driver / Switch Role'),
-                        trailing: const Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 14,
-                        ),
-                        onTap: () => context.go(Routes.driverOnboarding),
-                      ),
-                      const SizedBox(height: 10),
                       ListTile(
                         tileColor: TRYPColors.lightGrey,
                         shape: RoundedRectangleBorder(

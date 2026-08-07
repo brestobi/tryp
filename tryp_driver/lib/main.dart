@@ -15,6 +15,7 @@ void main() async {
 }
 
 Future<void> _runBootstrap(AppVariant variant) async {
+  currentAppVariant = variant;
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
 

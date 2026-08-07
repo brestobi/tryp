@@ -9,6 +9,9 @@ import 'package:tryp_driver/core/widgets/common_widgets.dart';
 import 'package:tryp_driver/core/utils/validators.dart';
 
 /// Forgot Password Screen — Bolt-style: white bg, icon badge, flat input, pill CTA
+/// Native deep-link target registered by the driver app on Android and iOS.
+const String driverPasswordRecoveryRedirect = 'io.tryp.driver://auth-callback';
+
 class ForgotPasswordScreenPage extends ConsumerStatefulWidget {
   const ForgotPasswordScreenPage({super.key});
 
@@ -36,7 +39,10 @@ class _ForgotPasswordScreenPageState
     setState(() => _isLoading = true);
     try {
       final authService = ref.read(authServiceProvider);
-      await authService.resetPasswordForEmail(_emailController.text.trim());
+      await authService.resetPasswordForEmail(
+        _emailController.text.trim(),
+        redirectTo: driverPasswordRecoveryRedirect,
+      );
       if (!mounted) return;
       setState(() => _emailSent = true);
     } catch (error) {
@@ -65,7 +71,11 @@ class _ForgotPasswordScreenPageState
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: TRYPColors.secondary, size: 24),
+          icon: const Icon(
+            Icons.arrow_back,
+            color: TRYPColors.secondary,
+            size: 24,
+          ),
           onPressed: () => context.go(Routes.login),
         ),
       ),

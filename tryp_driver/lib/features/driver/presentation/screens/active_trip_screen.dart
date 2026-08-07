@@ -26,7 +26,9 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   Timer? _gpsUpdateTimer;
+  Timer? _statusRefreshTimer;
   bool _completionDialogShown = false;
+  bool _statusRefreshInFlight = false;
 
   final TextEditingController _pinController = TextEditingController();
 
@@ -40,6 +42,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
   void dispose() {
     _rideSubscription?.unsubscribe();
     _gpsUpdateTimer?.cancel();
+    _statusRefreshTimer?.cancel();
     _pinController.dispose();
     super.dispose();
   }
@@ -70,8 +73,61 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     });
 
     _subscribeToRideUpdates(trip.id);
+    _startStatusRefreshTimer();
     _buildMapMarkersAndRoute(trip);
     _startGpsUpdates();
+  }
+
+  void _startStatusRefreshTimer() {
+    _statusRefreshTimer?.cancel();
+    _statusRefreshTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => unawaited(_refreshActiveTrip()),
+    );
+  }
+
+  Future<void> _refreshActiveTrip() async {
+    final activeTrip = _activeTrip;
+    if (!mounted || activeTrip == null || _statusRefreshInFlight) return;
+
+    _statusRefreshInFlight = true;
+    try {
+      final updatedTrip = await ref
+          .read(tripServiceProvider)
+          .getTripById(activeTrip.id);
+      if (!mounted || updatedTrip == null || _activeTrip?.id != activeTrip.id) {
+        return;
+      }
+
+      if (updatedTrip.status == TripStatus.cancelled) {
+        _finishCancelledTrip();
+        return;
+      }
+
+      if (updatedTrip.status == TripStatus.completed) {
+        _statusRefreshTimer?.cancel();
+        _gpsUpdateTimer?.cancel();
+        setState(() => _activeTrip = updatedTrip);
+        ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
+        _showCompletionDialog(updatedTrip);
+        return;
+      }
+
+      setState(() => _activeTrip = updatedTrip);
+      ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
+    } finally {
+      _statusRefreshInFlight = false;
+    }
+  }
+
+  void _finishCancelledTrip() {
+    _statusRefreshTimer?.cancel();
+    _gpsUpdateTimer?.cancel();
+    _rideSubscription?.unsubscribe();
+    _rideSubscription = null;
+    _activeTrip = null;
+    ref.read(activeTripStateProvider.notifier).stateTrip = null;
+    if (mounted) context.go(Routes.driverHome);
   }
 
   void _subscribeToRideUpdates(String rideId) {
@@ -84,13 +140,20 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
         final updatedTrip = await ref
             .read(tripServiceProvider)
             .getTripById(rideId);
-        if (updatedTrip == null) return;
+        if (!mounted || updatedTrip == null) return;
         setState(() {
           _activeTrip = updatedTrip;
         });
         ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
 
+        if (updatedTrip.status == TripStatus.cancelled) {
+          _finishCancelledTrip();
+          return;
+        }
+
         if (updatedTrip.status == TripStatus.completed && mounted) {
+          _statusRefreshTimer?.cancel();
+          _gpsUpdateTimer?.cancel();
           _showCompletionDialog(updatedTrip);
         }
       },
@@ -207,6 +270,8 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
       ref.read(activeTripStateProvider.notifier).stateTrip = updated;
 
       if (updated.status == TripStatus.completed) {
+        _statusRefreshTimer?.cancel();
+        _gpsUpdateTimer?.cancel();
         _showCompletionDialog(updated);
       } else if (!asDriverCompletion) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -286,7 +351,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: TRYPColors.primary,
-              foregroundColor: TRYPColors.secondary,
+              foregroundColor: TRYPColors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

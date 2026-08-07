@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/services/document_storage_service.dart';
 import 'package:tryp_driver/core/widgets/common_widgets.dart';
 import 'package:tryp_driver/features/driver/data/repositories/driver_onboarding_repository.dart';
+import 'package:tryp_driver/features/driver/presentation/screens/live_selfie_screen.dart';
+import 'package:tryp_driver/core/utils/validators.dart';
 import 'package:tryp_driver/features/driver/domain/models/driver_onboarding_config.dart';
 
 class DriverOnboardingScreen extends ConsumerStatefulWidget {
   const DriverOnboardingScreen({super.key});
 
   @override
-  ConsumerState<DriverOnboardingScreen> createState() => _DriverOnboardingScreenState();
+  ConsumerState<DriverOnboardingScreen> createState() =>
+      _DriverOnboardingScreenState();
 }
 
-class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen> {
+class _DriverOnboardingScreenState
+    extends ConsumerState<DriverOnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   int _currentStep = 0;
   bool _isSubmitting = false;
@@ -35,7 +40,8 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
   late final TextEditingController _vehicleYearController;
   late final TextEditingController _vehicleColorController;
   late final TextEditingController _vehiclePlateController;
-  String _selectedVehicleCategory = DriverOnboardingConfig.vehicleCategories.first.id;
+  String _selectedVehicleCategory =
+      DriverOnboardingConfig.vehicleCategories.first.id;
 
   // Controllers for Step 3: Bank Payouts
   String _selectedBank = DriverOnboardingConfig.supportedBanks.first.name;
@@ -73,25 +79,38 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
     if (data.fullName.isNotEmpty) _fullNameController.text = data.fullName;
     if (data.phone.isNotEmpty) _phoneController.text = data.phone;
     if (data.idNumber.isNotEmpty) _idNumberController.text = data.idNumber;
-    if (data.licenseNumber.isNotEmpty) _licenseNumberController.text = data.licenseNumber;
-    if (data.operatingCity.isNotEmpty && DriverOnboardingConfig.operatingCities.contains(data.operatingCity)) {
+    if (data.licenseNumber.isNotEmpty)
+      _licenseNumberController.text = data.licenseNumber;
+    if (data.operatingCity.isNotEmpty &&
+        DriverOnboardingConfig.operatingCities.contains(data.operatingCity)) {
       _selectedCity = data.operatingCity;
     }
 
-    if (data.vehicleMake.isNotEmpty) _vehicleMakeController.text = data.vehicleMake;
-    if (data.vehicleModel.isNotEmpty) _vehicleModelController.text = data.vehicleModel;
-    if (data.vehicleYear.isNotEmpty) _vehicleYearController.text = data.vehicleYear;
-    if (data.vehicleColor.isNotEmpty) _vehicleColorController.text = data.vehicleColor;
-    if (data.vehiclePlate.isNotEmpty) _vehiclePlateController.text = data.vehiclePlate;
+    if (data.vehicleMake.isNotEmpty)
+      _vehicleMakeController.text = data.vehicleMake;
+    if (data.vehicleModel.isNotEmpty)
+      _vehicleModelController.text = data.vehicleModel;
+    if (data.vehicleYear.isNotEmpty)
+      _vehicleYearController.text = data.vehicleYear;
+    if (data.vehicleColor.isNotEmpty)
+      _vehicleColorController.text = data.vehicleColor;
+    if (data.vehiclePlate.isNotEmpty)
+      _vehiclePlateController.text = data.vehiclePlate;
     if (data.vehicleCategory.isNotEmpty &&
-        DriverOnboardingConfig.vehicleCategories.any((c) => c.id == data.vehicleCategory)) {
+        DriverOnboardingConfig.vehicleCategories.any(
+          (c) => c.id == data.vehicleCategory,
+        )) {
       _selectedVehicleCategory = data.vehicleCategory;
     }
 
-    if (data.bankName.isNotEmpty && DriverOnboardingConfig.supportedBanks.any((b) => b.name == data.bankName)) {
+    if (data.bankName.isNotEmpty &&
+        DriverOnboardingConfig.supportedBanks.any(
+          (b) => b.name == data.bankName,
+        )) {
       _selectedBank = data.bankName;
     }
-    if (data.bankAccountNumber.isNotEmpty) _accountNumberController.text = data.bankAccountNumber;
+    if (data.bankAccountNumber.isNotEmpty)
+      _accountNumberController.text = data.bankAccountNumber;
     if (data.bankBranchCode.isNotEmpty) {
       _branchCodeController.text = data.bankBranchCode;
     } else {
@@ -101,14 +120,17 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
       );
       _branchCodeController.text = bank.defaultBranchCode;
     }
-    if (data.bankAccountHolder.isNotEmpty) _accountHolderController.text = data.bankAccountHolder;
+    if (data.bankAccountHolder.isNotEmpty)
+      _accountHolderController.text = data.bankAccountHolder;
 
     // Auto-advance step if user has completed earlier steps
     if (data.driverStatus == DriverVerificationStatus.underReview ||
         data.driverStatus == DriverVerificationStatus.approved ||
         data.driverStatus == DriverVerificationStatus.rejected) {
       _currentStep = 4; // Review / Status View
-    } else if (data.isPersonalDetailsComplete && data.isVehicleDetailsComplete && data.isBankDetailsComplete) {
+    } else if (data.isPersonalDetailsComplete &&
+        data.isVehicleDetailsComplete &&
+        data.isBankDetailsComplete) {
       _currentStep = 3; // Documents Step
     }
   }
@@ -166,7 +188,9 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
     if (!state.areAllDocumentsUploaded) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ Please upload all required driver verification documents before submitting.'),
+          content: Text(
+            '⚠️ Please upload all required driver verification documents before submitting.',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -176,7 +200,9 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
     setState(() => _isSubmitting = true);
     try {
       await _saveCurrentStepData();
-      final success = await ref.read(driverOnboardingStateProvider.notifier).submitApplication();
+      final success = await ref
+          .read(driverOnboardingStateProvider.notifier)
+          .submitApplication();
 
       if (!mounted) return;
       if (success) {
@@ -185,14 +211,18 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('🎉 Application submitted successfully for admin review!'),
+            content: Text(
+              '🎉 Application submitted successfully for admin review!',
+            ),
             backgroundColor: Colors.green,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('❌ Submission failed. Please check network connection and try again.'),
+            content: Text(
+              '❌ Submission failed. Please check network connection and try again.',
+            ),
             backgroundColor: TRYPColors.error,
           ),
         );
@@ -204,6 +234,15 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
 
   Future<void> _pickAndUploadDocument(RequiredDocumentType doc) async {
     final storageService = ref.read(documentStorageServiceProvider);
+
+    if (doc.key == 'selfie') {
+      final selfie = await Navigator.of(context).push<XFile>(
+        MaterialPageRoute(builder: (_) => const LiveSelfieScreen()),
+      );
+      if (selfie == null) return;
+      await _uploadSelectedDocument(doc, selfie);
+      return;
+    }
 
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -228,12 +267,20 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
               ),
             ),
             const SizedBox(height: 20),
-            Text('Upload ${doc.title}', style: TRYPTypography.headingMedium.copyWith(fontSize: 18)),
+            Text(
+              'Upload ${doc.title}',
+              style: TRYPTypography.headingMedium.copyWith(fontSize: 18),
+            ),
             const SizedBox(height: 6),
-            Text(doc.requirement, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+            Text(
+              doc.requirement,
+              style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+            ),
             const SizedBox(height: 20),
             ListTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               tileColor: TRYPColors.inputFill,
               leading: Container(
                 padding: const EdgeInsets.all(10),
@@ -241,14 +288,25 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                   color: TRYPColors.primary,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.camera_alt_rounded, color: TRYPColors.secondary, size: 20),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: TRYPColors.secondary,
+                  size: 20,
+                ),
               ),
-              title: Text('Take Photo with Camera', style: TRYPTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
+              title: Text(
+                'Take Photo with Camera',
+                style: TRYPTypography.bodyLarge.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             const SizedBox(height: 10),
             ListTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               tileColor: TRYPColors.inputFill,
               leading: Container(
                 padding: const EdgeInsets.all(10),
@@ -256,9 +314,18 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                   color: TRYPColors.secondary,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.photo_library_rounded, color: TRYPColors.white, size: 20),
+                child: const Icon(
+                  Icons.photo_library_rounded,
+                  color: TRYPColors.white,
+                  size: 20,
+                ),
               ),
-              title: Text('Choose from Photo Gallery', style: TRYPTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
+              title: Text(
+                'Choose from Photo Gallery',
+                style: TRYPTypography.bodyLarge.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             const SizedBox(height: 12),
@@ -272,6 +339,13 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
     final image = await storageService.pickDocumentImage(source: source);
     if (image == null) return;
 
+    await _uploadSelectedDocument(doc, image);
+  }
+
+  Future<void> _uploadSelectedDocument(
+    RequiredDocumentType doc,
+    XFile image,
+  ) async {
     setState(() => _uploadingDocKey = doc.key);
 
     try {
@@ -281,21 +355,16 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
 
       if (!mounted) return;
 
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ ${doc.title} uploaded successfully!'),
-            backgroundColor: Colors.green,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? '${doc.title} uploaded successfully.'
+                : 'Failed to upload ${doc.title}. Please try again.',
           ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Failed to upload ${doc.title}. Please try again.'),
-            backgroundColor: TRYPColors.error,
-          ),
-        );
-      }
+          backgroundColor: success ? Colors.green : TRYPColors.error,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _uploadingDocKey = null);
     }
@@ -320,16 +389,24 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.description_rounded, color: TRYPColors.primary),
+                  const Icon(
+                    Icons.description_rounded,
+                    color: TRYPColors.primary,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       title,
-                      style: TRYPTypography.titleLarge.copyWith(color: TRYPColors.white),
+                      style: TRYPTypography.titleLarge.copyWith(
+                        color: TRYPColors.white,
+                      ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: TRYPColors.white),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: TRYPColors.white,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -347,7 +424,9 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                     height: 260,
                     color: TRYPColors.inputFill,
                     child: const Center(
-                      child: CircularProgressIndicator(color: TRYPColors.primary),
+                      child: CircularProgressIndicator(
+                        color: TRYPColors.primary,
+                      ),
                     ),
                   );
                 },
@@ -356,7 +435,10 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                   width: double.infinity,
                   color: TRYPColors.inputFill,
                   child: const Center(
-                    child: Text('Image preview unavailable', style: TextStyle(color: TRYPColors.grey)),
+                    child: Text(
+                      'Image preview unavailable',
+                      style: TextStyle(color: TRYPColors.grey),
+                    ),
                   ),
                 ),
               ),
@@ -384,18 +466,22 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
             if (_currentStep > 0 && _currentStep < 4) {
               setState(() => _currentStep--);
             } else {
-              context.go(Routes.roleSelection);
+              context.go(Routes.onboarding);
             }
           },
         ),
         title: Text(
           'Driver Verification Onboarding',
-          style: TRYPTypography.headingSmall.copyWith(fontSize: 18, color: TRYPColors.white),
+          style: TRYPTypography.headingSmall.copyWith(
+            fontSize: 18,
+            color: TRYPColors.white,
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: TRYPColors.accent),
-            onPressed: () => ref.read(driverOnboardingStateProvider.notifier).loadData(),
+            icon: const Icon(Icons.refresh_rounded, color: TRYPColors.white),
+            onPressed: () =>
+                ref.read(driverOnboardingStateProvider.notifier).loadData(),
             tooltip: 'Refresh Profile',
           ),
         ],
@@ -405,9 +491,12 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: TRYPColors.primary),
+              CircularProgressIndicator(color: TRYPColors.white),
               SizedBox(height: 16),
-              Text('Loading driver profile & verification details...', style: TextStyle(color: TRYPColors.grey)),
+              Text(
+                'Loading driver profile & verification details...',
+                style: TextStyle(color: TRYPColors.secondaryLight),
+              ),
             ],
           ),
         ),
@@ -417,15 +506,30 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline_rounded, size: 48, color: TRYPColors.error),
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 48,
+                  color: TRYPColors.error,
+                ),
                 const SizedBox(height: 16),
-                Text('Error loading verification state', style: TRYPTypography.headingSmall),
+                Text(
+                  'Error loading verification state',
+                  style: TRYPTypography.headingSmall.copyWith(
+                    color: TRYPColors.white,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Text(err.toString(), textAlign: TextAlign.center, style: const TextStyle(color: TRYPColors.grey)),
+                Text(
+                  err.toString(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: TRYPColors.secondaryLight),
+                ),
                 const SizedBox(height: 20),
                 PrimaryButton(
                   label: 'Retry Loading',
-                  onPressed: () => ref.read(driverOnboardingStateProvider.notifier).loadData(),
+                  onPressed: () => ref
+                      .read(driverOnboardingStateProvider.notifier)
+                      .loadData(),
                 ),
               ],
             ),
@@ -442,16 +546,41 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                   // Step Navigation Header
                   if (_currentStep < 4) ...[
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       child: Row(
                         children: [
-                          _StepDot(step: 0, currentStep: _currentStep, label: 'Personal'),
-                          const Expanded(child: Divider(thickness: 2, height: 1)),
-                          _StepDot(step: 1, currentStep: _currentStep, label: 'Vehicle'),
-                          const Expanded(child: Divider(thickness: 2, height: 1)),
-                          _StepDot(step: 2, currentStep: _currentStep, label: 'Payouts'),
-                          const Expanded(child: Divider(thickness: 2, height: 1)),
-                          _StepDot(step: 3, currentStep: _currentStep, label: 'Documents'),
+                          _StepDot(
+                            step: 0,
+                            currentStep: _currentStep,
+                            label: 'Personal',
+                          ),
+                          const Expanded(
+                            child: Divider(thickness: 2, height: 1),
+                          ),
+                          _StepDot(
+                            step: 1,
+                            currentStep: _currentStep,
+                            label: 'Vehicle',
+                          ),
+                          const Expanded(
+                            child: Divider(thickness: 2, height: 1),
+                          ),
+                          _StepDot(
+                            step: 2,
+                            currentStep: _currentStep,
+                            label: 'Payouts',
+                          ),
+                          const Expanded(
+                            child: Divider(thickness: 2, height: 1),
+                          ),
+                          _StepDot(
+                            step: 3,
+                            currentStep: _currentStep,
+                            label: 'Verify',
+                          ),
                         ],
                       ),
                     ),
@@ -463,7 +592,9 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                       margin: const EdgeInsets.fromLTRB(0, 12, 0, 0),
                       decoration: const BoxDecoration(
                         color: TRYPColors.white,
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(28),
+                        ),
                       ),
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.all(24),
@@ -480,7 +611,9 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                     Padding(
                       padding: const EdgeInsets.all(24),
                       child: PrimaryButton(
-                        label: _currentStep == 3 ? 'Submit Verification Application' : 'Next Step',
+                        label: _currentStep == 3
+                            ? 'Submit Verification Application'
+                            : 'Next Step',
                         isLoading: _isSubmitting,
                         enabled: !_isSubmitting,
                         onPressed: () async {
@@ -526,10 +659,15 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
       key: const ValueKey(0),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Personal & License Info', style: TRYPTypography.headingLarge.copyWith(fontSize: 22)),
+        Text(
+          'Personal & License Info',
+          style: TRYPTypography.headingLarge.copyWith(fontSize: 22),
+        ),
         const SizedBox(height: 4),
-        Text('Enter your identity details for South African driving license verification.',
-            style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey)),
+        Text(
+          'Enter your identity details for South African driving license verification.',
+          style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+        ),
         const SizedBox(height: 24),
 
         CustomTextField(
@@ -537,7 +675,14 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
           hint: 'Enter as shown on SA ID',
           controller: _fullNameController,
           prefixIcon: Icons.person_outline_rounded,
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'Full legal name is required' : null,
+          textCapitalization: TextCapitalization.words,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r"[a-zA-ZÀ-ÿ\s'-]")),
+            LengthLimitingTextInputFormatter(80),
+          ],
+          validator: (v) => (v == null || v.trim().length < 3)
+              ? 'Enter your full legal name'
+              : null,
         ),
         const SizedBox(height: 14),
 
@@ -547,7 +692,13 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
           controller: _phoneController,
           keyboardType: TextInputType.phone,
           prefixIcon: Icons.phone_outlined,
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'Phone number is required' : null,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s().-]')),
+            LengthLimitingTextInputFormatter(16),
+          ],
+          validator: (v) => v == null || !Validators.isValidPhone(v)
+              ? 'Enter a valid phone number'
+              : null,
         ),
         const SizedBox(height: 14),
 
@@ -555,13 +706,16 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
           label: 'SA ID / Passport Number',
           hint: '13-digit SA ID or passport',
           controller: _idNumberController,
-          keyboardType: TextInputType.number,
+          keyboardType: TextInputType.text,
           prefixIcon: Icons.badge_outlined,
-          validator: (v) {
-            if (v == null || v.trim().isEmpty) return 'ID number is required';
-            if (v.trim().length < 6) return 'Invalid ID / Passport number format';
-            return null;
-          },
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+            UpperCaseTextFormatter(),
+            LengthLimitingTextInputFormatter(20),
+          ],
+          validator: (v) => v == null || !Validators.isValidIdOrPassport(v)
+              ? 'Enter a valid 13-digit ID or passport number'
+              : null,
         ),
         const SizedBox(height: 14),
 
@@ -570,7 +724,14 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
           hint: 'PrDP license card number',
           controller: _licenseNumberController,
           prefixIcon: Icons.card_membership_rounded,
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'License permit number is required' : null,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-/]')),
+            UpperCaseTextFormatter(),
+            LengthLimitingTextInputFormatter(20),
+          ],
+          validator: (v) => v == null || !Validators.isValidLicenseNumber(v)
+              ? 'Enter a valid license number'
+              : null,
         ),
         const SizedBox(height: 16),
 
@@ -583,9 +744,18 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
           decoration: InputDecoration(
             fillColor: TRYPColors.lightGrey,
             filled: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
+          validator: (value) => value == null || value.isEmpty
+              ? 'Select an operating area'
+              : null,
           items: DriverOnboardingConfig.operatingCities
               .map((city) => DropdownMenuItem(value: city, child: Text(city)))
               .toList(),
@@ -603,9 +773,15 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
       key: const ValueKey(1),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Vehicle Details', style: TRYPTypography.headingLarge.copyWith(fontSize: 22)),
+        Text(
+          'Vehicle Details',
+          style: TRYPTypography.headingLarge.copyWith(fontSize: 22),
+        ),
         const SizedBox(height: 4),
-        Text('Enter vehicle specs to match with passengers.', style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey)),
+        Text(
+          'Enter vehicle specs to match with passengers.',
+          style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+        ),
         const SizedBox(height: 24),
 
         Row(
@@ -615,7 +791,14 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                 label: 'Make',
                 hint: 'e.g. Toyota',
                 controller: _vehicleMakeController,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Make required' : null,
+                textCapitalization: TextCapitalization.words,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z0-9 &'-]")),
+                  LengthLimitingTextInputFormatter(30),
+                ],
+                validator: (v) => (v == null || v.trim().length < 2)
+                    ? 'Enter vehicle make'
+                    : null,
               ),
             ),
             const SizedBox(width: 12),
@@ -624,7 +807,14 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                 label: 'Model',
                 hint: 'e.g. Corolla Quest',
                 controller: _vehicleModelController,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Model required' : null,
+                textCapitalization: TextCapitalization.words,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z0-9 &'-]")),
+                  LengthLimitingTextInputFormatter(40),
+                ],
+                validator: (v) => (v == null || v.trim().length < 2)
+                    ? 'Enter vehicle model'
+                    : null,
               ),
             ),
           ],
@@ -632,23 +822,45 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
         const SizedBox(height: 14),
 
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: CustomTextField(
+              child: _buildDropdownField<String>(
                 label: 'Year',
-                hint: 'e.g. 2022',
-                controller: _vehicleYearController,
-                keyboardType: TextInputType.number,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Year required' : null,
+                value:
+                    DriverOnboardingConfig.vehicleYears.contains(
+                      _vehicleYearController.text,
+                    )
+                    ? _vehicleYearController.text
+                    : null,
+                items: DriverOnboardingConfig.vehicleYears,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _vehicleYearController.text = value);
+                  }
+                },
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Select year' : null,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: CustomTextField(
+              child: _buildDropdownField<String>(
                 label: 'Color',
-                hint: 'e.g. Silver',
-                controller: _vehicleColorController,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Color required' : null,
+                value:
+                    DriverOnboardingConfig.vehicleColors.contains(
+                      _vehicleColorController.text,
+                    )
+                    ? _vehicleColorController.text
+                    : null,
+                items: DriverOnboardingConfig.vehicleColors,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _vehicleColorController.text = value);
+                  }
+                },
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Select color' : null,
               ),
             ),
           ],
@@ -660,7 +872,14 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
           hint: 'e.g. GP / KZN / CA Registration',
           controller: _vehiclePlateController,
           prefixIcon: Icons.directions_car_filled_rounded,
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'License plate number is required' : null,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s-]')),
+            UpperCaseTextFormatter(),
+            LengthLimitingTextInputFormatter(12),
+          ],
+          validator: (v) => v == null || !Validators.isValidVehiclePlate(v)
+              ? 'Enter a valid license plate'
+              : null,
         ),
         const SizedBox(height: 20),
 
@@ -675,7 +894,9 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isSelected ? TRYPColors.primary.withValues(alpha: 0.08) : TRYPColors.white,
+                color: isSelected
+                    ? TRYPColors.primary.withValues(alpha: 0.08)
+                    : TRYPColors.white,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                   color: isSelected ? TRYPColors.primary : TRYPColors.divider,
@@ -687,12 +908,14 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: isSelected ? TRYPColors.primary : TRYPColors.lightGrey,
+                      color: isSelected
+                          ? TRYPColors.primary
+                          : TRYPColors.lightGrey,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       cat.icon,
-                      color: isSelected ? TRYPColors.secondary : TRYPColors.grey,
+                      color: isSelected ? TRYPColors.white : TRYPColors.grey,
                       size: 22,
                     ),
                   ),
@@ -703,23 +926,39 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                       children: [
                         Row(
                           children: [
-                            Text(cat.name, style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+                            Text(
+                              cat.name,
+                              style: TRYPTypography.titleMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: TRYPColors.lightGrey,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 '${cat.capacity} seats',
-                                style: TRYPTypography.labelSmall.copyWith(fontSize: 10, color: TRYPColors.secondary),
+                                style: TRYPTypography.labelSmall.copyWith(
+                                  fontSize: 10,
+                                  color: TRYPColors.secondary,
+                                ),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Text(cat.description, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+                        Text(
+                          cat.description,
+                          style: TRYPTypography.bodySmall.copyWith(
+                            color: TRYPColors.grey,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -728,7 +967,8 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                     groupValue: _selectedVehicleCategory,
                     activeColor: TRYPColors.secondary,
                     onChanged: (val) {
-                      if (val != null) setState(() => _selectedVehicleCategory = val);
+                      if (val != null)
+                        setState(() => _selectedVehicleCategory = val);
                     },
                   ),
                 ],
@@ -746,26 +986,45 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
       key: const ValueKey(2),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Bank Payout Details', style: TRYPTypography.headingLarge.copyWith(fontSize: 22)),
+        Text(
+          'Bank Payout Details',
+          style: TRYPTypography.headingLarge.copyWith(fontSize: 22),
+        ),
         const SizedBox(height: 4),
-        Text('Receive daily trip earnings directly to your South African bank account.',
-            style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey)),
+        Text(
+          'Receive daily trip earnings directly to your South African bank account.',
+          style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+        ),
         const SizedBox(height: 24),
 
         Text('Select Bank', style: TRYPTypography.labelLarge),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: DriverOnboardingConfig.supportedBanks.any((b) => b.name == _selectedBank)
+          value:
+              DriverOnboardingConfig.supportedBanks.any(
+                (b) => b.name == _selectedBank,
+              )
               ? _selectedBank
               : DriverOnboardingConfig.supportedBanks.first.name,
           decoration: InputDecoration(
             fillColor: TRYPColors.lightGrey,
             filled: true,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
+          validator: (value) =>
+              value == null || value.isEmpty ? 'Select your bank' : null,
           items: DriverOnboardingConfig.supportedBanks
-              .map((bank) => DropdownMenuItem(value: bank.name, child: Text(bank.name)))
+              .map(
+                (bank) =>
+                    DropdownMenuItem(value: bank.name, child: Text(bank.name)),
+              )
               .toList(),
           onChanged: (val) {
             if (val != null) {
@@ -786,7 +1045,14 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
           label: 'Account Holder Name',
           hint: 'Full name registered with bank',
           controller: _accountHolderController,
-          validator: (v) => (v == null || v.trim().isEmpty) ? 'Account holder name required' : null,
+          textCapitalization: TextCapitalization.words,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r"[a-zA-ZÀ-ÿ\s'-]")),
+            LengthLimitingTextInputFormatter(80),
+          ],
+          validator: (v) => (v == null || v.trim().length < 3)
+              ? 'Enter the account holder name'
+              : null,
         ),
         const SizedBox(height: 14),
 
@@ -799,7 +1065,14 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                 hint: 'Bank account number',
                 controller: _accountNumberController,
                 keyboardType: TextInputType.number,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Account number required' : null,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(14),
+                ],
+                validator: (v) =>
+                    v == null || !Validators.isValidAccountNumber(v)
+                    ? 'Enter a valid account number'
+                    : null,
               ),
             ),
             const SizedBox(width: 12),
@@ -810,10 +1083,58 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                 hint: 'Branch code',
                 controller: _branchCodeController,
                 keyboardType: TextInputType.number,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
+                validator: (v) => v == null || !Validators.isValidBranchCode(v)
+                    ? 'Use 6 digits'
+                    : null,
               ),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField<T>({
+    required String label,
+    required T? value,
+    required List<T> items,
+    required ValueChanged<T?> onChanged,
+    required String? Function(T?) validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TRYPTypography.labelLarge),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<T>(
+          value: value,
+          isExpanded: true,
+          decoration: InputDecoration(
+            fillColor: TRYPColors.lightGrey,
+            filled: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+          ),
+          items: items
+              .map(
+                (item) => DropdownMenuItem<T>(
+                  value: item,
+                  child: Text(item.toString()),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
+          validator: validator,
         ),
       ],
     );
@@ -825,15 +1146,22 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
       key: const ValueKey(3),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Verification Documents', style: TRYPTypography.headingLarge.copyWith(fontSize: 22)),
+        Text(
+          'Verification Documents',
+          style: TRYPTypography.headingLarge.copyWith(fontSize: 22),
+        ),
         const SizedBox(height: 4),
-        Text('Upload clear photo scans of all required South African transport compliance documents.',
-            style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey)),
+        Text(
+          'Upload clear photo scans of all required South African transport compliance documents.',
+          style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+        ),
         const SizedBox(height: 24),
 
         ...DriverOnboardingConfig.requiredDocuments.map((doc) {
           final url = data.documentUrls[doc.key];
-          final status = data.documentStatuses[doc.key] ?? (url != null ? 'pending' : 'not_uploaded');
+          final status =
+              data.documentStatuses[doc.key] ??
+              (url != null ? 'pending' : 'not_uploaded');
           final isUploadingThis = _uploadingDocKey == doc.key;
           final hasFile = url != null && url.isNotEmpty;
 
@@ -883,35 +1211,68 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                         color: TRYPColors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(doc.icon, color: TRYPColors.secondary, size: 22),
+                      child: Icon(
+                        doc.icon,
+                        color: TRYPColors.secondary,
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(doc.title, style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold)),
+                          Text(
+                            doc.title,
+                            style: TRYPTypography.titleMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           const SizedBox(height: 2),
-                          Text(doc.description, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+                          Text(
+                            doc.description,
+                            style: TRYPTypography.bodySmall.copyWith(
+                              color: TRYPColors.grey,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(100)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusBg,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(statusIcon, size: 12, color: statusFg),
                           const SizedBox(width: 4),
-                          Text(statusLabel, style: TextStyle(color: statusFg, fontSize: 10, fontWeight: FontWeight.bold)),
+                          Text(
+                            statusLabel,
+                            style: TextStyle(
+                              color: statusFg,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(doc.requirement, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.secondary.withValues(alpha: 0.8), fontSize: 11)),
+                Text(
+                  doc.requirement,
+                  style: TRYPTypography.bodySmall.copyWith(
+                    color: TRYPColors.secondary.withValues(alpha: 0.8),
+                    fontSize: 11,
+                  ),
+                ),
                 const SizedBox(height: 16),
 
                 if (isUploadingThis)
@@ -919,9 +1280,22 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: Row(
                       children: [
-                        SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: TRYPColors.secondary)),
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: TRYPColors.secondary,
+                          ),
+                        ),
                         SizedBox(width: 12),
-                        Text('Uploading scan to Supabase Storage...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        Text(
+                          'Uploading scan to Supabase Storage...',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   )
@@ -931,10 +1305,15 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                       if (hasFile) ...[
                         OutlinedButton.icon(
                           onPressed: () => _viewDocumentImage(doc.title, url),
-                          icon: const Icon(Icons.remove_red_eye_rounded, size: 16),
+                          icon: const Icon(
+                            Icons.remove_red_eye_rounded,
+                            size: 16,
+                          ),
                           label: const Text('View'),
                           style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -942,14 +1321,29 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () => _pickAndUploadDocument(doc),
-                          icon: Icon(hasFile ? Icons.refresh_rounded : Icons.file_upload_outlined, size: 16),
-                          label: Text(hasFile ? 'Replace Photo' : 'Upload Document'),
+                          icon: Icon(
+                            hasFile
+                                ? Icons.refresh_rounded
+                                : Icons.file_upload_outlined,
+                            size: 16,
+                          ),
+                          label: Text(
+                            hasFile ? 'Replace Photo' : 'Upload Document',
+                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: hasFile ? TRYPColors.inputFill : TRYPColors.secondary,
-                            foregroundColor: hasFile ? TRYPColors.secondary : TRYPColors.white,
+                            backgroundColor: hasFile
+                                ? TRYPColors.inputFill
+                                : TRYPColors.secondary,
+                            foregroundColor: hasFile
+                                ? TRYPColors.secondary
+                                : TRYPColors.white,
                             elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            textStyle: TRYPTypography.labelMedium.copyWith(fontWeight: FontWeight.bold),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            textStyle: TRYPTypography.labelMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -968,15 +1362,19 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
     final isApproved = data.driverStatus == DriverVerificationStatus.approved;
     final isRejected = data.driverStatus == DriverVerificationStatus.rejected;
 
-    Color badgeBg = isApproved ? Colors.green : (isRejected ? TRYPColors.error : Colors.orange);
+    Color badgeBg = isApproved
+        ? Colors.green
+        : (isRejected ? TRYPColors.error : Colors.orange);
     String statusTitle = isApproved
         ? 'Verification Approved! 🎉'
-        : (isRejected ? 'Application Needs Action' : 'Application Under Review');
+        : (isRejected
+              ? 'Application Needs Action'
+              : 'Application Under Review');
     String statusSubtitle = isApproved
         ? 'Your driver credentials and vehicle documents have been verified. You can now go online and accept ride requests!'
         : (isRejected
-            ? 'Our safety team reviewed your submission and flagged items that need correction before approval.'
-            : 'Your credentials and vehicle documents are currently under review by our TRYP safety team. Verification takes 24–48 hours.');
+              ? 'Our safety team reviewed your submission and flagged items that need correction before approval.'
+              : 'Your credentials and vehicle documents are currently under review by our TRYP safety team. Verification takes 24–48 hours.');
 
     return Column(
       key: const ValueKey(4),
@@ -1001,23 +1399,38 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
             children: [
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: badgeBg.withValues(alpha: 0.2), shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: badgeBg.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(
-                  isApproved ? Icons.verified_user_rounded : (isRejected ? Icons.warning_amber_rounded : Icons.hourglass_empty_rounded),
-                  color: isApproved ? Colors.green : (isRejected ? Colors.red : TRYPColors.primary),
+                  isApproved
+                      ? Icons.verified_user_rounded
+                      : (isRejected
+                            ? Icons.warning_amber_rounded
+                            : Icons.hourglass_empty_rounded),
+                  color: isApproved
+                      ? Colors.green
+                      : (isRejected ? Colors.red : TRYPColors.white),
                   size: 40,
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 statusTitle,
-                style: TRYPTypography.headingMedium.copyWith(color: TRYPColors.white, fontSize: 20),
+                style: TRYPTypography.headingMedium.copyWith(
+                  color: TRYPColors.white,
+                  fontSize: 20,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 statusSubtitle,
-                style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, height: 1.4),
+                style: TRYPTypography.bodySmall.copyWith(
+                  color: TRYPColors.secondaryLight,
+                  height: 1.4,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1027,7 +1440,10 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
         const SizedBox(height: 24),
 
         // Summary Card
-        Text('Application Summary', style: TRYPTypography.headingSmall.copyWith(fontSize: 18)),
+        Text(
+          'Application Summary',
+          style: TRYPTypography.headingSmall.copyWith(fontSize: 18),
+        ),
         const SizedBox(height: 12),
 
         Container(
@@ -1038,13 +1454,18 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
           ),
           child: Column(
             children: [
-              _SummaryRow(label: 'Full Name', value: data.fullName.isEmpty ? 'Not Provided' : data.fullName),
+              _SummaryRow(
+                label: 'Full Name',
+                value: data.fullName.isEmpty ? 'Not Provided' : data.fullName,
+              ),
               const Divider(height: 20),
               _SummaryRow(label: 'Operating Area', value: data.operatingCity),
               const Divider(height: 20),
               _SummaryRow(
                 label: 'Vehicle Specs',
-                value: data.vehicleMake.isEmpty ? 'Not Provided' : '${data.vehicleMake} ${data.vehicleModel} (${data.vehiclePlate})',
+                value: data.vehicleMake.isEmpty
+                    ? 'Not Provided'
+                    : '${data.vehicleMake} ${data.vehicleModel} (${data.vehiclePlate})',
               ),
               const Divider(height: 20),
               _SummaryRow(label: 'Category Tier', value: data.vehicleCategory),
@@ -1074,7 +1495,9 @@ class _DriverOnboardingScreenState extends ConsumerState<DriverOnboardingScreen>
               onPressed: () => context.go(Routes.driverHome),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               child: const Text('Return to Driver Portal'),
             ),
@@ -1090,7 +1513,11 @@ class _StepDot extends StatelessWidget {
   final int currentStep;
   final String label;
 
-  const _StepDot({required this.step, required this.currentStep, required this.label});
+  const _StepDot({
+    required this.step,
+    required this.currentStep,
+    required this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1105,7 +1532,7 @@ class _StepDot extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: isActive ? TRYPColors.primary : TRYPColors.grey,
+              color: isActive ? TRYPColors.white : TRYPColors.grey,
             ),
           ),
         ),
@@ -1113,7 +1540,7 @@ class _StepDot extends StatelessWidget {
         Text(
           label,
           style: TRYPTypography.bodySmall.copyWith(
-            color: isActive ? TRYPColors.primary : TRYPColors.grey,
+            color: isActive ? TRYPColors.white : TRYPColors.grey,
             fontSize: 9,
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
@@ -1134,11 +1561,16 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+        Text(
+          label,
+          style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+        ),
         Flexible(
           child: Text(
             value,
-            style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+            style: TRYPTypography.titleMedium.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
             textAlign: TextAlign.end,
           ),
         ),

@@ -1,7 +1,7 @@
 export type AdminRole = 'super_admin' | 'kyc_officer' | 'fleet_dispatcher' | 'finance_manager';
 
 export type DriverStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'flagged';
-export type DocumentType = 'prdp_license' | 'vehicle_registration' | 'insurance' | 'roadworthiness';
+export type DocumentType = 'prdp_license' | 'vehicle_registration' | 'insurance' | 'roadworthiness' | 'selfie';
 export type DocumentStatus = 'pending' | 'approved' | 'rejected' | 'flagged';
 
 export interface DriverDocument {

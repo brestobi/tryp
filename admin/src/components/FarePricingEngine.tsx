@@ -6,11 +6,12 @@ import {
   Save,
   Calculator,
   Sliders,
-  Zap
+  Zap,
+  Loader2,
 } from 'lucide-react';
 
 export const FarePricingEngine: React.FC = () => {
-  const { fareSchemas, updateFareSchema } = useAdmin();
+  const { fareSchemas, updateFareSchema, addNotification } = useAdmin();
 
   const [selectedSchemaId, setSelectedSchemaId] = useState<string>(fareSchemas[0]?.id || 'schema-go');
   const activeSchema = fareSchemas.find(s => s.id === selectedSchemaId) || fareSchemas[0];
@@ -45,17 +46,31 @@ export const FarePricingEngine: React.FC = () => {
   const platformFee = calculatedFare * (commissionPercentage / 100);
   const driverEarnings = calculatedFare - platformFee;
 
-  const handleSave = (e: React.FormEvent) => {
+  const [saving, setSaving] = useState<boolean>(false);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeSchema) return;
-    updateFareSchema(activeSchema.id, {
-      baseFare,
-      perKmRate,
-      minFare,
-      perMinuteRate,
-      commissionPercentage,
-      surgeMultiplier
-    });
+    if (!activeSchema || saving) return;
+    setSaving(true);
+    try {
+      await updateFareSchema(activeSchema.id, {
+        baseFare,
+        perKmRate,
+        minFare,
+        perMinuteRate,
+        commissionPercentage,
+        surgeMultiplier
+      });
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Fare Schema Save Failed',
+        message: err instanceof Error ? err.message : 'Failed to save fare schema.',
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -212,10 +227,11 @@ export const FarePricingEngine: React.FC = () => {
             <div className="flex justify-end pt-2">
               <button
                 type="submit"
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs shadow-lg shadow-purple-500/20 hover:from-purple-500 hover:to-indigo-500 transition-all flex items-center space-x-2"
+                disabled={saving}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs shadow-lg shadow-purple-500/20 hover:from-purple-500 hover:to-indigo-500 transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="w-4 h-4" />
-                <span>Save Schema Rates to Database</span>
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{saving ? 'Saving...' : 'Save Schema Rates to Database'}</span>
               </button>
             </div>
           </form>

@@ -4,13 +4,15 @@ import {
   CreditCard,
   Download,
   Building2,
-  Search
+  Search,
+  Loader2,
 } from 'lucide-react';
 
 export const FinancialPayouts: React.FC = () => {
-  const { payouts, verifyPayout } = useAdmin();
+  const { payouts, verifyPayout, addNotification } = useAdmin();
 
   const [searchTerm, setSearchTerm] = useState<string>('');
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
   
   // Paystack Auditor lookup state
   const [paystackTxRef, setPaystackTxRef] = useState<string>('pstk_tx_99812401');
@@ -58,6 +60,23 @@ export const FinancialPayouts: React.FC = () => {
       paidAt: new Date().toISOString(),
       customerEmail: 'verified.rider@tryp.co.za'
     });
+  };
+
+  const handleVerifyPayout = async (payoutId: string) => {
+    if (verifyingId === payoutId) return;
+    setVerifyingId(payoutId);
+    try {
+      await verifyPayout(payoutId);
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'Payout Verification Failed',
+        message: err instanceof Error ? err.message : 'Failed to verify payout.',
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setVerifyingId(null);
+    }
   };
 
   const handleExportCSV = () => {
@@ -191,10 +210,14 @@ export const FinancialPayouts: React.FC = () => {
                       <td className="py-3 px-3 text-right">
                         {pay.status === 'pending' ? (
                           <button
-                            onClick={() => verifyPayout(pay.id)}
-                            className="px-3 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 text-xs font-semibold"
+                            onClick={() => handleVerifyPayout(pay.id)}
+                            disabled={verifyingId === pay.id}
+                            className="px-3 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1.5"
                           >
-                            Verify Payout
+                            {verifyingId === pay.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : null}
+                            <span>{verifyingId === pay.id ? 'Verifying...' : 'Verify Payout'}</span>
                           </button>
                         ) : (
                           <span className="text-[10px] text-slate-500 font-mono">✓ Audit Passed</span>

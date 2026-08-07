@@ -63,7 +63,7 @@ class WelcomeScreenPage extends StatelessWidget {
                       child: Text(
                         'DRIVER PARTNER PORTAL',
                         style: TRYPTypography.labelSmall.copyWith(
-                          color: TRYPColors.primary,
+                          color: TRYPColors.white,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
                         ),
@@ -82,7 +82,7 @@ class WelcomeScreenPage extends StatelessWidget {
                     Text(
                       'Earn on your schedule, track live ride requests, and receive automated daily payouts.',
                       style: TRYPTypography.bodyLarge.copyWith(
-                        color: TRYPColors.grey,
+                        color: TRYPColors.secondaryLight,
                         height: 1.5,
                       ),
                     ),
@@ -103,7 +103,7 @@ class WelcomeScreenPage extends StatelessWidget {
                         onPressed: () => context.go(Routes.login),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: TRYPColors.primary,
-                          foregroundColor: TRYPColors.secondary,
+                          foregroundColor: TRYPColors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -111,7 +111,7 @@ class WelcomeScreenPage extends StatelessWidget {
                         child: Text(
                           'Driver Log In',
                           style: TRYPTypography.buttonText.copyWith(
-                            color: TRYPColors.secondary,
+                            color: TRYPColors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),

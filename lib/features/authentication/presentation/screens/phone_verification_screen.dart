@@ -117,7 +117,7 @@ class _PhoneVerificationScreenPageState
       final authService = ref.read(authServiceProvider);
       await authService.verifyOTP(widget.phone, code);
       if (!mounted) return;
-      context.go(Routes.roleSelection);
+      context.go(postVerificationRoute());
     } catch (e) {
       _logger.e('OTP verification failed: $e');
       if (!mounted) return;

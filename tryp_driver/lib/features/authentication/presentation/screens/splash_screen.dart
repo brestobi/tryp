@@ -170,7 +170,9 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                             borderRadius: BorderRadius.circular(26),
                             boxShadow: [
                               BoxShadow(
-                                color: TRYPColors.primary.withValues(alpha: 0.4),
+                                color: TRYPColors.primary.withValues(
+                                  alpha: 0.4,
+                                ),
                                 blurRadius: 28,
                                 offset: const Offset(0, 8),
                               ),
@@ -221,7 +223,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                             width: 6,
                             height: 6,
                             decoration: const BoxDecoration(
-                              color: TRYPColors.primary,
+                              color: TRYPColors.white,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -229,7 +231,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                           Text(
                             'DRIVER CONSOLE',
                             style: TRYPTypography.labelLarge.copyWith(
-                              color: TRYPColors.primary,
+                              color: TRYPColors.white,
                               letterSpacing: 2.0,
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -243,7 +245,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                     Text(
                       AppConstants.appTagline,
                       style: TRYPTypography.bodyMedium.copyWith(
-                        color: TRYPColors.grey,
+                        color: TRYPColors.secondaryLight,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -256,7 +258,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          TRYPColors.primary,
+                          TRYPColors.white,
                         ),
                       ),
                     ),
@@ -275,7 +277,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
               'v${AppConstants.appVersion} • Powered by Supabase & Google Cloud',
               textAlign: TextAlign.center,
               style: TRYPTypography.bodySmall.copyWith(
-                color: TRYPColors.grey.withValues(alpha: 0.6),
+                color: TRYPColors.secondaryLight.withValues(alpha: 0.8),
                 fontSize: 11,
               ),
             ),
@@ -301,7 +303,7 @@ class _DriverRadarPulsePainter extends CustomPainter {
       final opacity = (1.0 - p) * 0.35;
 
       final paint = Paint()
-        ..color = TRYPColors.primary.withValues(alpha: opacity)
+        ..color = TRYPColors.white.withValues(alpha: opacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.8;
 

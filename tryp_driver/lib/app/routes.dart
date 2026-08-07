@@ -14,7 +14,8 @@ class Routes {
   static const String phoneVerification = '/phone-verification';
   static const String emailVerification = '/email-verification';
   static const String forgotPassword = '/forgot-password';
-  static const String roleSelection = '/role-selection';
+  static const String resetPassword = '/reset-password';
+  static const String profileLoadError = '/profile-load-error';
 
   // Passenger
   static const String passengerHome = '/passenger/home';

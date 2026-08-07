@@ -32,28 +32,30 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
     super.dispose();
   }
 
-  Future<void> _handlePostLoginRedirect() async {
+  Future<void> _handlePostLoginRedirect({bool fromGoogle = false}) async {
     final client = Supabase.instance.client;
     final user = client.auth.currentUser;
 
     if (user == null) return;
 
-    // Check if profile exists and has a role
-    final data = await client
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
+    final route = fromGoogle
+        ? await googlePostAuthRoute()
+        : await expectedHomeForCurrentVariant();
+    if (!mounted) return;
 
-    if (data != null && data['role'] != null) {
-      final role = data['role'] as String;
-      if (role == 'driver') {
-        context.go(Routes.driverHome);
-      } else {
-        context.go(Routes.passengerHome);
-      }
+    if (route != null) {
+      context.go(route);
     } else {
-      context.go(Routes.roleSelection);
+      await ref.read(authServiceProvider).signOut();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'This account belongs to the TRYP Driver app. '
+            'Use a passenger account to continue.',
+          ),
+          backgroundColor: TRYPColors.error,
+        ),
+      );
     }
   }
 
@@ -237,11 +239,13 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
                                       );
                                       setState(() => _isLoading = true);
                                       try {
-                                        await ref
+                                        final signedIn = await ref
                                             .read(authServiceProvider)
                                             .signInWithGoogleNative();
-                                        if (!mounted) return;
-                                        await _handlePostLoginRedirect();
+                                        if (!mounted || !signedIn) return;
+                                        await _handlePostLoginRedirect(
+                                          fromGoogle: true,
+                                        );
                                       } catch (e) {
                                         if (!mounted) return;
                                         setState(() => _isLoading = false);

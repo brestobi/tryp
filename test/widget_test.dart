@@ -14,7 +14,7 @@ void main() {
   testWidgets('app boots with the main router', (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
-        child: TRYPApp(),
+        child: const TRYPApp(),
       ),
     );
 

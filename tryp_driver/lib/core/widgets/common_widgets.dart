@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tryp_driver/app/routes.dart';
 import 'package:tryp_driver/app/theme.dart';
@@ -150,40 +151,51 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = isDark ? TRYPColors.white : TRYPColors.primary;
+
     return SizedBox(
       width: width ?? double.infinity,
       height: height,
       child: OutlinedButton(
         onPressed: enabled && !isLoading ? onPressed : null,
         style: OutlinedButton.styleFrom(
-          foregroundColor: TRYPColors.primary,
-          side: const BorderSide(color: TRYPColors.primary, width: 1.2),
+          foregroundColor: foreground,
+          side: BorderSide(color: foreground, width: 1.2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-          textStyle: TRYPTypography.buttonText.copyWith(
-            color: TRYPColors.primary,
-          ),
+          textStyle: TRYPTypography.buttonText.copyWith(color: foreground),
         ),
         child: isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 height: 22,
                 width: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    TRYPColors.secondary,
-                  ),
+                  valueColor: AlwaysStoppedAnimation<Color>(foreground),
                 ),
               )
             : Text(
                 label,
-                style: TRYPTypography.buttonText.copyWith(
-                  color: TRYPColors.primary,
-                ),
+                style: TRYPTypography.buttonText.copyWith(color: foreground),
               ),
       ),
+    );
+  }
+}
+
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return newValue.copyWith(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+      composing: TextRange.empty,
     );
   }
 }
@@ -197,6 +209,8 @@ class CustomTextField extends StatefulWidget {
   final String? hint;
   final TextEditingController? controller;
   final TextInputType keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+  final TextCapitalization textCapitalization;
   final bool obscureText;
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
@@ -219,6 +233,8 @@ class CustomTextField extends StatefulWidget {
     this.hint,
     this.controller,
     this.keyboardType = TextInputType.text,
+    this.inputFormatters,
+    this.textCapitalization = TextCapitalization.none,
     this.obscureText = false,
     this.validator,
     this.onChanged,
@@ -251,6 +267,12 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fieldTextColor = theme.colorScheme.onSurface;
+    final iconColor = theme.brightness == Brightness.dark
+        ? TRYPColors.secondaryLight
+        : TRYPColors.grey;
+
     Widget? suffixWidget;
     if (widget.obscureText) {
       suffixWidget = GestureDetector(
@@ -259,14 +281,14 @@ class _CustomTextFieldState extends State<CustomTextField> {
           _obscureText
               ? Icons.visibility_off_outlined
               : Icons.visibility_outlined,
-          color: TRYPColors.grey,
+          color: iconColor,
           size: 20,
         ),
       );
     } else if (widget.suffixIcon != null) {
       suffixWidget = GestureDetector(
         onTap: widget.onSuffixTap,
-        child: Icon(widget.suffixIcon, color: TRYPColors.grey, size: 20),
+        child: Icon(widget.suffixIcon, color: iconColor, size: 20),
       );
     }
 
@@ -274,12 +296,14 @@ class _CustomTextFieldState extends State<CustomTextField> {
     if (widget.prefixWidget != null) {
       prefixWidget = widget.prefixWidget;
     } else if (widget.prefixIcon != null) {
-      prefixWidget = Icon(widget.prefixIcon, color: TRYPColors.grey, size: 20);
+      prefixWidget = Icon(widget.prefixIcon, color: iconColor, size: 20);
     }
 
     final field = TextFormField(
       controller: widget.controller,
       keyboardType: widget.keyboardType,
+      inputFormatters: widget.inputFormatters,
+      textCapitalization: widget.textCapitalization,
       obscureText: _obscureText,
       validator: widget.validator,
       onChanged: widget.onChanged,
@@ -291,7 +315,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       readOnly: widget.readOnly,
       onTap: widget.onTap,
       focusNode: widget.focusNode,
-      style: TRYPTypography.bodyLarge,
+      style: theme.textTheme.bodyLarge?.copyWith(color: fieldTextColor),
       decoration: InputDecoration(
         hintText: widget.hint,
         prefixIcon: prefixWidget != null
@@ -319,8 +343,8 @@ class _CustomTextFieldState extends State<CustomTextField> {
       children: [
         Text(
           widget.label!,
-          style: TRYPTypography.labelMedium.copyWith(
-            color: TRYPColors.secondary,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: fieldTextColor,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -347,12 +371,18 @@ class LoadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor =
+        Theme.of(context).brightness == Brightness.dark &&
+            color == TRYPColors.secondary
+        ? TRYPColors.white
+        : color;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(color),
+            valueColor: AlwaysStoppedAnimation<Color>(effectiveColor),
             strokeWidth: 2.5,
           ),
           if (message != null) ...[
@@ -360,7 +390,11 @@ class LoadingIndicator extends StatelessWidget {
             Text(
               message!,
               textAlign: TextAlign.center,
-              style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? TRYPColors.secondaryLight
+                    : TRYPColors.grey,
+              ),
             ),
           ],
         ],
@@ -407,15 +441,17 @@ class EmptyState extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               title,
-              style: TRYPTypography.headingSmall,
+              style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
               Text(
                 subtitle!,
-                style: TRYPTypography.bodyMedium.copyWith(
-                  color: TRYPColors.grey,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? TRYPColors.secondaryLight
+                      : TRYPColors.grey,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -508,7 +544,7 @@ class LabeledDivider extends StatelessWidget {
         const Expanded(child: Divider(color: TRYPColors.divider, thickness: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(label, style: TRYPTypography.bodySmall),
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
         ),
         const Expanded(child: Divider(color: TRYPColors.divider, thickness: 1)),
       ],

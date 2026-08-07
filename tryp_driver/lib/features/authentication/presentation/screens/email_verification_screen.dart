@@ -30,9 +30,12 @@ class _EmailVerificationScreenPageState
     extends ConsumerState<EmailVerificationScreenPage> {
   final _logger = Logger();
   
-  // 8 controllers for 8 digits
-  final List<TextEditingController> _controllers = List.generate(8, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(8, (_) => FocusNode());
+  // This app is configured to use eight-digit email verification codes.
+  static const int _codeLength = 8;
+  final List<TextEditingController> _controllers =
+      List.generate(_codeLength, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes =
+      List.generate(_codeLength, (_) => FocusNode());
 
   bool _isVerifying = false;
   bool _isSending = false;
@@ -109,7 +112,7 @@ class _EmailVerificationScreenPageState
 
   Future<void> _verifyCode() async {
     final code = _controllers.map((c) => c.text).join();
-    if (code.length != 8) {
+    if (code.length != _codeLength) {
       setState(() => _errorMessage = 'Please enter a valid 8-digit code.');
       return;
     }
@@ -168,7 +171,7 @@ class _EmailVerificationScreenPageState
               // Custom PIN Input Field
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(8, (index) {
+                children: List.generate(_codeLength, (index) {
                   return SizedBox(
                     width: 35,
                     child: TextFormField(
@@ -187,7 +190,7 @@ class _EmailVerificationScreenPageState
                         contentPadding: EdgeInsets.zero,
                       ),
                       onChanged: (value) {
-                        if (value.isNotEmpty && index < 7) {
+                        if (value.isNotEmpty && index < _codeLength - 1) {
                           _focusNodes[index + 1].requestFocus();
                         } else if (value.isEmpty && index > 0) {
                           _focusNodes[index - 1].requestFocus();

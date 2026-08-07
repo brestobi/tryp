@@ -22,7 +22,7 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
           'Flexible hours, high passenger demand, and transparent earnings delivered straight to your bank account.',
       badgeLabel: 'DAILY PAYOUTS',
       icon: Icons.account_balance_wallet_rounded,
-      accentColor: TRYPColors.primary,
+      accentColor: TRYPColors.white,
     ),
     _DriverSlideData(
       title: 'Instant Dispatch &\nSmart Navigation',
@@ -94,7 +94,7 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
                           Text(
                             'DRIVER PORTAL',
                             style: TRYPTypography.labelSmall.copyWith(
-                              color: TRYPColors.primary,
+                              color: TRYPColors.white,
                               letterSpacing: 1.2,
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
@@ -166,7 +166,9 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
                                   height: 140,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: slide.accentColor.withValues(alpha: 0.12),
+                                    color: slide.accentColor.withValues(
+                                      alpha: 0.12,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -178,7 +180,9 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
                                   height: 120,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: slide.accentColor.withValues(alpha: 0.08),
+                                    color: slide.accentColor.withValues(
+                                      alpha: 0.08,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -190,10 +194,14 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
                                   Container(
                                     padding: const EdgeInsets.all(20),
                                     decoration: BoxDecoration(
-                                      color: slide.accentColor.withValues(alpha: 0.18),
+                                      color: slide.accentColor.withValues(
+                                        alpha: 0.18,
+                                      ),
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: slide.accentColor.withValues(alpha: 0.5),
+                                        color: slide.accentColor.withValues(
+                                          alpha: 0.5,
+                                        ),
                                         width: 1.5,
                                       ),
                                     ),
@@ -216,8 +224,10 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
                                     child: Text(
                                       slide.badgeLabel,
                                       style: TRYPTypography.labelSmall.copyWith(
-                                        color: slide.accentColor == TRYPColors.primary
-                                            ? TRYPColors.secondary
+                                        color:
+                                            slide.accentColor ==
+                                                TRYPColors.white
+                                            ? TRYPColors.dark
                                             : TRYPColors.white,
                                         fontWeight: FontWeight.w900,
                                         letterSpacing: 1.2,
@@ -247,7 +257,7 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
                         Text(
                           slide.subtitle,
                           style: TRYPTypography.bodyLarge.copyWith(
-                            color: TRYPColors.grey,
+                            color: TRYPColors.secondaryLight,
                             height: 1.5,
                             fontSize: 15,
                           ),
@@ -282,7 +292,7 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
                       onPressed: () => context.go(Routes.register),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: TRYPColors.primary,
-                        foregroundColor: TRYPColors.secondary,
+                        foregroundColor: TRYPColors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -294,7 +304,7 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
                           Text(
                             'Register as Driver',
                             style: TRYPTypography.buttonText.copyWith(
-                              color: TRYPColors.secondary,
+                              color: TRYPColors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -303,7 +313,7 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
                           const Icon(
                             Icons.arrow_forward_rounded,
                             size: 20,
-                            color: TRYPColors.secondary,
+                            color: TRYPColors.white,
                           ),
                         ],
                       ),

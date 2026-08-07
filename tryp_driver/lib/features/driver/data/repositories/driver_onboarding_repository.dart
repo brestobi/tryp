@@ -31,10 +31,34 @@ class DriverOnboardingRepository {
           .select()
           .eq('driver_id', user.id);
 
-      final docsList = (docs as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+      final docsList =
+          (docs as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
 
       if (profile != null) {
-        return DriverOnboardingData.fromProfile(profile, docs: docsList);
+        final resolvedProfile = Map<String, dynamic>.from(profile);
+        final resolvedDocs = <Map<String, dynamic>>[];
+        final storage = _storageService;
+
+        for (final docType in DriverOnboardingConfig.requiredDocuments) {
+          final key = docType.key;
+          final rawPath = resolvedProfile['doc_$key'] as String?;
+          final resolvedUrl = await storage.resolveDocumentUrl(rawPath);
+          if (resolvedUrl != null) resolvedProfile['doc_$key'] = resolvedUrl;
+        }
+        for (final doc in docsList) {
+          final resolvedDoc = Map<String, dynamic>.from(doc);
+          final rawDocumentPath = doc['document_url'] as String?;
+          final resolvedDocumentUrl = await storage.resolveDocumentUrl(
+            rawDocumentPath,
+          );
+          resolvedDoc['document_url'] = resolvedDocumentUrl ?? rawDocumentPath;
+          resolvedDocs.add(resolvedDoc);
+        }
+
+        return DriverOnboardingData.fromProfile(
+          resolvedProfile,
+          docs: resolvedDocs,
+        );
       } else {
         // Create initial default data with user metadata prefilled
         final metaName = user.userMetadata?['full_name'] as String? ?? '';
@@ -87,11 +111,13 @@ class DriverOnboardingRepository {
 }
 
 /// Provider for repository
-final driverOnboardingRepositoryProvider = Provider<DriverOnboardingRepository>((ref) {
-  final supabase = ref.watch(supabaseClientProvider);
-  final storageService = ref.watch(documentStorageServiceProvider);
-  return DriverOnboardingRepository(supabase, storageService);
-});
+final driverOnboardingRepositoryProvider = Provider<DriverOnboardingRepository>(
+  (ref) {
+    final supabase = ref.watch(supabaseClientProvider);
+    final storageService = ref.watch(documentStorageServiceProvider);
+    return DriverOnboardingRepository(supabase, storageService);
+  },
+);
 
 /// Riverpod AsyncNotifier for Driver Onboarding Flow
 class DriverOnboardingNotifier extends AsyncNotifier<DriverOnboardingData> {
@@ -219,5 +245,5 @@ class DriverOnboardingNotifier extends AsyncNotifier<DriverOnboardingData> {
 /// Provider for Driver Onboarding State
 final driverOnboardingStateProvider =
     AsyncNotifierProvider<DriverOnboardingNotifier, DriverOnboardingData>(
-  DriverOnboardingNotifier.new,
-);
+      DriverOnboardingNotifier.new,
+    );

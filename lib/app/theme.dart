@@ -122,18 +122,45 @@ class TRYPTypography {
 
 /// TRYP Theme — white canvas, black actions, and quiet gray controls.
 class TRYPTheme {
+  static const ColorScheme lightColorScheme = ColorScheme.light(
+    primary: TRYPColors.primary,
+    onPrimary: TRYPColors.white,
+    secondary: TRYPColors.secondary,
+    onSecondary: TRYPColors.white,
+    surface: TRYPColors.white,
+    onSurface: TRYPColors.dark,
+    error: TRYPColors.error,
+    onError: TRYPColors.white,
+  );
+
+  static const ColorScheme darkColorScheme = ColorScheme.dark(
+    primary: TRYPColors.white,
+    onPrimary: TRYPColors.dark,
+    secondary: TRYPColors.white,
+    onSecondary: TRYPColors.dark,
+    surface: Color(0xFF111111),
+    onSurface: TRYPColors.white,
+    error: TRYPColors.error,
+    onError: TRYPColors.white,
+  );
+
   static ThemeData get lightTheme => ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
-    colorScheme: const ColorScheme.light(
-      primary: TRYPColors.primary,
-      onPrimary: TRYPColors.white,
-      secondary: TRYPColors.secondary,
-      onSecondary: TRYPColors.white,
-      surface: TRYPColors.white,
-      onSurface: TRYPColors.dark,
-      error: TRYPColors.error,
-      onError: TRYPColors.white,
+    colorScheme: lightColorScheme,
+    textTheme: TextTheme(
+      displayLarge: TRYPTypography.headingXL,
+      displayMedium: TRYPTypography.headingLarge,
+      displaySmall: TRYPTypography.headingMedium,
+      headlineSmall: TRYPTypography.headingSmall,
+      titleLarge: TRYPTypography.titleLarge,
+      titleMedium: TRYPTypography.titleMedium,
+      bodyLarge: TRYPTypography.bodyLarge,
+      bodyMedium: TRYPTypography.bodyMedium,
+      bodySmall: TRYPTypography.bodySmall,
+      labelLarge: TRYPTypography.labelLarge,
+      labelMedium: TRYPTypography.labelMedium,
+      labelSmall: TRYPTypography.labelSmall,
     ),
     scaffoldBackgroundColor: TRYPColors.background,
     canvasColor: TRYPColors.background,
@@ -209,8 +236,24 @@ class TRYPTheme {
         borderSide: const BorderSide(color: TRYPColors.error, width: 1.4),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      labelStyle: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+      floatingLabelStyle: TRYPTypography.bodyMedium.copyWith(
+        color: TRYPColors.primary,
+      ),
       hintStyle: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.muted),
       errorStyle: TRYPTypography.bodySmall.copyWith(color: TRYPColors.error),
+      prefixIconColor: TRYPColors.grey,
+      suffixIconColor: TRYPColors.grey,
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: TRYPColors.white,
+      surfaceTintColor: Colors.transparent,
+      titleTextStyle: TRYPTypography.titleLarge,
+      contentTextStyle: TRYPTypography.bodyMedium,
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: TRYPColors.white,
+      surfaceTintColor: Colors.transparent,
     ),
     dividerTheme: const DividerThemeData(
       color: TRYPColors.divider,
@@ -230,15 +273,100 @@ class TRYPTheme {
   static ThemeData get darkTheme => ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    colorScheme: const ColorScheme.dark(
-      primary: TRYPColors.white,
-      onPrimary: TRYPColors.dark,
-      secondary: TRYPColors.white,
-      onSecondary: TRYPColors.dark,
-      surface: Color(0xFF111111),
-      onSurface: TRYPColors.white,
-      error: TRYPColors.error,
+    colorScheme: darkColorScheme,
+    textTheme: TextTheme(
+      displayLarge: TRYPTypography.headingXL.copyWith(color: TRYPColors.white),
+      displayMedium: TRYPTypography.headingLarge.copyWith(
+        color: TRYPColors.white,
+      ),
+      displaySmall: TRYPTypography.headingMedium.copyWith(
+        color: TRYPColors.white,
+      ),
+      headlineSmall: TRYPTypography.headingSmall.copyWith(
+        color: TRYPColors.white,
+      ),
+      titleLarge: TRYPTypography.titleLarge.copyWith(color: TRYPColors.white),
+      titleMedium: TRYPTypography.titleMedium.copyWith(color: TRYPColors.white),
+      bodyLarge: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.white),
+      bodyMedium: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.white),
+      bodySmall: TRYPTypography.bodySmall.copyWith(
+        color: TRYPColors.secondaryLight,
+      ),
+      labelLarge: TRYPTypography.labelLarge.copyWith(color: TRYPColors.white),
+      labelMedium: TRYPTypography.labelMedium.copyWith(color: TRYPColors.white),
+      labelSmall: TRYPTypography.labelSmall.copyWith(
+        color: TRYPColors.secondaryLight,
+      ),
     ),
     scaffoldBackgroundColor: TRYPColors.dark,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: TRYPColors.dark,
+      foregroundColor: TRYPColors.white,
+      elevation: 0,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: TRYPColors.white,
+        foregroundColor: TRYPColors.dark,
+        disabledBackgroundColor: TRYPColors.accent,
+        disabledForegroundColor: TRYPColors.secondaryLight,
+        textStyle: TRYPTypography.buttonText.copyWith(color: TRYPColors.dark),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: TRYPColors.white,
+        side: const BorderSide(color: TRYPColors.white),
+        textStyle: TRYPTypography.buttonText.copyWith(color: TRYPColors.white),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: TRYPColors.secondary,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: TRYPColors.white, width: 1.4),
+      ),
+      labelStyle: TRYPTypography.bodyMedium.copyWith(
+        color: TRYPColors.secondaryLight,
+      ),
+      floatingLabelStyle: TRYPTypography.bodyMedium.copyWith(
+        color: TRYPColors.white,
+      ),
+      hintStyle: TRYPTypography.bodyLarge.copyWith(
+        color: TRYPColors.secondaryLight,
+      ),
+      prefixIconColor: TRYPColors.secondaryLight,
+      suffixIconColor: TRYPColors.secondaryLight,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: TRYPColors.white,
+      contentTextStyle: TRYPTypography.bodyMedium.copyWith(
+        color: TRYPColors.dark,
+      ),
+      behavior: SnackBarBehavior.floating,
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: TRYPColors.secondary,
+      surfaceTintColor: Colors.transparent,
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: TRYPColors.secondary,
+      surfaceTintColor: Colors.transparent,
+      titleTextStyle: TRYPTypography.titleLarge.copyWith(
+        color: TRYPColors.white,
+      ),
+      contentTextStyle: TRYPTypography.bodyMedium.copyWith(
+        color: TRYPColors.white,
+      ),
+    ),
   );
 }

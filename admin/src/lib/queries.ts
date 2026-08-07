@@ -42,6 +42,7 @@ function docTypeLabel(type: string): string {
     vehicle_registration: 'Vehicle Registration Certificate',
     insurance: 'Comprehensive Passenger Insurance',
     roadworthiness: 'Certificate of Roadworthiness',
+    selfie: 'Live Selfie Capture',
   };
   return map[type] ?? type;
 }
@@ -198,9 +199,13 @@ export async function fetchDrivers(): Promise<DriverProfile[]> {
   for (const doc of docRows ?? []) {
     let signedUrl: string | undefined;
     if (doc.document_url) {
-      const parts = doc.document_url.split('/driver-documents/');
-      if (parts.length > 1) {
-        const filePath = parts[1];
+      const marker = '/driver-documents/';
+      if (/^https?:\/\//i.test(doc.document_url) && !doc.document_url.includes(marker)) {
+        signedUrl = doc.document_url;
+      } else {
+        const filePath = doc.document_url.includes(marker)
+          ? doc.document_url.split(marker)[1]
+          : doc.document_url;
         const { data: signedData } = await supabase.storage
           .from('driver-documents')
           .createSignedUrl(filePath, 3600);
@@ -354,32 +359,36 @@ export async function dbAdjustWallet(userId: string, amount: number) {
     delta: amount,
   });
   if (error) {
-    const { data: profile } = await supabase
+    const { data: profile, error: readError } = await supabase
       .from('profiles')
       .select('wallet_balance')
       .eq('id', userId)
       .single();
+    if (readError) throw readError;
     const current = parseFloat(profile?.wallet_balance ?? '0') || 0;
-    await supabase
+    const { error: updateError } = await supabase
       .from('profiles')
       .update({ wallet_balance: current + amount, updated_at: new Date().toISOString() })
       .eq('id', userId);
+    if (updateError) throw updateError;
   }
 }
 
 export async function dbToggleUserStatus(userId: string, isDriver: boolean, currentStatus: string) {
   if (isDriver) {
     const next = currentStatus === 'approved' ? 'rejected' : 'approved';
-    await supabase
+    const { error } = await supabase
       .from('profiles')
       .update({ driver_status: next, updated_at: new Date().toISOString() })
       .eq('id', userId);
+    if (error) throw error;
   } else {
     const next = currentStatus === 'active' ? 'rejected' : 'pending';
-    await supabase
+    const { error } = await supabase
       .from('profiles')
       .update({ driver_status: next, updated_at: new Date().toISOString() })
       .eq('id', userId);
+    if (error) throw error;
   }
 }
 

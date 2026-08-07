@@ -39,31 +39,32 @@ class AuthService {
   Future<void> signInWithGoogle() async {
     try {
       _logger.i('Signing in with Google');
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-      );
+      await _supabase.auth.signInWithOAuth(OAuthProvider.google);
     } catch (e) {
       _logger.e('Google sign in error: $e');
       rethrow;
     }
   }
 
-  /// Sign in with Google (native Android & iOS) using google_sign_in package
-  Future<void> signInWithGoogleNative() async {
+  /// Sign in with Google (native Android & iOS) using google_sign_in package.
+  /// Returns false when the user cancels the provider dialog.
+  Future<bool> signInWithGoogleNative() async {
     try {
       _logger.i('Starting native Google Sign-In');
       // Pass the Web Client ID here
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        serverClientId: '756456562820-7934og3tdvng2gh6nihqhm8do9fakj3s.apps.googleusercontent.com',
+        serverClientId:
+            '756456562820-7934og3tdvng2gh6nihqhm8do9fakj3s.apps.googleusercontent.com',
         scopes: ['email', 'profile'],
       );
-      
+
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         _logger.w('Google Sign-In cancelled by user');
-        return;
+        return false;
       }
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final idToken = googleAuth.idToken;
       final accessToken = googleAuth.accessToken;
       if (idToken == null) {
@@ -75,8 +76,23 @@ class AuthService {
         idToken: idToken,
         accessToken: accessToken,
       );
+      return true;
     } catch (e) {
       _logger.e('Native Google sign in error: $e');
+      rethrow;
+    }
+  }
+
+  /// Claim the driver role for a newly-created Google account.
+  /// Existing passenger profiles are rejected by the database RPC.
+  Future<void> claimDriverRole() async {
+    try {
+      await _supabase.rpc('claim_driver_role');
+    } on PostgrestException catch (error) {
+      _logger.e('Driver role claim failed: ${error.message}');
+      rethrow;
+    } catch (error) {
+      _logger.e('Driver role claim error: $error');
       rethrow;
     }
   }
@@ -90,19 +106,26 @@ class AuthService {
   }) async {
     try {
       _logger.i('Signing up with email: $email');
+      final requestedRole = role == 'driver' ? 'driver' : 'passenger';
+      final metadata = <String, dynamic>{
+        'role': requestedRole,
+        if (fullName != null) 'full_name': fullName,
+      };
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
-        data: fullName != null ? {'full_name': fullName} : null,
+        data: metadata,
       );
 
       final user = response.user ?? response.session?.user;
       if (user == null) {
-        throw AuthException('Sign up failed: missing user session or user data');
+        throw AuthException(
+          'Sign up failed: missing user session or user data',
+        );
       }
 
       // Profile is created automatically by database trigger 'on_auth_user_created'
-      
+
       return response;
     } on AuthException catch (error) {
       _logger.e('Sign up auth error: ${error.message}');
@@ -114,10 +137,7 @@ class AuthService {
   }
 
   /// Sign in with email and password.
-  Future<AuthResponse> signInWithEmail(
-    String email,
-    String password,
-  ) async {
+  Future<AuthResponse> signInWithEmail(String email, String password) async {
     try {
       _logger.i('Signing in with email: $email');
       final response = await _supabase.auth.signInWithPassword(
@@ -155,7 +175,9 @@ class AuthService {
 
       final user = response.user ?? response.session?.user;
       if (user == null) {
-        throw AuthException('Sign up failed: missing user session or user data');
+        throw AuthException(
+          'Sign up failed: missing user session or user data',
+        );
       }
 
       await _supabase.from('profiles').insert({
@@ -175,10 +197,7 @@ class AuthService {
   }
 
   /// Sign in with phone and password.
-  Future<AuthResponse> signInWithPhone(
-    String phone,
-    String password,
-  ) async {
+  Future<AuthResponse> signInWithPhone(String phone, String password) async {
     try {
       _logger.i('Signing in with phone: $phone');
       final response = await _supabase.auth.signInWithPassword(
@@ -219,9 +238,7 @@ class AuthService {
   Future<void> sendEmailOTP(String email) async {
     try {
       _logger.i('Sending OTP to email: $email');
-      await _supabase.auth.signInWithOtp(
-        email: email,
-      );
+      await _supabase.auth.signInWithOtp(email: email);
       _logger.i('Email OTP sent successfully');
     } on AuthException catch (error) {
       _logger.e('Send email OTP auth error: ${error.message}');
@@ -233,10 +250,7 @@ class AuthService {
   }
 
   /// Verify OTP for phone-based auth flows.
-  Future<AuthResponse> verifyOTP(
-    String phone,
-    String otp,
-  ) async {
+  Future<AuthResponse> verifyOTP(String phone, String otp) async {
     try {
       _logger.i('Verifying OTP for phone: $phone');
       final response = await _supabase.auth.verifyOTP(
@@ -246,7 +260,9 @@ class AuthService {
       );
 
       if (response.session == null && response.user == null) {
-        throw AuthException('OTP verification failed: missing session or user data');
+        throw AuthException(
+          'OTP verification failed: missing session or user data',
+        );
       }
 
       return response;
@@ -260,10 +276,7 @@ class AuthService {
   }
 
   /// Verify OTP for email-based auth flows.
-  Future<AuthResponse> verifyEmailOTP(
-    String email,
-    String otp,
-  ) async {
+  Future<AuthResponse> verifyEmailOTP(String email, String otp) async {
     try {
       _logger.i('Verifying OTP for email: $email');
       final response = await _supabase.auth.verifyOTP(
@@ -273,7 +286,9 @@ class AuthService {
       );
 
       if (response.session == null && response.user == null) {
-        throw AuthException('OTP verification failed: missing session or user data');
+        throw AuthException(
+          'OTP verification failed: missing session or user data',
+        );
       }
 
       return response;
@@ -286,17 +301,32 @@ class AuthService {
     }
   }
 
-  /// Send a password reset email.
-  Future<void> resetPasswordForEmail(String email) async {
+  /// Send a password reset email and return to the native recovery callback.
+  Future<void> resetPasswordForEmail(String email, {String? redirectTo}) async {
     try {
       _logger.i('Sending password reset email to: $email');
-      await _supabase.auth.resetPasswordForEmail(email);
+      await _supabase.auth.resetPasswordForEmail(email, redirectTo: redirectTo);
       _logger.i('Password reset email sent');
     } on AuthException catch (error) {
       _logger.e('Password reset auth error: ${error.message}');
       rethrow;
     } catch (error) {
       _logger.e('Password reset error: $error');
+      rethrow;
+    }
+  }
+
+  /// Update the authenticated user's password.
+  Future<void> updatePassword(String password) async {
+    try {
+      _logger.i('Updating password');
+      await _supabase.auth.updateUser(UserAttributes(password: password));
+      _logger.i('Password updated successfully');
+    } on AuthException catch (error) {
+      _logger.e('Password update auth error: ${error.message}');
+      rethrow;
+    } catch (error) {
+      _logger.e('Password update error: $error');
       rethrow;
     }
   }

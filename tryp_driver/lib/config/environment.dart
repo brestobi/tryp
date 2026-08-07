@@ -15,7 +15,7 @@ class Environment {
 
   static const String _defaultGoogleMapsApiKey = String.fromEnvironment(
     'GOOGLE_MAPS_API_KEY',
-    defaultValue: 'your-google-maps-key',
+    defaultValue: '',
   );
 
   static const bool _defaultIsProduction = bool.fromEnvironment(

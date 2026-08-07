@@ -222,6 +222,8 @@ class TripModel {
       passengerAvatar = json['passenger_avatar'] as String?;
     }
 
+    final metadata = json['metadata'];
+
     return TripModel(
       id: json['id'] as String,
       passengerId: json['passenger_id'] as String,
@@ -247,9 +249,7 @@ class TripModel {
       rideType: json['ride_type'] as String? ?? 'TRYP Go',
       paymentMethod: json['payment_method'] as String? ?? 'Cash',
       paymentStatus: json['payment_status'] as String? ?? 'pending',
-      pinCode:
-          (json['metadata'] as Map<String, dynamic>?)?['pin_code'] as String? ??
-          '',
+      pinCode: metadata is Map ? metadata['pin_code']?.toString() ?? '' : '',
       distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 0.0,
       pickupLat: pickupLat,
       pickupLng: pickupLng,
@@ -488,39 +488,12 @@ class TripService {
     if (user == null) return null;
 
     try {
-      // Try atomic RPC function first
-      try {
-        final rpcRes = await _supabase.rpc(
-          'accept_ride',
-          params: {'p_ride_id': rideId},
-        );
-        if (rpcRes != null && rpcRes is Map) {
-          final fullRide = await _supabase
-              .from('rides')
-              .select('*, passenger:passenger_id(*), driver:driver_id(*)')
-              .eq('id', rideId)
-              .single();
-          return TripModel.fromJson(fullRide);
-        }
-      } catch (e) {
-        debugPrint('accept_ride RPC failed, using fallback update: $e');
-      }
+      // Acceptance must stay inside the database RPC. It locks the ride row,
+      // validates the driver's eligibility, and prevents two drivers from
+      // claiming the same request concurrently.
+      await _supabase.rpc('accept_ride', params: {'p_ride_id': rideId});
 
-      // Direct update fallback
-      final response = await _supabase
-          .from('rides')
-          .update({
-            'driver_id': user.id,
-            'status': TripStatus.accepted.toDbString(),
-            'accepted_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', rideId)
-          .eq('status', 'requested')
-          .isFilter('driver_id', null)
-          .select('*, passenger:passenger_id(*), driver:driver_id(*)')
-          .single();
-
-      return TripModel.fromJson(response);
+      return getTripById(rideId);
     } catch (e) {
       debugPrint('Error accepting ride: $e');
       return null;

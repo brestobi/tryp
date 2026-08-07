@@ -7,7 +7,8 @@ import {
   Radio,
   UserCheck,
   XCircle,
-  Filter
+  Filter,
+  Loader2,
 } from 'lucide-react';
 
 // Custom Leaflet Icons using SVG Data URIs
@@ -42,6 +43,13 @@ export const FleetCommandCenter: React.FC = () => {
   const [cancelRideModalId, setCancelRideModalId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState<string>('Dispatcher manual cancellation override');
 
+  // In-flight modal submission state
+  const [busyModal, setBusyModal] = useState<null | 'assign' | 'cancel'>(null);
+  const [modalError, setModalError] = useState<{
+    modal: 'assign' | 'cancel';
+    message: string;
+  } | null>(null);
+
   const filteredRides = rides.filter(r => {
     if (statusFilter !== 'All' && r.status !== statusFilter) return false;
     return true;
@@ -52,20 +60,40 @@ export const FleetCommandCenter: React.FC = () => {
 
   const defaultCenter: [number, number] = [-26.1200, 28.0500]; // Johannesburg / Sandton
 
-  const handleAssignSubmit = (e: React.FormEvent) => {
+  const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (assignRideModalId && selectedAssignDriverId) {
-      assignDriverToRide(assignRideModalId, selectedAssignDriverId);
+    if (!assignRideModalId || !selectedAssignDriverId || busyModal) return;
+    setBusyModal('assign');
+    setModalError(null);
+    try {
+      await assignDriverToRide(assignRideModalId, selectedAssignDriverId);
       setAssignRideModalId(null);
       setSelectedAssignDriverId('');
+    } catch (err) {
+      setModalError({
+        modal: 'assign',
+        message: err instanceof Error ? err.message : 'Failed to assign driver',
+      });
+    } finally {
+      setBusyModal(null);
     }
   };
 
-  const handleCancelSubmit = (e: React.FormEvent) => {
+  const handleCancelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (cancelRideModalId) {
-      cancelRide(cancelRideModalId, cancelReason);
+    if (!cancelRideModalId || busyModal) return;
+    setBusyModal('cancel');
+    setModalError(null);
+    try {
+      await cancelRide(cancelRideModalId, cancelReason);
       setCancelRideModalId(null);
+    } catch (err) {
+      setModalError({
+        modal: 'cancel',
+        message: err instanceof Error ? err.message : 'Failed to cancel ride',
+      });
+    } finally {
+      setBusyModal(null);
     }
   };
 
@@ -451,19 +479,28 @@ export const FleetCommandCenter: React.FC = () => {
                 </select>
               </div>
 
+              {modalError?.modal === 'assign' && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">
+                  {modalError.message}
+                </div>
+              )}
+
               <div className="flex justify-end space-x-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setAssignRideModalId(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  disabled={busyModal === 'assign'}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-500/20"
+                  disabled={busyModal === 'assign'}
+                  className="px-4 py-2 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
-                  Assign & Dispatch Trip
+                  {busyModal === 'assign' && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{busyModal === 'assign' ? 'Assigning...' : 'Assign & Dispatch Trip'}</span>
                 </button>
               </div>
             </form>
@@ -496,19 +533,28 @@ export const FleetCommandCenter: React.FC = () => {
                 />
               </div>
 
+              {modalError?.modal === 'cancel' && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-[11px]">
+                  {modalError.message}
+                </div>
+              )}
+
               <div className="flex justify-end space-x-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setCancelRideModalId(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  disabled={busyModal === 'cancel'}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-500 shadow-lg shadow-red-500/20"
+                  disabled={busyModal === 'cancel'}
+                  className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-500 shadow-lg shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
-                  Confirm Ride Cancellation
+                  {busyModal === 'cancel' && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{busyModal === 'cancel' ? 'Cancelling...' : 'Confirm Ride Cancellation'}</span>
                 </button>
               </div>
             </form>

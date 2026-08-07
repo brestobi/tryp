@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,26 +12,10 @@ class DocumentStorageService {
 
   DocumentStorageService(this._supabase);
 
-  /// Safe bucket check — catches non-admin permissions silently
-  Future<void> ensureBucketExists() async {
-    try {
-      final buckets = await _supabase.storage.listBuckets();
-      final exists = buckets.any((b) => b.name == bucketName);
-      if (!exists) {
-        debugPrint('📦 Creating Supabase Storage Bucket: $bucketName');
-        await _supabase.storage.createBucket(
-          bucketName,
-          const BucketOptions(public: true),
-        );
-      }
-    } catch (e) {
-      // listBuckets may throw 403 for non-admin users, which is expected
-      debugPrint('ℹ️ Supabase bucket check note: $e');
-    }
-  }
-
   /// Pick document image from Camera or Gallery
-  Future<XFile?> pickDocumentImage({ImageSource source = ImageSource.gallery}) async {
+  Future<XFile?> pickDocumentImage({
+    ImageSource source = ImageSource.gallery,
+  }) async {
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
@@ -58,6 +41,8 @@ class DocumentStorageService {
         return 'insurance';
       case 'roadworthiness':
         return 'roadworthiness';
+      case 'selfie':
+        return 'selfie';
       default:
         return docKey;
     }
@@ -65,7 +50,8 @@ class DocumentStorageService {
 
   /// Upload document to Supabase Storage and update profiles & driver_documents tables
   Future<String?> uploadDriverDocument({
-    required String docKey, // e.g. 'prdp', 'vehicle_registration', 'insurance', 'roadworthiness'
+    required String
+    docKey, // e.g. 'prdp', 'vehicle_registration', 'insurance', 'roadworthiness'
     required XFile file,
   }) async {
     final user = _supabase.auth.currentUser;
@@ -75,22 +61,30 @@ class DocumentStorageService {
     }
 
     try {
-      await ensureBucketExists();
-
       final bytes = await file.readAsBytes();
       final rawExt = file.name.split('.').last.toLowerCase();
-      final fileExt = (rawExt == 'png' || rawExt == 'jpg' || rawExt == 'jpeg' || rawExt == 'webp' || rawExt == 'pdf') ? rawExt : 'jpg';
-      final path = 'drivers/${user.id}/${docKey}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final fileExt =
+          (rawExt == 'png' ||
+              rawExt == 'jpg' ||
+              rawExt == 'jpeg' ||
+              rawExt == 'webp' ||
+              rawExt == 'pdf')
+          ? rawExt
+          : 'jpg';
+      final path =
+          'drivers/${user.id}/${docKey}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
       debugPrint('📤 Uploading document to Supabase Storage: $path');
 
       final mimeType = fileExt == 'pdf'
           ? 'application/pdf'
           : fileExt == 'png'
-              ? 'image/png'
-              : 'image/jpeg';
+          ? 'image/png'
+          : 'image/jpeg';
 
-      await _supabase.storage.from(bucketName).uploadBinary(
+      await _supabase.storage
+          .from(bucketName)
+          .uploadBinary(
             path,
             bytes,
             fileOptions: FileOptions(
@@ -100,14 +94,15 @@ class DocumentStorageService {
             ),
           );
 
-      final publicUrl = _supabase.storage.from(bucketName).getPublicUrl(path);
-      debugPrint('✅ Document uploaded successfully. Public URL: $publicUrl');
+      // Store the private storage path, not an expiring URL. The repository
+      // resolves a fresh signed URL whenever onboarding data is loaded.
+      debugPrint('✅ Document uploaded successfully.');
 
       // 1. Update document metadata in user's profile table
       try {
         await _supabase.from('profiles').upsert({
           'id': user.id,
-          'doc_$docKey': publicUrl,
+          'doc_$docKey': path,
           'doc_${docKey}_status': 'pending',
           'updated_at': DateTime.now().toIso8601String(),
         });
@@ -120,26 +115,41 @@ class DocumentStorageService {
       // 2. Insert into driver_documents table for admin inspector view
       final docType = _mapDocKeyToDocType(docKey);
       try {
-        await _supabase.from('driver_documents').upsert(
-          {
-            'driver_id': user.id,
-            'document_type': docType,
-            'document_url': publicUrl,
-            'status': 'pending',
-            'submitted_at': DateTime.now().toIso8601String(),
-          },
-          onConflict: 'driver_id, document_type',
-        );
+        await _supabase.from('driver_documents').upsert({
+          'driver_id': user.id,
+          'document_type': docType,
+          'document_url': path,
+          'status': 'pending',
+          'submitted_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'driver_id, document_type');
         debugPrint('✅ Driver documents table updated/inserted successfully.');
       } catch (e) {
-        debugPrint('❌ Error updating/inserting into driver_documents table: $e');
+        debugPrint(
+          '❌ Error updating/inserting into driver_documents table: $e',
+        );
         rethrow;
       }
 
-      return publicUrl;
+      return path;
     } catch (e, stackTrace) {
       debugPrint('❌ Error uploading document: $e');
       debugPrint('🔍 StackTrace: $stackTrace');
+      return null;
+    }
+  }
+
+  /// Resolve a private storage path to a short-lived URL for display.
+  Future<String?> resolveDocumentUrl(String? pathOrUrl) async {
+    if (pathOrUrl == null || pathOrUrl.isEmpty) return null;
+    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+      return pathOrUrl;
+    }
+    try {
+      return await _supabase.storage
+          .from(bucketName)
+          .createSignedUrl(pathOrUrl, 60 * 60);
+    } catch (e) {
+      debugPrint('Error creating signed document URL: $e');
       return null;
     }
   }

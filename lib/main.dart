@@ -9,11 +9,14 @@ import 'package:tryp/config/environment.dart';
 import 'package:tryp/core/services/push_notification_service.dart';
 import 'package:tryp/firebase_options.dart';
 
-
 void main() async {
+  _runBootstrap();
+}
+
+Future<void> _runBootstrap() async {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
-    
+
     // Load environment variables first
     await Environment.load();
 
@@ -85,8 +88,8 @@ void main() async {
       }
 
       runApp(
-        const ProviderScope(
-          child: TRYPApp(),
+        ProviderScope(
+          child: const TRYPApp(),
         ),
       );
     } catch (error, stack) {
@@ -129,4 +132,3 @@ void main() async {
     debugPrint('Uncaught zoned error: $error\n$stack');
   });
 }
-

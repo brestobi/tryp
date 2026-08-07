@@ -5,14 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/core/services/supabase_service.dart';
 
-enum TripStatus {
-  requested,
-  accepted,
-  arrived,
-  inTrip,
-  completed,
-  cancelled,
-}
+enum TripStatus { requested, accepted, arrived, inTrip, completed, cancelled }
 
 extension TripStatusX on TripStatus {
   String toDbString() {
@@ -98,7 +91,11 @@ class UserProfileModel {
   }
 
   String get vehicleDescription {
-    final parts = [vehicleColor, vehicleMake, vehicleModel].where((p) => p != null && p.isNotEmpty).join(' ');
+    final parts = [
+      vehicleColor,
+      vehicleMake,
+      vehicleModel,
+    ].where((p) => p != null && p.isNotEmpty).join(' ');
     if (parts.isEmpty) return 'TRYP Vehicle';
     if (vehiclePlate != null && vehiclePlate!.isNotEmpty) {
       return '$parts ($vehiclePlate)';
@@ -140,6 +137,8 @@ class TripModel {
   final DateTime? acceptedAt;
   final DateTime? startedAt;
   final DateTime? completedAt;
+  final bool driverCompleted;
+  final bool passengerCompleted;
 
   const TripModel({
     required this.id,
@@ -174,13 +173,15 @@ class TripModel {
     this.acceptedAt,
     this.startedAt,
     this.completedAt,
+    this.driverCompleted = false,
+    this.passengerCompleted = false,
   });
 
   factory TripModel.fromJson(Map<String, dynamic> json) {
     final pickupLat = (json['pickup_lat'] as num?)?.toDouble() ?? 0.0;
     final pickupLng = (json['pickup_lng'] as num?)?.toDouble() ?? 0.0;
-    final destLat   = (json['dest_lat']   as num?)?.toDouble() ?? 0.0;
-    final destLng   = (json['dest_lng']   as num?)?.toDouble() ?? 0.0;
+    final destLat = (json['dest_lat'] as num?)?.toDouble() ?? 0.0;
+    final destLng = (json['dest_lng'] as num?)?.toDouble() ?? 0.0;
 
     String? driverName;
     String? driverPhone;
@@ -193,7 +194,7 @@ class TripModel {
     double? driverLng;
 
     if (json['driver'] != null && json['driver'] is Map) {
-      final d = json['driver'] as Map<String, dynamic>;
+      final d = Map<String, dynamic>.from(json['driver'] as Map);
       driverName = d['full_name'] as String?;
       driverPhone = d['phone'] as String?;
       driverAvatar = d['avatar_url'] as String?;
@@ -211,11 +212,17 @@ class TripModel {
     String? passengerPhone;
     String? passengerAvatar;
     if (json['passenger'] != null && json['passenger'] is Map) {
-      final p = json['passenger'] as Map<String, dynamic>;
+      final p = Map<String, dynamic>.from(json['passenger'] as Map);
       passengerName = p['full_name'] as String?;
       passengerPhone = p['phone'] as String?;
       passengerAvatar = p['avatar_url'] as String?;
+    } else if (json['passenger_name'] != null) {
+      passengerName = json['passenger_name'] as String?;
+      passengerPhone = json['passenger_phone'] as String?;
+      passengerAvatar = json['passenger_avatar'] as String?;
     }
+
+    final metadata = json['metadata'];
 
     return TripModel(
       id: json['id'] as String,
@@ -235,26 +242,42 @@ class TripModel {
       driverLng: driverLng,
       origin: json['origin'] as String? ?? 'Pickup Location',
       destination: json['destination'] as String? ?? 'Destination',
-      status: TripStatusX.fromDbString(json['status'] as String? ?? 'requested'),
+      status: TripStatusX.fromDbString(
+        json['status'] as String? ?? 'requested',
+      ),
       fare: (json['fare'] as num?)?.toDouble() ?? 0.0,
       rideType: json['ride_type'] as String? ?? 'TRYP Go',
       paymentMethod: json['payment_method'] as String? ?? 'Cash',
       paymentStatus: json['payment_status'] as String? ?? 'pending',
-      pinCode: (json['metadata'] as Map<String, dynamic>?)?['pin_code'] as String? ?? '',
+      pinCode: metadata is Map ? metadata['pin_code']?.toString() ?? '' : '',
       distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 0.0,
       pickupLat: pickupLat,
       pickupLng: pickupLng,
       destLat: destLat,
       destLng: destLng,
-      requestedAt: DateTime.tryParse(json['requested_at'] as String? ?? '') ?? DateTime.now(),
-      acceptedAt: json['accepted_at'] != null ? DateTime.tryParse(json['accepted_at'] as String) : null,
-      startedAt: json['started_at'] != null ? DateTime.tryParse(json['started_at'] as String) : null,
-      completedAt: json['completed_at'] != null ? DateTime.tryParse(json['completed_at'] as String) : null,
+      requestedAt:
+          DateTime.tryParse(json['requested_at'] as String? ?? '') ??
+          DateTime.now(),
+      acceptedAt: json['accepted_at'] != null
+          ? DateTime.tryParse(json['accepted_at'] as String)
+          : null,
+      startedAt: json['started_at'] != null
+          ? DateTime.tryParse(json['started_at'] as String)
+          : null,
+      completedAt: json['completed_at'] != null
+          ? DateTime.tryParse(json['completed_at'] as String)
+          : null,
+      driverCompleted: json['driver_completed'] as bool? ?? false,
+      passengerCompleted: json['passenger_completed'] as bool? ?? false,
     );
   }
 
   String get vehicleDescription {
-    final parts = [vehicleColor, vehicleMake, vehicleModel].where((p) => p != null && p.isNotEmpty).join(' ');
+    final parts = [
+      vehicleColor,
+      vehicleMake,
+      vehicleModel,
+    ].where((p) => p != null && p.isNotEmpty).join(' ');
     if (parts.isEmpty) return 'TRYP Vehicle';
     if (vehiclePlate != null && vehiclePlate!.isNotEmpty) {
       return '$parts ($vehiclePlate)';
@@ -295,6 +318,8 @@ class TripModel {
     DateTime? acceptedAt,
     DateTime? startedAt,
     DateTime? completedAt,
+    bool? driverCompleted,
+    bool? passengerCompleted,
   }) {
     return TripModel(
       id: id ?? this.id,
@@ -329,6 +354,8 @@ class TripModel {
       acceptedAt: acceptedAt ?? this.acceptedAt,
       startedAt: startedAt ?? this.startedAt,
       completedAt: completedAt ?? this.completedAt,
+      driverCompleted: driverCompleted ?? this.driverCompleted,
+      passengerCompleted: passengerCompleted ?? this.passengerCompleted,
     );
   }
 }
@@ -346,7 +373,11 @@ class TripService {
   /// Fetch user profile details
   Future<UserProfileModel?> getUserProfile(String userId) async {
     try {
-      final res = await _supabase.from('profiles').select().eq('id', userId).maybeSingle();
+      final res = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
       if (res == null) return null;
       return UserProfileModel.fromJson(res);
     } catch (e) {
@@ -368,7 +399,9 @@ class TripService {
           .order('requested_at', ascending: false);
 
       final list = response as List<dynamic>;
-      return list.map((item) => TripModel.fromJson(item as Map<String, dynamic>)).toList();
+      return list
+          .map((item) => TripModel.fromJson(item as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       debugPrint('Error fetching passenger trips: $e');
       rethrow;
@@ -392,45 +425,60 @@ class TripService {
     if (user == null) {
       throw StateError('requestRide called without an authenticated user.');
     }
-
     final pinCode = _generatePinCode();
-    final payload = {
-      'passenger_id': user.id,
-      'origin': origin,
-      'destination': destination,
-      'status': TripStatus.requested.toDbString(),
-      'fare': fare,
-      'ride_type': rideType,
-      'payment_method': paymentMethod,
-      'payment_status': 'pending',
-      'distance_km': distanceKm,
-      'pickup_lat': pickupLat,
-      'pickup_lng': pickupLng,
-      'dest_lat': destLat,
-      'dest_lng': destLng,
-      'metadata': {'pin_code': pinCode},
-      'requested_at': DateTime.now().toIso8601String(),
-    };
+    final rideId = await _supabase.rpc(
+      'dispatch_ride',
+      params: {
+        'pickup_lat': pickupLat,
+        'pickup_lng': pickupLng,
+        'p_passenger_id': user.id,
+        'p_origin': origin,
+        'p_destination': destination,
+        'dest_lat': destLat,
+        'dest_lng': destLng,
+        'p_ride_type': rideType,
+        'p_fare': fare,
+        'p_payment_method': paymentMethod,
+        'p_distance_km': distanceKm,
+        'p_metadata': {'pin_code': pinCode},
+      },
+    );
 
-    final response = await _supabase.from('rides').insert(payload).select('*, passenger:passenger_id(*)').single();
-    return TripModel.fromJson(response);
+    final trip = await getTripById(rideId as String);
+    if (trip == null)
+      throw StateError('Ride was created but could not be loaded.');
+    return trip;
   }
 
-  /// Fetch open ride requests for online drivers
+  /// Fetch open ride requests that this driver has not declined.
   Future<List<TripModel>> getOpenRideRequests() async {
     try {
       final response = await _supabase
-          .from('rides')
-          .select('*, passenger:passenger_id(*)')
-          .eq('status', 'requested')
-          .isFilter('driver_id', null)
+          .from('available_rides_for_driver')
+          .select()
           .order('requested_at', ascending: false);
 
-      final list = response as List<dynamic>;
-      return list.map((item) => TripModel.fromJson(item as Map<String, dynamic>)).toList();
+      final rides = response as List<dynamic>;
+      return rides
+          .map(
+            (item) =>
+                TripModel.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
+          .toList();
     } catch (e) {
       debugPrint('Error fetching open ride requests: $e');
       return [];
+    }
+  }
+
+  /// Persist a driver's decline so the request is not shown to that driver again.
+  Future<bool> declineRide(String rideId) async {
+    try {
+      await _supabase.rpc('decline_ride', params: {'p_ride_id': rideId});
+      return true;
+    } catch (e) {
+      debugPrint('Error declining ride: $e');
+      return false;
     }
   }
 
@@ -440,36 +488,12 @@ class TripService {
     if (user == null) return null;
 
     try {
-      // Try atomic RPC function first
-      try {
-        final rpcRes = await _supabase.rpc('accept_ride', params: {'p_ride_id': rideId});
-        if (rpcRes != null && rpcRes is Map) {
-          final fullRide = await _supabase
-              .from('rides')
-              .select('*, passenger:passenger_id(*), driver:driver_id(*)')
-              .eq('id', rideId)
-              .single();
-          return TripModel.fromJson(fullRide);
-        }
-      } catch (e) {
-        debugPrint('accept_ride RPC failed, using fallback update: $e');
-      }
+      // Acceptance must stay inside the database RPC. It locks the ride row,
+      // validates the driver's eligibility, and prevents two drivers from
+      // claiming the same request concurrently.
+      await _supabase.rpc('accept_ride', params: {'p_ride_id': rideId});
 
-      // Direct update fallback
-      final response = await _supabase
-          .from('rides')
-          .update({
-            'driver_id': user.id,
-            'status': TripStatus.accepted.toDbString(),
-            'accepted_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', rideId)
-          .eq('status', 'requested')
-          .isFilter('driver_id', null)
-          .select('*, passenger:passenger_id(*), driver:driver_id(*)')
-          .single();
-
-      return TripModel.fromJson(response);
+      return getTripById(rideId);
     } catch (e) {
       debugPrint('Error accepting ride: $e');
       return null;
@@ -487,13 +511,16 @@ class TripService {
     if (user == null) return;
 
     try {
-      await _supabase.from('profiles').update({
-        'current_lat': lat,
-        'current_lng': lng,
-        'heading': heading,
-        'is_online': isOnline,
-        'last_location_update': DateTime.now().toIso8601String(),
-      }).eq('id', user.id);
+      await _supabase
+          .from('profiles')
+          .update({
+            'current_lat': lat,
+            'current_lng': lng,
+            'heading': heading,
+            'is_online': isOnline,
+            'last_location_update': DateTime.now().toIso8601String(),
+          })
+          .eq('id', user.id);
     } catch (e) {
       debugPrint('Error updating driver location: $e');
     }
@@ -505,10 +532,13 @@ class TripService {
     if (user == null) return;
 
     try {
-      await _supabase.from('profiles').update({
-        'is_online': isOnline,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', user.id);
+      await _supabase
+          .from('profiles')
+          .update({
+            'is_online': isOnline,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', user.id);
     } catch (e) {
       debugPrint('Error toggling online status: $e');
     }
@@ -537,6 +567,37 @@ class TripService {
     }
   }
 
+  /// Fetch a ride by ID, including participant/profile data when permitted.
+  ///
+  /// Completed rides may no longer permit reading the counterparty profile
+  /// under the privacy policies. The ride itself is still readable by its
+  /// participants, so fall back to the base ride row for completion screens.
+  Future<TripModel?> getTripById(String rideId) async {
+    try {
+      final response = await _supabase
+          .from('rides')
+          .select('*, passenger:passenger_id(*), driver:driver_id(*)')
+          .eq('id', rideId)
+          .maybeSingle();
+      if (response != null) return TripModel.fromJson(response);
+    } catch (e) {
+      debugPrint('Profile join unavailable for ride $rideId: $e');
+    }
+
+    try {
+      final response = await _supabase
+          .from('rides')
+          .select()
+          .eq('id', rideId)
+          .maybeSingle();
+      if (response == null) return null;
+      return TripModel.fromJson(response);
+    } catch (e) {
+      debugPrint('Error fetching ride $rideId: $e');
+      return null;
+    }
+  }
+
   /// Fetch active trip for current passenger
   Future<TripModel?> getPassengerActiveTrip() async {
     final user = _supabase.auth.currentUser;
@@ -560,35 +621,135 @@ class TripService {
     }
   }
 
-  /// Update trip status (accept, arrived, in_trip, completed, cancelled)
+  /// Update a ride through the backend-enforced status transition rules.
   Future<TripModel?> updateTripStatus({
     required String rideId,
     required TripStatus status,
     String? driverId,
   }) async {
-    final updates = <String, dynamic>{
-      'status': status.toDbString(),
-    };
-
-    if (driverId != null) updates['driver_id'] = driverId;
-    if (status == TripStatus.accepted) updates['accepted_at'] = DateTime.now().toIso8601String();
-    if (status == TripStatus.inTrip) updates['started_at'] = DateTime.now().toIso8601String();
-    if (status == TripStatus.completed) {
-      updates['completed_at'] = DateTime.now().toIso8601String();
-      updates['payment_status'] = 'paid';
-    }
-
     try {
-      final response = await _supabase
-          .from('rides')
-          .update(updates)
-          .eq('id', rideId)
-          .select('*, passenger:passenger_id(*), driver:driver_id(*)')
-          .single();
-      return TripModel.fromJson(response);
+      await _supabase.rpc(
+        'transition_ride_status',
+        params: {'p_ride_id': rideId, 'p_next_status': status.toDbString()},
+      );
+      return getTripById(rideId);
     } catch (e) {
       debugPrint('Error updating trip status: $e');
       return null;
+    }
+  }
+
+  Future<TripModel> _getCompletedTrip(String rideId) async {
+    Object? lastError;
+
+    // The status update and the follow-up read can complete on different
+    // realtime/database paths. Retry the read briefly before reporting failure.
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final trip = await getTripById(rideId);
+        if (trip == null) {
+          throw StateError('Completed ride details were not found.');
+        }
+        if (trip.status != TripStatus.completed) {
+          throw StateError(
+            'The ride status is still ${trip.status.toDbString()}.',
+          );
+        }
+        return trip;
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+        }
+      }
+    }
+
+    throw StateError(
+      'Ride completion was submitted, but the completed ride details could not be loaded: $lastError',
+    );
+  }
+
+  /// Complete an in-progress ride from the assigned driver's account.
+  /// The server rejects passenger completion attempts.
+  Future<TripModel?> completeRide({
+    required String rideId,
+    String actor = 'driver',
+  }) async {
+    try {
+      await _supabase.rpc(
+        'complete_ride',
+        params: {'p_ride_id': rideId, 'p_actor': actor},
+      );
+      return await _getCompletedTrip(rideId);
+    } catch (e) {
+      debugPrint('Error completing ride: $e');
+      rethrow;
+    }
+  }
+
+  /// Submit or update the current user's rating for a completed ride.
+  Future<bool> submitRating({
+    required String rideId,
+    required int rating,
+    String? review,
+  }) async {
+    try {
+      await _supabase.rpc(
+        'submit_ride_rating',
+        params: {'p_ride_id': rideId, 'p_rating': rating, 'p_review': review},
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Error submitting ride rating: $e');
+      return false;
+    }
+  }
+
+  /// Update the payment state for a ride through the backend payment guard.
+  Future<bool> setPaymentStatus({
+    required String rideId,
+    required String status,
+    String? reference,
+  }) async {
+    try {
+      await _supabase.rpc(
+        'set_ride_payment_status',
+        params: {
+          'p_ride_id': rideId,
+          'p_status': status,
+          'p_reference': reference,
+        },
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Error updating ride payment status: $e');
+      return false;
+    }
+  }
+
+  /// Report a safety incident for the current ride/user.
+  Future<bool> createSafetyIncident({
+    String? rideId,
+    String incidentType = 'emergency',
+    String? message,
+    double? latitude,
+    double? longitude,
+  }) async {
+    try {
+      await _supabase.rpc(
+        'create_safety_incident',
+        params: {
+          'p_ride_id': rideId,
+          'p_incident_type': incidentType,
+          'p_message': message,
+          'p_latitude': latitude,
+          'p_longitude': longitude,
+        },
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Error creating safety incident: $e');
+      return false;
     }
   }
 
@@ -602,7 +763,9 @@ class TripService {
           .eq('is_online', true);
 
       final list = response as List<dynamic>;
-      return list.map((e) => UserProfileModel.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => UserProfileModel.fromJson(e as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       debugPrint('Error fetching online drivers: $e');
       return [];
@@ -615,22 +778,48 @@ class TripService {
     required void Function(Map<String, dynamic> payload) onUpdate,
   }) {
     final channel = _supabase.channel('public:rides:id=$rideId');
-    channel.onPostgresChanges(
-      event: PostgresChangeEvent.update,
-      schema: 'public',
-      table: 'rides',
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'id',
-        value: rideId,
-      ),
-      callback: (payload) {
-        if (payload.newRecord.isNotEmpty) {
-          onUpdate(payload.newRecord);
-        }
-      },
-    ).subscribe();
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'rides',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: rideId,
+          ),
+          callback: (payload) {
+            if (payload.newRecord.isNotEmpty) {
+              onUpdate(payload.newRecord);
+            }
+          },
+        )
+        .subscribe();
 
+    return channel;
+  }
+
+  /// Realtime stream for the assigned driver's profile/location.
+  RealtimeChannel subscribeToDriverLocation({
+    required String driverId,
+    required void Function(Map<String, dynamic> profile) onUpdate,
+  }) {
+    final channel = _supabase.channel('public:profiles:id=$driverId');
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'profiles',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: driverId,
+          ),
+          callback: (payload) {
+            if (payload.newRecord.isNotEmpty) onUpdate(payload.newRecord);
+          },
+        )
+        .subscribe();
     return channel;
   }
 
@@ -639,14 +828,16 @@ class TripService {
     required void Function() onRideCreatedOrUpdated,
   }) {
     final channel = _supabase.channel('public:rides:pending');
-    channel.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'rides',
-      callback: (payload) {
-        onRideCreatedOrUpdated();
-      },
-    ).subscribe();
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'rides',
+          callback: (payload) {
+            onRideCreatedOrUpdated();
+          },
+        )
+        .subscribe();
 
     return channel;
   }
@@ -657,7 +848,9 @@ final tripServiceProvider = Provider<TripService>((ref) {
   return TripService(supabase);
 });
 
-final passengerTripsProvider = FutureProvider.autoDispose<List<TripModel>>((ref) async {
+final passengerTripsProvider = FutureProvider.autoDispose<List<TripModel>>((
+  ref,
+) async {
   final tripService = ref.watch(tripServiceProvider);
   return tripService.getPassengerTrips();
 });
@@ -669,4 +862,5 @@ class ActiveTripNotifier extends Notifier<TripModel?> {
   set stateTrip(TripModel? trip) => state = trip;
 }
 
-final activeTripStateProvider = NotifierProvider<ActiveTripNotifier, TripModel?>(ActiveTripNotifier.new);
+final activeTripStateProvider =
+    NotifierProvider<ActiveTripNotifier, TripModel?>(ActiveTripNotifier.new);

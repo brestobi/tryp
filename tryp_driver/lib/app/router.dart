@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,6 +12,7 @@ import 'package:tryp_driver/features/authentication/presentation/screens/registe
 import 'package:tryp_driver/features/authentication/presentation/screens/phone_verification_screen.dart';
 import 'package:tryp_driver/features/authentication/presentation/screens/email_verification_screen.dart';
 import 'package:tryp_driver/features/authentication/presentation/screens/forgot_password_screen.dart';
+import 'package:tryp_driver/features/authentication/presentation/screens/reset_password_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_home_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_profile_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_onboarding_screen.dart';
@@ -20,7 +23,9 @@ import 'package:tryp_driver/app/routes.dart';
 
 export 'routes.dart';
 
-GoRouter buildRouter(AppVariant variant) {
+GoRouter buildRouter(AppVariant variant, {DriverRouteGuard? routeGuard}) {
+  final guard =
+      routeGuard ?? DriverRouteGuard(expectedRole: variant.expectedRole);
   final routes = <RouteBase>[
     GoRoute(
       path: Routes.notifications,
@@ -60,6 +65,24 @@ GoRouter buildRouter(AppVariant variant) {
       path: Routes.forgotPassword,
       builder: (context, state) => const ForgotPasswordScreenPage(),
     ),
+    GoRoute(
+      path: Routes.resetPassword,
+      builder: (context, state) => ResetPasswordScreenPage(
+        onCancel: () {
+          guard.clearPasswordRecovery();
+          context.go(Routes.login);
+        },
+      ),
+    ),
+    GoRoute(
+      path: Routes.profileLoadError,
+      builder: (context, state) => ProfileLoadErrorScreen(
+        onRetry: () {
+          guard.retryProfileLoad();
+          context.go(Routes.splash);
+        },
+      ),
+    ),
     // Driver-specific routes
     GoRoute(
       path: Routes.driverHome,
@@ -86,8 +109,175 @@ GoRouter buildRouter(AppVariant variant) {
   return GoRouter(
     initialLocation: Routes.splash,
     debugLogDiagnostics: true,
+    refreshListenable: guard,
+    redirect: (context, state) => guard.redirect(state),
     routes: routes,
     errorBuilder: (context, state) => ErrorScreen(error: state.error),
+  );
+}
+
+/// Cached auth/profile state used by GoRouter to protect driver routes.
+/// Profile loading happens outside the redirect callback so navigation remains
+/// synchronous and does not issue a database query on every route evaluation.
+class DriverRouteGuard extends ChangeNotifier {
+  final String expectedRole;
+  final SupabaseClient _client;
+  late final StreamSubscription<AuthState> _authSubscription;
+
+  Session? _session;
+  String? _role;
+  String? _driverStatus;
+  bool _profileLoaded = false;
+  bool _profileLoading = false;
+  bool _profileLoadFailed = false;
+  bool _passwordRecoveryActive = false;
+
+  DriverRouteGuard({required this.expectedRole, SupabaseClient? client})
+    : _client = client ?? Supabase.instance.client {
+    _session = _client.auth.currentSession;
+    _authSubscription = _client.auth.onAuthStateChange.listen(_handleAuthState);
+    if (_session != null) {
+      unawaited(_loadProfile(_session!.user.id));
+    }
+  }
+
+  bool get _isAuthenticated => _session != null;
+
+  static bool _isPublicRoute(String location) {
+    return location == Routes.splash ||
+        location == Routes.onboarding ||
+        location == Routes.welcome ||
+        location == Routes.login ||
+        location == Routes.register ||
+        location == Routes.phoneVerification ||
+        location == Routes.emailVerification ||
+        location == Routes.forgotPassword ||
+        location == Routes.resetPassword ||
+        location == Routes.profileLoadError;
+  }
+
+  bool get _isApprovedOrUnderReview =>
+      _driverStatus == 'approved' || _driverStatus == 'under_review';
+
+  String? redirect(GoRouterState state) {
+    final location = state.matchedLocation;
+    if (location == Routes.resetPassword) return null;
+    if (_passwordRecoveryActive) return Routes.resetPassword;
+    if (_isPublicRoute(location)) return null;
+
+    if (!_isAuthenticated) return Routes.onboarding;
+    if (!_profileLoaded || _profileLoading) return Routes.splash;
+    if (_profileLoadFailed) return Routes.profileLoadError;
+    if (_role != expectedRole) return Routes.onboarding;
+
+    final requiresApproval =
+        location == Routes.driverHome || location == Routes.activeTrip;
+    if (requiresApproval && !_isApprovedOrUnderReview) {
+      return Routes.driverOnboarding;
+    }
+
+    return null;
+  }
+
+  /// Leave recovery mode when the user cancels the reset flow.
+  void clearPasswordRecovery() {
+    if (!_passwordRecoveryActive) return;
+    _passwordRecoveryActive = false;
+    notifyListeners();
+  }
+
+  void retryProfileLoad() {
+    final userId = _client.auth.currentUser?.id;
+    if (userId != null) unawaited(_loadProfile(userId));
+  }
+
+  void _handleAuthState(AuthState authState) {
+    if (authState.event == AuthChangeEvent.passwordRecovery) {
+      _passwordRecoveryActive = true;
+    } else if (authState.event == AuthChangeEvent.signedOut) {
+      _passwordRecoveryActive = false;
+    }
+
+    _session = authState.session;
+    _role = null;
+    _driverStatus = null;
+    _profileLoaded = _session == null;
+    _profileLoading = false;
+    _profileLoadFailed = false;
+    notifyListeners();
+
+    final userId = _session?.user.id;
+    if (userId != null) unawaited(_loadProfile(userId));
+  }
+
+  Future<void> _loadProfile(String userId) async {
+    if (_profileLoading) return;
+    _profileLoading = true;
+    _profileLoaded = false;
+    _profileLoadFailed = false;
+    notifyListeners();
+
+    try {
+      final profile = await _client
+          .from('profiles')
+          .select('role, driver_status')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (_client.auth.currentUser?.id != userId) return;
+      _role = profile?['role'] as String?;
+      _driverStatus = profile?['driver_status'] as String? ?? 'pending';
+    } catch (_) {
+      if (_client.auth.currentUser?.id != userId) return;
+      _role = null;
+      _driverStatus = null;
+      _profileLoadFailed = true;
+    } finally {
+      if (_client.auth.currentUser?.id == userId) {
+        _profileLoading = false;
+        _profileLoaded = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_authSubscription.cancel());
+    super.dispose();
+  }
+}
+
+class ProfileLoadErrorScreen extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const ProfileLoadErrorScreen({super.key, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_rounded, size: 48),
+            const SizedBox(height: 16),
+            const Text(
+              'We could not verify your driver account.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Check your connection and try again.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
@@ -97,9 +287,8 @@ class ErrorScreen extends StatelessWidget {
   const ErrorScreen({super.key, this.error});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        body: Center(child: Text('Error: ${error?.toString()}')),
-      );
+  Widget build(BuildContext context) =>
+      Scaffold(body: Center(child: Text('Error: ${error?.toString()}')));
 }
 
 /// Validates that a signed-in driver account has the correct role.
