@@ -11,6 +11,7 @@ import {
   FileText,
   Zap,
   Server,
+  Megaphone,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -38,6 +39,7 @@ export const Sidebar: React.FC = () => {
     { id: 'payouts',   label: 'Payouts & Banking',     icon: CreditCard, badge: pendingPayoutsCount, badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
     { id: 'users',     label: 'User Directory',        icon: Users },
     { id: 'audit',     label: 'Admin Audit Logs',      icon: FileText },
+    { id: 'broadcast', label: 'Broadcast Center',      icon: Megaphone },
   ];
 
   return (

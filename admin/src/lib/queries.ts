@@ -455,3 +455,26 @@ export async function dbInsertAuditLog(log: {
   });
   if (error) console.error('Audit log insert error:', error.message);
 }
+
+export type BroadcastType = 'ride' | 'promo' | 'system' | 'payment';
+export type BroadcastTarget = 'all' | 'passenger' | 'driver';
+
+export async function dbBroadcastNotification(params: {
+  title: string;
+  body: string;
+  type: BroadcastType;
+  routePath?: string | null;
+  payload?: Record<string, unknown> | null;
+  targetRole?: BroadcastTarget;
+}): Promise<number> {
+  const { data, error } = await supabase.rpc('broadcast_notification', {
+    p_title: params.title,
+    p_body: params.body,
+    p_type: params.type,
+    p_route_path: params.routePath ?? null,
+    p_payload: params.payload ?? null,
+    p_target_role: params.targetRole ?? 'all',
+  });
+  if (error) throw error;
+  return (data ?? 0) as number;
+}

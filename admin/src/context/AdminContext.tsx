@@ -28,11 +28,14 @@ import {
   dbUpdateUserProfile,
   dbDeleteUser,
   dbInsertAuditLog,
+  dbBroadcastNotification,
+  type BroadcastType,
+  type BroadcastTarget,
 } from '../lib/queries';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
-export type ActiveTab = 'dashboard' | 'kyc' | 'fleet' | 'fares' | 'payouts' | 'users' | 'audit';
+export type ActiveTab = 'dashboard' | 'kyc' | 'fleet' | 'fares' | 'payouts' | 'users' | 'audit' | 'broadcast';
 
 export interface AdminNotification {
   id: string;
@@ -81,6 +84,14 @@ interface AdminContextType {
   deleteUser: (userId: string, isDriver: boolean) => Promise<void>;
   markNotificationsRead: () => void;
   addNotification: (n: Omit<AdminNotification, 'id' | 'read'>) => void;
+  broadcastNotification: (params: {
+    title: string;
+    body: string;
+    type: BroadcastType;
+    routePath?: string | null;
+    payload?: Record<string, unknown> | null;
+    targetRole?: BroadcastTarget;
+  }) => Promise<number>;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -381,6 +392,36 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
+  const broadcastNotification = async (params: {
+    title: string;
+    body: string;
+    type: BroadcastType;
+    routePath?: string | null;
+    payload?: Record<string, unknown> | null;
+    targetRole?: BroadcastTarget;
+  }): Promise<number> => {
+    const recipientCount = await dbBroadcastNotification(params);
+    const audience =
+      params.targetRole === 'passenger'
+        ? 'passengers'
+        : params.targetRole === 'driver'
+          ? 'drivers'
+          : 'all users';
+    await writeAuditLog(
+      'BROADCAST_NOTIFICATION',
+      '',
+      'notification',
+      `Broadcast "${params.title}" (${params.type}) to ${recipientCount} ${audience}.`
+    );
+    addNotification({
+      type: 'success',
+      title: 'Broadcast Sent',
+      message: `Notification delivered to ${recipientCount} ${audience}.`,
+      timestamp: new Date().toISOString(),
+    });
+    return recipientCount;
+  };
+
   return (
     <AdminContext.Provider
       value={{
@@ -415,6 +456,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         deleteUser,
         markNotificationsRead,
         addNotification,
+        broadcastNotification,
       }}
     >
       {children}

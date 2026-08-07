@@ -12,6 +12,7 @@ import { FarePricingEngine } from './components/FarePricingEngine';
 import { FinancialPayouts } from './components/FinancialPayouts';
 import { UserDirectory } from './components/UserDirectory';
 import { AuditLogsView } from './components/AuditLogsView';
+import { BroadcastComposer } from './components/BroadcastComposer';
 import { useAdmin } from './context/AdminContext';
 import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -82,6 +83,7 @@ const MainContent: React.FC = () => {
       {activeTab === 'payouts'   && <FinancialPayouts />}
       {activeTab === 'users'     && <UserDirectory />}
       {activeTab === 'audit'     && <AuditLogsView />}
+      {activeTab === 'broadcast' && <BroadcastComposer />}
     </main>
   );
 };
