@@ -4,6 +4,7 @@ import type { ActiveTab } from '../context/AdminContext';
 import {
   LayoutDashboard,
   UserCheck,
+  UserRoundCheck,
   MapPin,
   BadgePercent,
   CreditCard,
@@ -34,6 +35,7 @@ export const Sidebar: React.FC = () => {
   }[] = [
     { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
     { id: 'kyc',       label: 'Driver KYC Inspector',  icon: UserCheck, badge: pendingKycCount,    badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+    { id: 'passenger-verification', label: 'Passenger Verification', icon: UserRoundCheck },
     { id: 'fleet',     label: 'Fleet Command Center',  icon: MapPin,    badge: activeRidesCount,   badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
     { id: 'fares',     label: 'Dynamic Fare Engine',   icon: BadgePercent },
     { id: 'payouts',   label: 'Payouts & Banking',     icon: CreditCard, badge: pendingPayoutsCount, badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },

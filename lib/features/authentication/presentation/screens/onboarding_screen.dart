@@ -12,7 +12,7 @@ class OnboardingScreenPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: TRYPColors.background,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,26 +43,35 @@ class OnboardingScreenPage extends StatelessWidget {
                   ),
                 ],
               ),
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Your ride,\nsimplified.',
-                        style: TRYPTypography.headingXL.copyWith(height: 1.05),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.asset(
+                        'assets/images/splash-screen.png',
+                        width: double.infinity,
+                        height: 260,
+                        fit: BoxFit.contain,
+                        semanticLabel: 'TRYP passenger ride illustration',
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Book a ride, follow your driver, and get where you need to go safely.',
-                        style: TRYPTypography.bodyLarge.copyWith(
-                          color: TRYPColors.grey,
-                          height: 1.5,
-                        ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Your ride,\nsimplified.',
+                      style: TRYPTypography.headingXL.copyWith(height: 1.05),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Book a ride, follow your driver, and get where you need to go safely.',
+                      style: TRYPTypography.bodyLarge.copyWith(
+                        color: TRYPColors.grey,
+                        height: 1.5,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               SizedBox(

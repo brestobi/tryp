@@ -7,6 +7,7 @@ import {
   Search,
   Loader2,
 } from 'lucide-react';
+import { verifyPaystackTransaction } from '../lib/queries';
 
 export const FinancialPayouts: React.FC = () => {
   const { payouts, verifyPayout, addNotification } = useAdmin();
@@ -19,18 +20,13 @@ export const FinancialPayouts: React.FC = () => {
   const [paystackAuditResult, setPaystackAuditResult] = useState<{
     reference: string;
     amount: number;
+    currency: string | null;
     channel: string;
     status: string;
-    paidAt: string;
+    paidAt: string | null;
     customerEmail: string;
-  } | null>({
-    reference: 'pstk_tx_99812401',
-    amount: 345.50,
-    channel: 'Visa / Mastercard (Paystack SA)',
-    status: 'success',
-    paidAt: '2026-07-29T11:15:22Z',
-    customerEmail: 'sizwe.dlamini@gmail.com'
-  });
+  } | null>(null);
+  const [isAuditingPaystack, setIsAuditingPaystack] = useState(false);
 
   const filteredPayouts = payouts.filter(p => {
     if (searchTerm) {
@@ -49,17 +45,24 @@ export const FinancialPayouts: React.FC = () => {
   const totalNet = payouts.reduce((sum, p) => sum + p.netPayout, 0);
   const pendingPayouts = payouts.filter(p => p.status === 'pending');
 
-  const handleAuditLookup = (e: React.FormEvent) => {
+  const handleAuditLookup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!paystackTxRef.trim()) return;
-    setPaystackAuditResult({
-      reference: paystackTxRef.trim(),
-      amount: parseFloat((Math.random() * 300 + 50).toFixed(2)),
-      channel: 'Card / Paystack Host',
-      status: 'success',
-      paidAt: new Date().toISOString(),
-      customerEmail: 'verified.rider@tryp.co.za'
-    });
+    if (!paystackTxRef.trim() || isAuditingPaystack) return;
+    setIsAuditingPaystack(true);
+    try {
+      const result = await verifyPaystackTransaction(paystackTxRef.trim());
+      setPaystackAuditResult(result);
+    } catch (err) {
+      setPaystackAuditResult(null);
+      addNotification({
+        type: 'error',
+        title: 'Paystack Lookup Failed',
+        message: err instanceof Error ? err.message : 'Transaction could not be verified.',
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setIsAuditingPaystack(false);
+    }
   };
 
   const handleVerifyPayout = async (payoutId: string) => {
@@ -255,9 +258,10 @@ export const FinancialPayouts: React.FC = () => {
                   />
                   <button
                     type="submit"
-                    className="px-3 py-2 rounded-xl bg-cyan-600 text-white font-bold hover:bg-cyan-500 transition-colors"
+                    disabled={isAuditingPaystack}
+                    className="px-3 py-2 rounded-xl bg-cyan-600 text-white font-bold hover:bg-cyan-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Lookup
+                    {isAuditingPaystack ? 'Checking...' : 'Lookup'}
                   </button>
                 </div>
               </div>
@@ -275,7 +279,7 @@ export const FinancialPayouts: React.FC = () => {
                 <div className="space-y-1.5 font-mono text-[11px]">
                   <div className="flex justify-between text-slate-400">
                     <span>Processed Amount:</span>
-                    <span className="text-white font-bold">R{paystackAuditResult.amount.toFixed(2)}</span>
+                    <span className="text-white font-bold">{paystackAuditResult.currency ?? ''} {paystackAuditResult.amount.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-slate-400">
                     <span>Payment Channel:</span>

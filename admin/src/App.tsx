@@ -7,6 +7,7 @@ import { Sidebar } from './components/Sidebar';
 import { LoginPage } from './components/LoginPage';
 import { DashboardOverview } from './components/DashboardOverview';
 import { DriverKYCInspector } from './components/DriverKYCInspector';
+import { PassengerVerificationInspector } from './components/PassengerVerificationInspector';
 import { FleetCommandCenter } from './components/FleetCommandCenter';
 import { FarePricingEngine } from './components/FarePricingEngine';
 import { FinancialPayouts } from './components/FinancialPayouts';
@@ -78,6 +79,7 @@ const MainContent: React.FC = () => {
     <main className="flex-1 p-6 overflow-y-auto max-w-[1600px] mx-auto w-full">
       {activeTab === 'dashboard' && <DashboardOverview />}
       {activeTab === 'kyc'       && <DriverKYCInspector />}
+      {activeTab === 'passenger-verification' && <PassengerVerificationInspector />}
       {activeTab === 'fleet'     && <FleetCommandCenter />}
       {activeTab === 'fares'     && <FarePricingEngine />}
       {activeTab === 'payouts'   && <FinancialPayouts />}

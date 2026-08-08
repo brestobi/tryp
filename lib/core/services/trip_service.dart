@@ -425,8 +425,7 @@ class TripService {
     if (user == null) {
       throw StateError('requestRide called without an authenticated user.');
     }
-    final pinCode = _generatePinCode();
-    final rideId = await _supabase.rpc(
+    final pinCode = _generatePinCode();      final rideId = await _supabase.rpc(
       'dispatch_ride',
       params: {
         'pickup_lat': pickupLat,

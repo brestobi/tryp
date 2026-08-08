@@ -7,3 +7,11 @@ port = 54321
 [db]
 port = 54322
 shadow_port = 54320
+
+# Paystack calls this endpoint directly, so it must validate the Paystack
+# HMAC signature instead of requiring a Supabase user JWT.
+[functions.paystack-webhook]
+verify_jwt = false
+
+[functions.paystack-admin-verify]
+verify_jwt = true

@@ -36,8 +36,13 @@ Create `.env` file in project root:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 GOOGLE_MAPS_API_KEY=your-google-maps-key
+# Optional client-safe Paystack public key for legacy checkout flows.
+# Never place PAYSTACK_SECRET_KEY here.
+PAYSTACK_PUBLIC_KEY=pk_live_your-live-public-key
 IS_PRODUCTION=false
 IS_STAGING=false
+
+# Paystack live Edge Function setup is documented in PAYSTACK_LIVE_SETUP.md.
 ```
 
 ### 3. Run the App

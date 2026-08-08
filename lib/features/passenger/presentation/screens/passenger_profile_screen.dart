@@ -669,6 +669,22 @@ class _PassengerProfileScreenState
 
                       const SizedBox(height: 24),
 
+                      ListTile(
+                        tileColor: TRYPColors.lightGrey,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        leading: const Icon(
+                          Icons.verified_user_rounded,
+                          color: TRYPColors.primary,
+                        ),
+                        title: const Text('Passenger identity verification'),
+                        subtitle: const Text('Submit your ID and camera selfie for admin review'),
+                        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                        onTap: () => context.go(Routes.passengerVerification),
+                      ),
+                      const SizedBox(height: 10),
+
                       // Test Push Notification
                       ListTile(
                         tileColor: TRYPColors.lightGrey,

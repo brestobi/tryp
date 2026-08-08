@@ -3,6 +3,7 @@ import type {
   AdminRole,
   DriverProfile,
   PassengerProfile,
+  PassengerVerification,
   Ride,
   FareSchema,
   PayoutSettlement,
@@ -13,6 +14,8 @@ import type {
 import {
   fetchDrivers,
   fetchPassengers,
+  fetchPassengerVerifications,
+  dbReviewPassengerVerification,
   fetchRides,
   fetchFareSchemas,
   fetchPayouts,
@@ -35,7 +38,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
-export type ActiveTab = 'dashboard' | 'kyc' | 'fleet' | 'fares' | 'payouts' | 'users' | 'audit' | 'broadcast';
+export type ActiveTab = 'dashboard' | 'kyc' | 'passenger-verification' | 'fleet' | 'fares' | 'payouts' | 'users' | 'audit' | 'broadcast';
 
 export interface AdminNotification {
   id: string;
@@ -60,6 +63,7 @@ interface AdminContextType {
   // Data
   drivers: DriverProfile[];
   passengers: PassengerProfile[];
+  passengerVerifications: PassengerVerification[];
   rides: Ride[];
   fareSchemas: FareSchema[];
   payouts: PayoutSettlement[];
@@ -70,6 +74,7 @@ interface AdminContextType {
 
   // Actions
   approveDriver: (driverId: string) => Promise<void>;
+  reviewPassengerVerification: (verificationId: string, status: 'approved' | 'rejected', notes?: string) => Promise<void>;
   rejectDriver: (driverId: string, reason: string) => Promise<void>;
   flagDriverDocument: (driverId: string, docId: string, issueNotes: string) => Promise<void>;
   approveDriverDocument: (driverId: string, docId: string) => Promise<void>;
@@ -107,6 +112,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [drivers, setDrivers] = useState<DriverProfile[]>([]);
   const [passengers, setPassengers] = useState<PassengerProfile[]>([]);
+  const [passengerVerifications, setPassengerVerifications] = useState<PassengerVerification[]>([]);
   const [rides, setRides] = useState<Ride[]>([]);
   const [fareSchemas, setFareSchemas] = useState<FareSchema[]>([]);
   const [payouts, setPayouts] = useState<PayoutSettlement[]>([]);
@@ -118,9 +124,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLoading(true);
     setError(null);
     try {
-      const [d, p, r, f, pay, logs] = await Promise.all([
+      const [d, p, pv, r, f, pay, logs] = await Promise.all([
         fetchDrivers(),
         fetchPassengers(),
+        fetchPassengerVerifications(),
         fetchRides(),
         fetchFareSchemas(),
         fetchPayouts(),
@@ -128,6 +135,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ]);
       setDrivers(d);
       setPassengers(p);
+      setPassengerVerifications(pv);
       setRides(r);
       setFareSchemas(f);
       setPayouts(pay);
@@ -213,6 +221,33 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // ── Actions ────────────────────────────────────────────────────────────────
+  const reviewPassengerVerification = async (
+    verificationId: string,
+    status: 'approved' | 'rejected',
+    notes?: string,
+  ) => {
+    await dbReviewPassengerVerification(verificationId, status, notes);
+    setPassengerVerifications((prev) =>
+      prev.map((v) => (v.id === verificationId ? { ...v, status, reviewNotes: notes } : v)),
+    );
+    const verification = passengerVerifications.find((v) => v.id === verificationId);
+    setPassengers((prev) =>
+      prev.map((p) => (p.id === verification?.passengerId ? { ...p, verificationStatus: status } : p)),
+    );
+    await writeAuditLog(
+      status === 'approved' ? 'APPROVE_PASSENGER_VERIFICATION' : 'REJECT_PASSENGER_VERIFICATION',
+      verificationId,
+      'passenger_verification',
+      `${status === 'approved' ? 'Approved' : 'Rejected'} passenger identity submission for ${verification?.passengerName ?? verificationId}.${notes ? ` Notes: ${notes}` : ''}`,
+    );
+    addNotification({
+      type: status === 'approved' ? 'success' : 'warning',
+      title: status === 'approved' ? 'Passenger Verified' : 'Passenger Verification Rejected',
+      message: verification?.passengerName ?? verificationId,
+      timestamp: new Date().toISOString(),
+    });
+  };
+
   const approveDriver = async (driverId: string) => {
     await dbUpdateDriverStatus(driverId, 'approved');
     setDrivers((prev) =>
@@ -434,6 +469,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         refresh: loadAll,
         drivers,
         passengers,
+        passengerVerifications,
         rides,
         fareSchemas,
         payouts,
@@ -442,6 +478,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isRealtimeLive,
         setIsRealtimeLive,
         approveDriver,
+        reviewPassengerVerification,
         rejectDriver,
         flagDriverDocument,
         approveDriverDocument,

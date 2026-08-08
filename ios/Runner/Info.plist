@@ -45,6 +45,8 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>TRYP uses the camera to capture your ID card and a live selfie holding it for passenger verification.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TRYP requires access to your location to find nearby rides and track trips.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

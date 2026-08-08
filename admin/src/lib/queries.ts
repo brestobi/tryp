@@ -11,6 +11,7 @@ import type {
   DocumentStatus,
   DriverStatus,
   PassengerProfile,
+  PassengerVerification,
   Ride,
   RideStatus,
   FareSchema,
@@ -86,6 +87,7 @@ function mapPassenger(row: any): PassengerProfile {
     fullName: row.full_name ?? '',
     email: row.email ?? '',
     phone: row.phone ?? '',
+    verificationStatus: (row.passenger_verification_status ?? 'unverified') as PassengerProfile['verificationStatus'],
     rating: parseFloat(row.rating ?? '5') || 5,
     walletBalance: parseFloat(row.wallet_balance ?? '0') || 0,
     emergencyContactName: row.emergency_contact_name ?? '',
@@ -221,6 +223,85 @@ export async function fetchDrivers(): Promise<DriverProfile[]> {
   }
 
   return profiles.map((p) => mapDriver(p, docsByDriver[p.id] ?? []));
+}
+
+export async function fetchPassengerVerifications(): Promise<PassengerVerification[]> {
+  const { data, error } = await supabase
+    .from('passenger_verifications')
+    .select(`
+      id,
+      passenger_id,
+      id_document_path,
+      selfie_path,
+      status,
+      review_notes,
+      submitted_at,
+      reviewed_at,
+      passenger:passenger_id (full_name, email)
+    `)
+    .order('submitted_at', { ascending: false });
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const signed = await Promise.all(rows.map(async (row) => {
+    const idUrl = await supabase.storage
+      .from('passenger-verification')
+      .createSignedUrl(row.id_document_path, 3600);
+    const selfieUrl = await supabase.storage
+      .from('passenger-verification')
+      .createSignedUrl(row.selfie_path, 3600);
+    const passenger = Array.isArray(row.passenger) ? row.passenger[0] : row.passenger;
+    return {
+      id: row.id,
+      passengerId: row.passenger_id,
+      passengerName: passenger?.full_name ?? 'Unknown Passenger',
+      passengerEmail: passenger?.email ?? '',
+      idDocumentUrl: idUrl.data?.signedUrl ?? '',
+      selfieUrl: selfieUrl.data?.signedUrl ?? '',
+      status: row.status as PassengerVerification['status'],
+      reviewNotes: row.review_notes ?? undefined,
+      submittedAt: row.submitted_at,
+      reviewedAt: row.reviewed_at ?? undefined,
+    } satisfies PassengerVerification;
+  }));
+  return signed;
+}
+
+export async function verifyPaystackTransaction(reference: string): Promise<{
+  reference: string;
+  amount: number;
+  currency: string | null;
+  channel: string;
+  status: string;
+  paidAt: string | null;
+  customerEmail: string;
+}> {
+  const { data, error } = await supabase.functions.invoke('paystack-admin-verify', {
+    body: { reference },
+  });
+  if (error) throw error;
+  return data as {
+    reference: string;
+    amount: number;
+    currency: string | null;
+    channel: string;
+    status: string;
+    paidAt: string | null;
+    customerEmail: string;
+  };
+}
+
+export async function dbReviewPassengerVerification(
+  verificationId: string,
+  status: 'approved' | 'rejected',
+  reviewNotes?: string,
+) {
+  const { error } = await supabase.rpc('review_passenger_verification', {
+    p_verification_id: verificationId,
+    p_status: status,
+    p_review_notes: reviewNotes ?? null,
+  });
+  if (error) throw error;
 }
 
 export async function fetchPassengers(): Promise<PassengerProfile[]> {

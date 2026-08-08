@@ -65,27 +65,34 @@ class _PassengerProfileSetupScreenState
       final client = ref.read(supabaseClientProvider);
       final user = client.auth.currentUser;
 
-      if (user != null) {
-        await client.from('profiles').upsert({
-          'id': user.id,
-          'full_name': _nameController.text.trim(),
-          'phone_number': _phoneController.text.trim(),
-          'home_address': _homeAddressController.text.trim(),
-          'work_address': _workAddressController.text.trim(),
-          'emergency_contact_name': _emergencyNameController.text.trim(),
-          'emergency_contact_phone': _emergencyPhoneController.text.trim(),
-          'preferred_payment': _preferredPayment,
-          'onboarding_completed': true,
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-      }
-    } catch (e) {
-      debugPrint('Error saving setup profile: $e');
-    } finally {
+      if (user == null) throw StateError('You must be signed in to continue.');
+
+      await client.from('profiles').upsert({
+        'id': user.id,
+        'full_name': _nameController.text.trim(),
+        'phone_number': _phoneController.text.trim(),
+        'home_address': _homeAddressController.text.trim(),
+        'work_address': _workAddressController.text.trim(),
+        'emergency_contact_name': _emergencyNameController.text.trim(),
+        'emergency_contact_phone': _emergencyPhoneController.text.trim(),
+        'preferred_payment': _preferredPayment,
+        'onboarding_completed': true,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      if (mounted) context.go(Routes.passengerVerification);
+    } catch (error) {
+      debugPrint('Error saving setup profile: $error');
       if (mounted) {
-        setState(() => _isLoading = false);
-        context.go(Routes.passengerHome);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not save your details: $error'),
+            backgroundColor: TRYPColors.error,
+          ),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -113,12 +120,7 @@ class _PassengerProfileSetupScreenState
           'Complete Your Profile',
           style: TRYPTypography.headingSmall.copyWith(fontSize: 18),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => context.go(Routes.passengerHome),
-            child: const Text('Skip'),
-          ),
-        ],
+        actions: const [],
       ),
       body: SafeArea(
         child: Form(
@@ -168,9 +170,7 @@ class _PassengerProfileSetupScreenState
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: PrimaryButton(
-                  label: _currentStep == 2
-                      ? 'Finish & Start Riding'
-                      : 'Continue',
+                  label: _currentStep == 2 ? 'Continue to verification' : 'Continue',
                   onPressed: () {
                     if (_currentStep < 2) {
                       if (_formKey.currentState!.validate()) {

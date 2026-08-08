@@ -10,6 +10,7 @@ import 'package:tryp/core/services/fare_calculator.dart';
 import 'package:tryp/core/services/location_service.dart';
 import 'package:tryp/core/services/notification_service.dart';
 import 'package:tryp/core/services/payment_service.dart';
+import 'package:tryp/core/services/passenger_verification_service.dart';
 import 'package:tryp/core/services/trip_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
@@ -203,6 +204,30 @@ class _PassengerHomeScreenPageState
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_refreshActiveRideStatus());
+      final activeTrip = ref.read(activeTripStateProvider);
+      if (activeTrip != null &&
+          activeTrip.paymentMethod != 'Cash' &&
+          activeTrip.paymentStatus != 'paid') {
+        unawaited(_verifyOnlinePayment(activeTrip.id));
+      }
+    }
+  }
+
+  Future<void> _verifyOnlinePayment(String rideId) async {
+    try {
+      await PaymentService.verifyRidePayment(rideId: rideId);
+      if (!mounted) return;
+      final updatedTrip = await ref.read(tripServiceProvider).getTripById(rideId);
+      if (updatedTrip != null) {
+        ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
+        setState(() {
+          _mode = updatedTrip.status == TripStatus.requested
+              ? PassengerRideMode.dispatching
+              : PassengerRideMode.activeTrip;
+        });
+      }
+    } catch (error) {
+      debugPrint('Paystack payment recovery check failed: $error');
     }
   }
 
@@ -233,6 +258,9 @@ class _PassengerHomeScreenPageState
 
     _subscribeToRide(activeTrip.id);
     _startRideStatusRefreshTimer();
+    if (activeTrip.paymentMethod != 'Cash' && activeTrip.paymentStatus != 'paid') {
+      unawaited(_verifyOnlinePayment(activeTrip.id));
+    }
   }
 
   void _startRideStatusRefreshTimer() {
@@ -509,6 +537,15 @@ class _PassengerHomeScreenPageState
   Future<void> _requestRide() async {
     if (_destination == null) return;
 
+    final isVerified = await ref
+        .read(passengerVerificationServiceProvider)
+        .isApproved();
+    if (!isVerified) {
+      if (!mounted) return;
+      await context.push(Routes.passengerVerification);
+      return;
+    }
+
     final fare = FareCalculatorService.calculateFare(
       distanceKm: _calculatedDistanceKm,
       rideTypeId: _selectedRideType,
@@ -549,59 +586,28 @@ class _PassengerHomeScreenPageState
             routePath: Routes.passengerHome,
           );
 
-      // Handle online payment state before continuing the ride flow.
+      // Online payment initialization, amount calculation, reference
+      // generation, and subaccount routing all happen in Supabase. The app
+      // only opens the server-returned hosted checkout URL.
       if (_paymentMethod != 'Cash') {
-        final email =
-            Supabase.instance.client.auth.currentUser?.email ??
-            'passenger@tryp.app';
-        final refCode = PaymentService.generateReference();
-        final processingSaved = await tripService.setPaymentStatus(
-          rideId: newTrip.id,
-          status: 'processing',
-          reference: refCode,
-        );
-        if (!processingSaved) {
-          throw StateError('Could not initialize secure payment processing.');
-        }
-
-        if (mounted) {
-          try {
-            await PaymentService.chargeForRide(
-              context: context,
-              email: email,
-              amountRands: fare,
-              reference: refCode,
-              metadata: {'ride_id': newTrip.id},
-              onSuccess: () {
-                // The client never marks an online payment as paid. A trusted
-                // Paystack verification path must finalize it server-side.
-                ref
-                    .read(notificationsProvider.notifier)
-                    .addNotification(
-                      title: 'Payment Submitted',
-                      body: 'Your payment is being verified securely.',
-                      type: NotificationType.payment,
-                      routePath: Routes.rideTracking,
-                    );
-              },
-              onCancelled: () {
-                unawaited(
-                  _persistPaymentStatus(
-                    rideId: newTrip.id,
-                    status: 'cancelled',
-                    reference: refCode,
-                  ),
+        try {
+          await PaymentService.chargeForRide(rideId: newTrip.id);
+          if (mounted) {
+            ref
+                .read(notificationsProvider.notifier)
+                .addNotification(
+                  title: 'Payment Checkout Opened',
+                  body: 'Complete the secure Paystack checkout to pay for your ride.',
+                  type: NotificationType.payment,
+                  routePath: Routes.rideTracking,
                 );
-              },
-            );
-          } catch (_) {
-            await tripService.setPaymentStatus(
-              rideId: newTrip.id,
-              status: 'failed',
-              reference: refCode,
-            );
-            rethrow;
           }
+        } catch (error) {
+          await tripService.setPaymentStatus(
+            rideId: newTrip.id,
+            status: 'failed',
+          );
+          rethrow;
         }
       }
 
@@ -664,24 +670,6 @@ class _PassengerHomeScreenPageState
       setState(() => _mode = PassengerRideMode.tierSelection);
     } finally {
       if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _persistPaymentStatus({
-    required String rideId,
-    required String status,
-    required String reference,
-  }) async {
-    final saved = await ref
-        .read(tripServiceProvider)
-        .setPaymentStatus(rideId: rideId, status: status, reference: reference);
-    if (!saved && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not update the payment status.'),
-          backgroundColor: TRYPColors.error,
-        ),
-      );
     }
   }
 
@@ -1322,7 +1310,7 @@ class _PassengerHomeScreenPageState
         'id': 'TRYP Go',
         'name': 'TRYP Go',
         'desc': 'Affordable everyday hatchbacks',
-        'icon': Icons.directions_car_rounded,
+        'image': 'assets/images/tryp-go-notext.png',
         'cap': 4,
         'eta': '3 min',
       },
@@ -1330,7 +1318,7 @@ class _PassengerHomeScreenPageState
         'id': 'TRYP Comfort',
         'name': 'TRYP Comfort',
         'desc': 'Spacious sedans with top drivers',
-        'icon': Icons.directions_car_rounded,
+        'image': 'assets/images/tryp-comfort-notext.png',
         'cap': 4,
         'eta': '2 min',
       },
@@ -1338,7 +1326,7 @@ class _PassengerHomeScreenPageState
         'id': 'TRYP XL',
         'name': 'TRYP XL',
         'desc': 'SUVs & Minivans for groups',
-        'icon': Icons.airport_shuttle_rounded,
+        'image': 'assets/images/tryp-xl-notext.png',
         'cap': 6,
         'eta': '5 min',
       },
@@ -1346,7 +1334,8 @@ class _PassengerHomeScreenPageState
         'id': 'TRYP Exec',
         'name': 'TRYP Exec',
         'desc': 'Premium luxury executive rides',
-        'icon': Icons.workspace_premium_rounded,
+        // No Exec-specific asset exists yet; use the closest sedan image.
+        'image': 'assets/images/tryp-comfort-notext.png',
         'cap': 4,
         'eta': '4 min',
       },
@@ -1458,10 +1447,12 @@ class _PassengerHomeScreenPageState
                             : TRYPColors.inputFill,
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(
-                        tier['icon'] as IconData,
-                        color: TRYPColors.white,
-                        size: 24,
+                      child: Image.asset(
+                        tier['image'] as String,
+                        width: 54,
+                        height: 40,
+                        fit: BoxFit.contain,
+                        semanticLabel: '${tier['name']} vehicle',
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -1589,7 +1580,7 @@ class _PassengerHomeScreenPageState
           ),
           const SizedBox(height: 6),
           Text(
-            'Matching you with top-rated ${_selectedRideType} drivers near ${_pickup.name}',
+            'Matching you with top-rated $_selectedRideType drivers near ${_pickup.name}',
             textAlign: TextAlign.center,
             style: TRYPTypography.bodySmall,
           ),

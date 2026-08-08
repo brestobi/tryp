@@ -1,55 +1,44 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_paystack_plus/flutter_paystack_plus.dart';
-import 'package:tryp/config/environment.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/core/services/fare_calculator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-/// TRYP Payment Service — wraps flutter_paystack_plus
+/// TRYP Payment Service — initializes Paystack hosted checkout server-side.
 class PaymentService {
-  /// Launch Paystack checkout for a ride payment using public key.
-  ///
-  /// [context]      — current BuildContext (required by the SDK for WebView)
-  /// [email]        — customer's email address
-  /// [amountRands]  — amount in Rands (e.g. 60.0 for R60) — converted to kobo internally
-  /// [reference]    — unique transaction reference (generate one per transaction)
-  /// [onSuccess]    — called when payment is confirmed
-  /// [onCancelled]  — called when the user closes the payment sheet
-  static Future<void> chargeForRide({
-    required BuildContext context,
-    required String email,
-    required double amountRands,
-    required String reference,
-    required VoidCallback onSuccess,
-    required VoidCallback onCancelled,
-    String currency = 'ZAR',
-    Map<String, dynamic>? metadata,
+  /// Initialize a ride payment on the server and open Paystack's hosted
+  /// checkout. The amount, reference, and subaccount are never client-authored.
+  static Future<String> chargeForRide({
+    required String rideId,
   }) async {
-    // Paystack amounts are in the smallest currency unit (kobo/cents).
-    // For ZAR: 1 Rand = 100 cents, so multiply by 100.
-    final amountInCents = (amountRands * 100).round().toString();
-
-    try {
-      await FlutterPaystackPlus.openPaystackPopup(
-        context: context,
-        customerEmail: email,
-        amount: amountInCents,
-        reference: reference,
-        publicKey: Environment.paystackPublicKey,
-        callBackUrl: Environment.paystackCallbackUrl,
-        currency: currency,
-        metadata: metadata,
-        onSuccess: onSuccess,
-        onClosed: onCancelled,
-      );
-    } catch (e) {
-      debugPrint('PaymentService error: $e');
-      rethrow;
+    final response = await Supabase.instance.client.functions.invoke(
+      'paystack-initialize',
+      body: {'ride_id': rideId},
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    final checkoutUrl = data['authorization_url'] as String?;
+    final reference = data['reference'] as String?;
+    if (checkoutUrl == null || reference == null) {
+      throw StateError('Paystack did not return a checkout URL.');
     }
+
+    final launched = await launchUrl(
+      Uri.parse(checkoutUrl),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched) throw StateError('Could not open Paystack checkout.');
+    return reference;
   }
 
-  /// Generate a unique transaction reference.
-  static String generateReference({String prefix = 'TRYP'}) {
-    final ts = DateTime.now().millisecondsSinceEpoch;
-    return '${prefix}_$ts';
+  /// Ask the server to verify a payment after returning from hosted checkout
+  /// or when a webhook may have been delayed.
+  static Future<String> verifyRidePayment({
+    required String rideId,
+  }) async {
+    final response = await Supabase.instance.client.functions.invoke(
+      'paystack-verify',
+      body: {'ride_id': rideId},
+    );
+    final data = Map<String, dynamic>.from(response.data as Map);
+    return data['status'] as String? ?? 'unverified';
   }
 
   /// Map ride type label and distance to dynamic price in Rands.

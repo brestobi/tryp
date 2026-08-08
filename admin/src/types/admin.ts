@@ -45,11 +45,14 @@ export interface DriverProfile {
   avatarUrl: string;
 }
 
+export type PassengerVerificationStatus = 'unverified' | 'pending' | 'under_review' | 'approved' | 'rejected';
+
 export interface PassengerProfile {
   id: string;
   fullName: string;
   email: string;
   phone: string;
+  verificationStatus: PassengerVerificationStatus;
   rating: number;
   walletBalance: number;
   emergencyContactName: string;
@@ -58,6 +61,19 @@ export interface PassengerProfile {
   status: 'active' | 'suspended';
   joinedAt: string;
   avatarUrl: string;
+}
+
+export interface PassengerVerification {
+  id: string;
+  passengerId: string;
+  passengerName: string;
+  passengerEmail: string;
+  idDocumentUrl: string;
+  selfieUrl: string;
+  status: PassengerVerificationStatus;
+  reviewNotes?: string;
+  submittedAt: string;
+  reviewedAt?: string;
 }
 
 export type RideStatus = 'requested' | 'accepted' | 'arrived' | 'in_trip' | 'completed' | 'cancelled';

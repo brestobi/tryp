@@ -19,6 +19,7 @@ class Routes {
   static const String passengerHome = '/passenger/home';
   static const String passengerProfile = '/passenger/profile';
   static const String profileSetup = '/passenger/setup-profile';
+  static const String passengerVerification = '/passenger/verification';
   static const String rideRequest = '/passenger/ride-request';
   static const String rideTracking = '/passenger/ride-tracking';
   static const String passengerActivity = '/passenger/activity';

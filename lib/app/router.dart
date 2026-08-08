@@ -12,6 +12,7 @@ import 'package:tryp/features/authentication/presentation/screens/forgot_passwor
 import 'package:tryp/features/passenger/presentation/screens/passenger_home_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_profile_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_profile_setup_screen.dart';
+import 'package:tryp/features/passenger/presentation/screens/passenger_verification_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_activity_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/ride_request_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/trip_tracking_screen.dart';
@@ -78,6 +79,10 @@ GoRouter buildRouter() {
       builder: (context, state) => const PassengerProfileSetupScreen(),
     ),
     GoRoute(
+      path: Routes.passengerVerification,
+      builder: (context, state) => const PassengerVerificationScreen(),
+    ),
+    GoRoute(
       path: Routes.rideRequest,
       builder: (context, state) => const RideRequestScreenPage(),
     ),
@@ -133,7 +138,7 @@ Future<String?> expectedHomeForCurrentVariant() async {
 
   final data = await client
       .from('profiles')
-      .select('role')
+      .select('role, passenger_verification_status')
       .eq('id', user.id)
       .maybeSingle();
   final role = data?['role'] as String?;
