@@ -3,6 +3,9 @@ import 'package:geolocator/geolocator.dart';
 
 /// Fare Calculation Schema Configuration
 class FareSchema {
+  final String? id;
+  final String? tier;
+
   /// Base fare charged at the start of any trip (R15)
   final double baseFare;
 
@@ -16,6 +19,8 @@ class FareSchema {
   final String currencySymbol;
 
   const FareSchema({
+    this.id,
+    this.tier,
     this.baseFare = 15.0,
     this.perKmRate = 5.0,
     this.minFare = 20.0,
@@ -34,6 +39,8 @@ class FareSchema {
   /// Create schema from JSON map (e.g. from Supabase `fare_schemas` table)
   factory FareSchema.fromJson(Map<String, dynamic> json) {
     return FareSchema(
+      id: json['id'] as String?,
+      tier: json['tier'] as String?,
       baseFare: (json['base_fare'] as num?)?.toDouble() ?? 15.0,
       perKmRate: (json['per_km_rate'] as num?)?.toDouble() ?? 5.0,
       minFare: (json['min_fare'] as num?)?.toDouble() ?? 20.0,
@@ -129,15 +136,17 @@ class FareCalculatorService {
   static double calculateFare({
     required double distanceKm,
     required String rideTypeId,
-    FareSchema schema = defaultSchema,
+    FareSchema? schema,
+    double durationMins = 0,
   }) {
     final option = availableRideTypes.firstWhere(
       (opt) => opt.id == rideTypeId,
       orElse: () => availableRideTypes.first,
     );
-    return schema.calculateFare(
+    final selectedSchema = schema ?? defaultSchema;
+    return selectedSchema.calculateFare(
       distanceKm: distanceKm,
-      multiplier: option.multiplier,
+      multiplier: schema == null ? option.multiplier : 1.0,
     );
   }
 

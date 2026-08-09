@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const FROM_EMAIL = "noreply@illdoit.space";
+const FROM_EMAIL = "noreply@updates.illdoit.space";
 const SUPPORT_EMAIL = "support@illdoit.space";
 const FROM_NAME = "TRYP Billing";
 const CLAIM_TIMEOUT_MINUTES = 10;
@@ -58,7 +58,7 @@ function buildInvoiceEmail(ride: Record<string, unknown>, invoiceId: string): st
     <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background:#fff;border-radius:20px;overflow:hidden;">
       <tr><td style="padding:28px 32px;background:#111;color:#fff;"><div style="font-size:22px;font-weight:900;letter-spacing:3px;color:#ffd400;">TRYP</div><div style="margin-top:20px;font-size:28px;font-weight:800;">Trip invoice</div><div style="margin-top:6px;color:#bdbdbd;font-size:14px;">Thank you for riding with us.</div></td></tr>
       <tr><td style="padding:28px 32px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="color:#6b6b6b;font-size:13px;">Invoice number</td><td align="right" style="font-size:13px;font-weight:700;">${escapeHtml(invoiceId)}</td></tr><tr><td colspan="2" style="height:8px;"></td></tr><tr><td style="color:#6b6b6b;font-size:13px;">Completed</td><td align="right" style="font-size:13px;font-weight:700;">${escapeHtml(formatDate(ride.completed_at))}</td></tr></table>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="color:#6b6b6b;font-size:13px;">Trip reference</td><td align="right" style="font-size:13px;font-weight:700;">${escapeHtml(ride.ride_reference ?? invoiceId)}</td></tr><tr><td colspan="2" style="height:8px;"></td></tr><tr><td style="color:#6b6b6b;font-size:13px;">Completed</td><td align="right" style="font-size:13px;font-weight:700;">${escapeHtml(formatDate(ride.completed_at))}</td></tr></table>
         <hr style="border:0;border-top:1px solid #e5e5e5;margin:24px 0;" />
         <div style="font-size:13px;color:#6b6b6b;margin-bottom:8px;">Route</div><div style="font-size:15px;font-weight:700;line-height:1.6;">${escapeHtml(ride.origin ?? "Pickup location")}<br /><span style="color:#6b6b6b;font-weight:400;">to</span><br />${escapeHtml(ride.destination ?? "Destination")}</div>
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;">
@@ -69,7 +69,7 @@ function buildInvoiceEmail(ride: Record<string, unknown>, invoiceId: string): st
           <tr><td style="padding:10px 0;color:#6b6b6b;">Payment</td><td align="right" style="padding:10px 0;font-weight:700;">${escapeHtml(ride.payment_method ?? "Cash")} · ${escapeHtml(ride.payment_status ?? "pending")}</td></tr>
         </table>
         <div style="margin-top:18px;padding:20px;border-radius:14px;background:#ffd400;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="font-size:16px;font-weight:800;">Total fare</td><td align="right" style="font-size:24px;font-weight:900;">${fare}</td></tr></table></div>
-        <p style="margin:24px 0 0;color:#777;font-size:12px;line-height:1.6;">Keep this email for your records. For questions, contact ${SUPPORT_EMAIL} and include the invoice number above.</p>
+        <p style="margin:24px 0 0;color:#777;font-size:12px;line-height:1.6;">Keep this email for your records. For questions, contact ${SUPPORT_EMAIL} and include the trip reference above.</p>
       </td></tr>
     </table>
     <div style="padding:20px;color:#999;font-size:11px;">© ${new Date().getFullYear()} TRYP · South Africa</div>
@@ -204,7 +204,7 @@ serve(async (req: Request) => {
         from: `${FROM_NAME} <${FROM_EMAIL}>`,
         reply_to: SUPPORT_EMAIL,
         to: [email],
-        subject: `Your TRYP invoice · ${formatAmount(ride.fare)} · ${formatDate(ride.completed_at)}`,
+        subject: `Your TRYP invoice · ${String(ride.ride_reference ?? invoiceId)} · ${formatAmount(ride.fare)}`,
         html: buildInvoiceEmail(ride, invoiceId),
         tags: [{ name: "category", value: "trip-invoice" }, { name: "ride_id", value: String(ride.id) }],
       }),

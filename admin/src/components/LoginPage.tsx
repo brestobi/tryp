@@ -25,13 +25,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialError }) => {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Ambient background blobs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/[0.03] rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-white/[0.02] rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md z-10">
         {/* Brand */}
         <div className="text-center mb-8 space-y-3">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 shadow-xl shadow-purple-500/30 mb-2">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-100 text-slate-950 shadow-xl shadow-white/10 mb-2">
             <ShieldCheck className="w-7 h-7 text-white" />
           </div>
           <div>
@@ -52,7 +52,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialError }) => {
           </div>
 
           {error && (
-            <div className="flex items-start space-x-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+            <div className="flex items-start space-x-2 p-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 text-xs">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
@@ -74,7 +74,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialError }) => {
                   placeholder="you@tryp.co.za"
                   required
                   autoComplete="email"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-slate-400 transition-colors"
                 />
               </div>
             </div>
@@ -94,7 +94,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialError }) => {
                   placeholder="••••••••••"
                   required
                   autoComplete="current-password"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-slate-400 transition-colors"
                 />
               </div>
             </div>
@@ -102,7 +102,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialError }) => {
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-sm shadow-lg shadow-purple-500/20 hover:from-purple-500 hover:to-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="w-full py-3 rounded-xl bg-slate-100 text-slate-950 font-bold text-sm shadow-lg shadow-white/10 hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {loading ? (
                 <>

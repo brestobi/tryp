@@ -149,7 +149,7 @@ export const PassengerVerificationInspector: React.FC = () => {
                   {busy === 'rejected' ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                   Reject & request new captures
                 </button>
-                <button onClick={() => handleReview('approved')} disabled={busy !== null} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-bold hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 flex items-center justify-center gap-2">
+                <button onClick={() => handleReview('approved')} disabled={busy !== null} className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-950 text-xs font-bold hover:bg-white disabled:opacity-50 flex items-center justify-center gap-2">
                   {busy === 'approved' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                   Approve & allow rides
                 </button>

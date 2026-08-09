@@ -106,6 +106,7 @@ class UserProfileModel {
 
 class TripModel {
   final String id;
+  final String rideReference;
   final String passengerId;
   final String? passengerName;
   final String? passengerPhone;
@@ -142,6 +143,7 @@ class TripModel {
 
   const TripModel({
     required this.id,
+    required this.rideReference,
     required this.passengerId,
     this.passengerName,
     this.passengerPhone,
@@ -226,6 +228,7 @@ class TripModel {
 
     return TripModel(
       id: json['id'] as String,
+      rideReference: json['ride_reference'] as String? ?? '',
       passengerId: json['passenger_id'] as String,
       passengerName: passengerName,
       passengerPhone: passengerPhone,
@@ -287,6 +290,7 @@ class TripModel {
 
   TripModel copyWith({
     String? id,
+    String? rideReference,
     String? passengerId,
     String? passengerName,
     String? passengerPhone,
@@ -323,6 +327,7 @@ class TripModel {
   }) {
     return TripModel(
       id: id ?? this.id,
+      rideReference: rideReference ?? this.rideReference,
       passengerId: passengerId ?? this.passengerId,
       passengerName: passengerName ?? this.passengerName,
       passengerPhone: passengerPhone ?? this.passengerPhone,
@@ -416,6 +421,7 @@ class TripService {
     required String rideType,
     required String paymentMethod,
     required double distanceKm,
+    double durationMins = 0,
     required double pickupLat,
     required double pickupLng,
     required double destLat,
@@ -425,7 +431,8 @@ class TripService {
     if (user == null) {
       throw StateError('requestRide called without an authenticated user.');
     }
-    final pinCode = _generatePinCode();      final rideId = await _supabase.rpc(
+    final pinCode = _generatePinCode();
+    final rideId = await _supabase.rpc(
       'dispatch_ride',
       params: {
         'pickup_lat': pickupLat,
@@ -439,13 +446,15 @@ class TripService {
         'p_fare': fare,
         'p_payment_method': paymentMethod,
         'p_distance_km': distanceKm,
+        'p_duration_mins': durationMins,
         'p_metadata': {'pin_code': pinCode},
       },
     );
 
     final trip = await getTripById(rideId as String);
-    if (trip == null)
+    if (trip == null) {
       throw StateError('Ride was created but could not be loaded.');
+    }
     return trip;
   }
 

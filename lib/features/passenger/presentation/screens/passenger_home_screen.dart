@@ -11,6 +11,7 @@ import 'package:tryp/core/services/location_service.dart';
 import 'package:tryp/core/services/notification_service.dart';
 import 'package:tryp/core/services/payment_service.dart';
 import 'package:tryp/core/services/passenger_verification_service.dart';
+import 'package:tryp/features/passenger/presentation/screens/paystack_checkout_screen.dart';
 import 'package:tryp/core/services/trip_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
@@ -217,7 +218,9 @@ class _PassengerHomeScreenPageState
     try {
       await PaymentService.verifyRidePayment(rideId: rideId);
       if (!mounted) return;
-      final updatedTrip = await ref.read(tripServiceProvider).getTripById(rideId);
+      final updatedTrip = await ref
+          .read(tripServiceProvider)
+          .getTripById(rideId);
       if (updatedTrip != null) {
         ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
         setState(() {
@@ -258,7 +261,8 @@ class _PassengerHomeScreenPageState
 
     _subscribeToRide(activeTrip.id);
     _startRideStatusRefreshTimer();
-    if (activeTrip.paymentMethod != 'Cash' && activeTrip.paymentStatus != 'paid') {
+    if (activeTrip.paymentMethod != 'Cash' &&
+        activeTrip.paymentStatus != 'paid') {
       unawaited(_verifyOnlinePayment(activeTrip.id));
     }
   }
@@ -545,10 +549,27 @@ class _PassengerHomeScreenPageState
       await context.push(Routes.passengerVerification);
       return;
     }
+    final liveSchemas = ref.read(fareSchemasProvider).asData?.value;
+    final fareSchema = liveSchemas?[_selectedRideType];
+    if (fareSchema == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Current fare rates are still loading. Please try again.',
+            ),
+            backgroundColor: TRYPColors.error,
+          ),
+        );
+      }
+      return;
+    }
 
     final fare = FareCalculatorService.calculateFare(
       distanceKm: _calculatedDistanceKm,
+      durationMins: _calculatedDurationMins.toDouble(),
       rideTypeId: _selectedRideType,
+      schema: fareSchema,
     );
 
     setState(() {
@@ -558,6 +579,8 @@ class _PassengerHomeScreenPageState
 
     try {
       final tripService = ref.read(tripServiceProvider);
+      if (!mounted) return;
+      final checkoutNavigator = Navigator.of(context);
       final newTrip = await tripService.requestRide(
         origin: _pickup.name,
         destination: _destination!.name,
@@ -565,6 +588,7 @@ class _PassengerHomeScreenPageState
         rideType: _selectedRideType,
         paymentMethod: _paymentMethod,
         distanceKm: _calculatedDistanceKm,
+        durationMins: _calculatedDurationMins.toDouble(),
         pickupLat: _pickup.lat,
         pickupLng: _pickup.lng,
         destLat: _destination!.lat,
@@ -591,13 +615,63 @@ class _PassengerHomeScreenPageState
       // only opens the server-returned hosted checkout URL.
       if (_paymentMethod != 'Cash') {
         try {
-          await PaymentService.chargeForRide(rideId: newTrip.id);
+          final checkoutResult = await PaymentService.chargeForRide(
+            navigator: checkoutNavigator,
+            rideId: newTrip.id,
+          );
+          if (!mounted) return;
+          if (checkoutResult == PaymentCheckoutResult.cancelled ||
+              checkoutResult == PaymentCheckoutResult.failed) {
+            await tripService.setPaymentStatus(
+              rideId: newTrip.id,
+              status: checkoutResult == PaymentCheckoutResult.failed
+                  ? 'failed'
+                  : 'cancelled',
+            );
+            await tripService.updateTripStatus(
+              rideId: newTrip.id,
+              status: TripStatus.cancelled,
+            );
+            if (!mounted) return;
+            ref.read(activeTripStateProvider.notifier).stateTrip = null;
+            _watchedRideId = null;
+            _rideStatusRefreshTimer?.cancel();
+            if (!mounted) return;
+            setState(() => _mode = PassengerRideMode.tierSelection);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  checkoutResult == PaymentCheckoutResult.failed
+                      ? 'Payment failed. The ride request was cancelled.'
+                      : 'Payment cancelled. The ride request was cancelled.',
+                ),
+                backgroundColor: TRYPColors.error,
+              ),
+            );
+            return;
+          }
+          if (checkoutResult == PaymentCheckoutResult.pending) {
+            if (mounted) {
+              ref
+                  .read(notificationsProvider.notifier)
+                  .addNotification(
+                    title: 'Payment Verification Pending',
+                    body: 'We are still confirming your Paystack payment.',
+                    type: NotificationType.payment,
+                    routePath: Routes.rideTracking,
+                  );
+            }
+          }
           if (mounted) {
             ref
                 .read(notificationsProvider.notifier)
                 .addNotification(
-                  title: 'Payment Checkout Opened',
-                  body: 'Complete the secure Paystack checkout to pay for your ride.',
+                  title: checkoutResult == PaymentCheckoutResult.paid
+                      ? 'Payment Confirmed'
+                      : 'Payment Checkout Opened',
+                  body: checkoutResult == PaymentCheckoutResult.paid
+                      ? 'Your Paystack payment was confirmed securely.'
+                      : 'Payment verification is still in progress.',
                   type: NotificationType.payment,
                   routePath: Routes.rideTracking,
                 );
@@ -890,7 +964,15 @@ class _PassengerHomeScreenPageState
             ),
 
           // ── 4. Dynamic Interactive Bottom Panel ───────────────────────
-          Positioned(left: 0, right: 0, bottom: 0, child: _buildBottomPanel()),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildBottomPanel(
+              ref.watch(fareSchemasProvider).asData?.value ??
+                  const <String, FareSchema>{},
+            ),
+          ),
 
           // ── 5. Full Screen Search Overlay Sheet ───────────────────────
           if (_mode == PassengerRideMode.searchOverlay)
@@ -1017,10 +1099,10 @@ class _PassengerHomeScreenPageState
     );
   }
 
-  Widget _buildBottomPanel() {
+  Widget _buildBottomPanel(Map<String, FareSchema> fareSchemas) {
     switch (_mode) {
       case PassengerRideMode.tierSelection:
-        return _buildTierSelectionSheet();
+        return _buildTierSelectionSheet(fareSchemas);
       case PassengerRideMode.dispatching:
         return _buildDispatchingSheet();
       case PassengerRideMode.activeTrip:
@@ -1301,7 +1383,7 @@ class _PassengerHomeScreenPageState
   }
 
   // ── MODE C: Vehicle Tier Selection Sheet ───────────────────────────
-  Widget _buildTierSelectionSheet() {
+  Widget _buildTierSelectionSheet(Map<String, FareSchema> fareSchemas) {
     final dist = _calculatedDistanceKm;
     final duration = _calculatedDurationMins;
 
@@ -1341,10 +1423,15 @@ class _PassengerHomeScreenPageState
       },
     ];
 
-    final activeFare = FareCalculatorService.calculateFare(
-      distanceKm: dist,
-      rideTypeId: _selectedRideType,
-    );
+    final activeSchema = fareSchemas[_selectedRideType];
+    final activeFare = activeSchema == null
+        ? null
+        : FareCalculatorService.calculateFare(
+            distanceKm: dist,
+            durationMins: duration.toDouble(),
+            rideTypeId: _selectedRideType,
+            schema: activeSchema,
+          );
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -1417,10 +1504,15 @@ class _PassengerHomeScreenPageState
           ...tiers.map((tier) {
             final tierId = tier['id'] as String;
             final isSelected = _selectedRideType == tierId;
-            final fareAmt = FareCalculatorService.calculateFare(
-              distanceKm: dist,
-              rideTypeId: tierId,
-            );
+            final tierSchema = fareSchemas[tierId];
+            final fareAmt = tierSchema == null
+                ? null
+                : FareCalculatorService.calculateFare(
+                    distanceKm: dist,
+                    durationMins: duration.toDouble(),
+                    rideTypeId: tierId,
+                    schema: tierSchema,
+                  );
 
             return GestureDetector(
               onTap: () => setState(() => _selectedRideType = tierId),
@@ -1488,9 +1580,12 @@ class _PassengerHomeScreenPageState
                       ),
                     ),
                     Text(
-                      'R${fareAmt.toStringAsFixed(2)}',
+                      fareAmt == null ? '—' : 'R${fareAmt.toStringAsFixed(2)}',
                       style: TRYPTypography.titleLarge.copyWith(
                         fontWeight: FontWeight.w800,
+                        color: fareAmt == null
+                            ? TRYPColors.grey
+                            : TRYPColors.secondary,
                       ),
                     ),
                   ],
@@ -1546,9 +1641,11 @@ class _PassengerHomeScreenPageState
           const SizedBox(height: 14),
 
           PrimaryButton(
-            label:
-                'Request $_selectedRideType • R${activeFare.toStringAsFixed(2)}',
+            label: activeFare == null
+                ? 'Loading current fares…'
+                : 'Request $_selectedRideType • R${activeFare.toStringAsFixed(2)}',
             isLoading: _isLoading,
+            enabled: activeFare != null && !_isLoading,
             onPressed: _requestRide,
           ),
         ],

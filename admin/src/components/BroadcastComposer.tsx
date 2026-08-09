@@ -10,29 +10,33 @@ import {
   Users,
   Smartphone,
   ShieldCheck,
+  Wrench,
+  Tag,
+  Car,
+  CreditCard,
 } from 'lucide-react';
 import type { BroadcastType, BroadcastTarget } from '../lib/queries';
 
-const TYPE_META: Record<BroadcastType, { label: string; classes: string; icon: string }> = {
+const TYPE_META: Record<BroadcastType, { label: string; classes: string; icon: React.ReactNode }> = {
   system: {
     label: 'System',
-    classes: 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/20',
-    icon: '🛠️',
+    classes: 'bg-slate-100 text-slate-950 border-slate-100 shadow-lg shadow-white/10',
+    icon: <Wrench className="w-4 h-4" />,
   },
   promo: {
     label: 'Promo',
-    classes: 'bg-amber-500 text-slate-950 border-amber-400 shadow-lg shadow-amber-500/20',
-    icon: '🏷️',
+    classes: 'bg-slate-300 text-slate-950 border-slate-300 shadow-lg shadow-white/10',
+    icon: <Tag className="w-4 h-4" />,
   },
   ride: {
     label: 'Ride',
-    classes: 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-500/20',
-    icon: '🚙',
+    classes: 'bg-slate-700 text-white border-slate-600 shadow-lg shadow-black/30',
+    icon: <Car className="w-4 h-4" />,
   },
   payment: {
     label: 'Payment',
-    classes: 'bg-cyan-600 text-white border-cyan-500 shadow-lg shadow-cyan-500/20',
-    icon: '💳',
+    classes: 'bg-slate-800 text-white border-slate-700 shadow-lg shadow-black/30',
+    icon: <CreditCard className="w-4 h-4" />,
   },
 };
 
@@ -237,7 +241,7 @@ export const BroadcastComposer: React.FC = () => {
               <button
                 type="submit"
                 disabled={!canSend}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 text-white text-xs font-bold shadow-lg shadow-pink-500/20 hover:from-pink-500 hover:to-purple-500 transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2.5 rounded-xl bg-slate-100 text-slate-950 text-xs font-bold shadow-lg shadow-white/10 hover:bg-white transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 <span>{sending ? 'Broadcasting...' : `Broadcast to ${audienceCount} ${audienceLabel.toLowerCase()}`}</span>
@@ -261,7 +265,7 @@ export const BroadcastComposer: React.FC = () => {
             <div className="rounded-2xl border border-slate-700/80 bg-gradient-to-br from-slate-900 to-slate-950 p-5">
               <div className="rounded-xl bg-slate-950/90 border border-slate-800 shadow-2xl overflow-hidden">
                 <div className="px-4 py-3 flex items-center space-x-3 border-b border-slate-800/60 bg-slate-900/40">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-pink-600 to-purple-600 flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-950 flex items-center justify-center">
                     <Bell className="w-4 h-4 text-white" />
                   </div>
                   <div>

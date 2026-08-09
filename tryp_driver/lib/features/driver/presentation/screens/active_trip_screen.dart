@@ -423,7 +423,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Fare Collected: R${trip.fare.toStringAsFixed(2)}',
+                '${trip.rideReference.isNotEmpty ? trip.rideReference : 'Trip'} · Fare Collected: R${trip.fare.toStringAsFixed(2)}',
                 style: TRYPTypography.headingMedium.copyWith(
                   color: TRYPColors.secondary,
                 ),
@@ -733,7 +733,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Trip Fare:',
+                        '${trip.rideReference.isNotEmpty ? trip.rideReference : 'Trip'} Fare:',
                         style: TRYPTypography.bodySmall.copyWith(
                           color: TRYPColors.grey,
                         ),

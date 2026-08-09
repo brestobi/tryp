@@ -378,7 +378,7 @@ class _TripCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      _formatTripDate(trip.requestedAt),
+                      '${trip.rideReference.isNotEmpty ? trip.rideReference : 'Trip'} · ${_formatTripDate(trip.requestedAt)}',
                       style: TRYPTypography.bodySmall.copyWith(
                         color: TRYPColors.grey,
                       ),

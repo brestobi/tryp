@@ -37,7 +37,7 @@ async function fetchProfile(supabaseUser: User): Promise<AuthUser> {
     role: userRole,
     avatarUrl:
       data?.avatar_url ??
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(data?.full_name ?? 'User')}&background=7c3aed&color=fff`,
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(data?.full_name ?? 'User')}&background=111111&color=ffffff`,
   };
 }
 

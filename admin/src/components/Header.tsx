@@ -42,10 +42,10 @@ export const Header: React.FC = () => {
   ).length;
 
   const roleLabels: Record<AdminRole, { label: string; classes: string }> = {
-    super_admin:     { label: 'Super Admin',      classes: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-    kyc_officer:     { label: 'KYC Officer',       classes: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-    fleet_dispatcher:{ label: 'Fleet Dispatcher',  classes: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-    finance_manager: { label: 'Finance Manager',   classes: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
+    super_admin:     { label: 'Super Admin',      classes: 'bg-slate-100 text-slate-950 border-slate-100' },
+    kyc_officer:     { label: 'KYC Officer',       classes: 'bg-slate-800 text-slate-200 border-slate-700' },
+    fleet_dispatcher:{ label: 'Fleet Dispatcher',  classes: 'bg-slate-800 text-slate-200 border-slate-700' },
+    finance_manager: { label: 'Finance Manager',   classes: 'bg-slate-800 text-slate-200 border-slate-700' },
   };
 
   return (
@@ -53,13 +53,13 @@ export const Header: React.FC = () => {
       {/* Brand */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/20 font-bold text-lg text-white font-heading">
+          <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-950 flex items-center justify-center shadow-lg shadow-white/10 font-bold text-lg font-heading">
             T
           </div>
           <div>
             <div className="flex items-center space-x-2">
               <span className="font-heading font-extrabold text-lg text-white tracking-tight">TRYP</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 font-mono border border-purple-500/20">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono border border-slate-700">
                 ADMIN CONSOLE
               </span>
             </div>
@@ -105,9 +105,7 @@ export const Header: React.FC = () => {
         {/* Live toggle */}
         <button
           onClick={() => setIsRealtimeLive(!isRealtimeLive)}
-          className={`flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg border transition-all ${
-            isRealtimeLive
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+          className={`flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg border transition-all ${isRealtimeLive ? 'bg-slate-100 text-slate-950 border-slate-100 hover:bg-white'
               : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'
           }`}
         >
@@ -138,7 +136,7 @@ export const Header: React.FC = () => {
                   key={role}
                   onClick={() => { setCurrentRole(role); setShowRoleDropdown(false); }}
                   className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800/60 ${
-                    currentRole === role ? 'text-purple-400 font-semibold bg-purple-500/10' : 'text-slate-300'
+                    currentRole === role ? 'text-white font-semibold bg-slate-800' : 'text-slate-300'
                   }`}
                 >
                   <span>{roleLabels[role].label}</span>
@@ -160,7 +158,7 @@ export const Header: React.FC = () => {
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-bounce">
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-slate-100 text-slate-950 text-[10px] font-bold rounded-full flex items-center justify-center animate-bounce">
                 {unreadCount}
               </span>
             )}
@@ -201,9 +199,9 @@ export const Header: React.FC = () => {
         {/* User avatar — populated from auth session */}
         <div className="flex items-center space-x-3 pl-3 border-l border-slate-800">
           <img
-            src={user?.avatarUrl ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName ?? 'Admin')}&background=7c3aed&color=fff`}
+            src={user?.avatarUrl ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName ?? 'Admin')}&background=111111&color=ffffff`}
             alt={user?.fullName ?? 'Admin'}
-            className="w-8 h-8 rounded-full object-cover border border-purple-500/40 ring-1 ring-purple-500/20"
+            className="w-8 h-8 rounded-full object-cover border border-slate-600 ring-1 ring-slate-700"
           />
           <div className="hidden md:block text-left">
             <div className="text-xs font-semibold text-slate-200 leading-none">{user?.fullName ?? '—'}</div>

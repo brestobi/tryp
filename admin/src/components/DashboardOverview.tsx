@@ -195,18 +195,18 @@ export const DashboardOverview: React.FC = () => {
                 <AreaChart data={revenueByDay} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#d4d4d4" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#d4d4d4" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="day" stroke="#64748b" fontSize={11} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#292929" />
+                  <XAxis dataKey="day" stroke="#777777" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#777777" fontSize={11} tickLine={false} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
-                    labelStyle={{ color: '#f8fafc', fontWeight: 'bold' }}
+                    contentStyle={{ backgroundColor: '#111111', borderColor: '#444444', borderRadius: '0.75rem', fontSize: '12px' }}
+                    labelStyle={{ color: '#f5f5f5', fontWeight: 'bold' }}
                   />
-                  <Area type="monotone" dataKey="revenue" stroke="#a855f7" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Revenue (R)" />
+                  <Area type="monotone" dataKey="revenue" stroke="#d4d4d4" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" name="Revenue (R)" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
@@ -227,14 +227,14 @@ export const DashboardOverview: React.FC = () => {
             {tierDistribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={tierDistribution} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="tier" stroke="#64748b" fontSize={9} tickLine={false} />
-                  <YAxis stroke="#64748b" fontSize={11} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#292929" />
+                  <XAxis dataKey="tier" stroke="#777777" fontSize={9} tickLine={false} />
+                  <YAxis stroke="#777777" fontSize={11} tickLine={false} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
-                    labelStyle={{ color: '#f8fafc', fontWeight: 'bold' }}
+                    contentStyle={{ backgroundColor: '#111111', borderColor: '#444444', borderRadius: '0.75rem', fontSize: '12px' }}
+                    labelStyle={{ color: '#f5f5f5', fontWeight: 'bold' }}
                   />
-                  <Bar dataKey="count" fill="#10b981" radius={[6, 6, 0, 0]} name="Trips" />
+                  <Bar dataKey="count" fill="#bdbdbd" radius={[6, 6, 0, 0]} name="Trips" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

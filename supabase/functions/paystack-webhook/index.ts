@@ -69,7 +69,9 @@ serve(async (request: Request) => {
       .maybeSingle();
     if (rideError) throw rideError;
     if (!ride) return json({ received: true });
-    if (ride.payment_status === "paid") return json({ received: true, already_processed: true });
+    if (ride.payment_status === "paid" || ride.payment_status === "cancelled") {
+      return json({ received: true, already_processed: true });
+    }
 
     if (event.event !== "charge.success") {
       if (["charge.failed", "charge.reversed"].includes(event.event ?? "")) {

@@ -1,12 +1,14 @@
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/core/services/fare_calculator.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:tryp/features/passenger/presentation/screens/paystack_checkout_screen.dart';
 
 /// TRYP Payment Service — initializes Paystack hosted checkout server-side.
 class PaymentService {
   /// Initialize a ride payment on the server and open Paystack's hosted
   /// checkout. The amount, reference, and subaccount are never client-authored.
-  static Future<String> chargeForRide({
+  static Future<PaymentCheckoutResult> chargeForRide({
+    required NavigatorState navigator,
     required String rideId,
   }) async {
     final response = await Supabase.instance.client.functions.invoke(
@@ -20,19 +22,25 @@ class PaymentService {
       throw StateError('Paystack did not return a checkout URL.');
     }
 
-    final launched = await launchUrl(
-      Uri.parse(checkoutUrl),
-      mode: LaunchMode.externalApplication,
+    final callbackUrl =
+        data['callback_url'] as String? ?? 'https://standard.paystack.co/close';
+
+    final result = await navigator.push<PaymentCheckoutResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => PaystackCheckoutScreen(
+          checkoutUrl: checkoutUrl,
+          callbackUrl: callbackUrl,
+          verifyPayment: () => verifyRidePayment(rideId: rideId),
+        ),
+      ),
     );
-    if (!launched) throw StateError('Could not open Paystack checkout.');
-    return reference;
+    return result ?? PaymentCheckoutResult.cancelled;
   }
 
   /// Ask the server to verify a payment after returning from hosted checkout
   /// or when a webhook may have been delayed.
-  static Future<String> verifyRidePayment({
-    required String rideId,
-  }) async {
+  static Future<String> verifyRidePayment({required String rideId}) async {
     final response = await Supabase.instance.client.functions.invoke(
       'paystack-verify',
       body: {'ride_id': rideId},

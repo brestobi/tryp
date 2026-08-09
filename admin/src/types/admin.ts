@@ -80,6 +80,7 @@ export type RideStatus = 'requested' | 'accepted' | 'arrived' | 'in_trip' | 'com
 
 export interface Ride {
   id: string;
+  rideReference: string;
   passengerId: string;
   passengerName: string;
   passengerPhone: string;

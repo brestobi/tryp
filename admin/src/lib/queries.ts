@@ -73,7 +73,7 @@ function mapDriver(row: any, docs: DriverDocument[]): DriverProfile {
     isOnline: row.is_online ?? false,
     currentLat: row.current_lat ?? 0,
     currentLng: row.current_lng ?? 0,
-    avatarUrl: row.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(row.full_name ?? 'Driver')}&background=7c3aed&color=fff`,
+    avatarUrl: row.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(row.full_name ?? 'Driver')}&background=111111&color=ffffff`,
     joinedAt: row.created_at,
     totalTrips: 0,
     documents: docs,
@@ -95,7 +95,7 @@ function mapPassenger(row: any): PassengerProfile {
     totalRides: 0,
     status: (row.driver_status === 'rejected' ? 'suspended' : 'active') as 'active' | 'suspended',
     joinedAt: row.created_at,
-    avatarUrl: row.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(row.full_name ?? 'Passenger')}&background=0ea5e9&color=fff`,
+    avatarUrl: row.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(row.full_name ?? 'Passenger')}&background=111111&color=ffffff`,
   };
 }
 
@@ -103,6 +103,7 @@ function mapPassenger(row: any): PassengerProfile {
 function mapRide(row: any): Ride {
   return {
     id: row.id,
+    rideReference: row.ride_reference ?? '',
     passengerId: row.passenger_id,
     passengerName: row.passenger?.full_name ?? 'Unknown Passenger',
     passengerPhone: row.passenger?.phone ?? '',

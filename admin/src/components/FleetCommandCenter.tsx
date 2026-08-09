@@ -22,10 +22,10 @@ const createCustomIcon = (color: string) => {
   });
 };
 
-const driverIconOnline = createCustomIcon('#10b981'); // Emerald green
-const driverIconBusy = createCustomIcon('#f59e0b'); // Amber
+const driverIconOnline = createCustomIcon('#d4d4d4');
+const driverIconBusy = createCustomIcon('#777777');
 const pickupIcon = L.icon({
-  iconUrl: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="#8b5cf6" stroke="#ffffff" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="#ffffff"/></svg>')}`,
+  iconUrl: `data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="#777777" stroke="#ffffff" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="#ffffff"/></svg>')}`,
   iconSize: [28, 28],
   iconAnchor: [14, 14]
 });
@@ -226,7 +226,7 @@ export const FleetCommandCenter: React.FC = () => {
                         [selectedRide.pickupLat, selectedRide.pickupLng],
                         [selectedRide.destLat, selectedRide.destLng]
                       ]}
-                      pathOptions={{ color: '#a855f7', weight: 4, dashArray: '8, 8' }}
+                      pathOptions={{ color: '#d4d4d4', weight: 4, dashArray: '8, 8' }}
                     />
                   </>
                 )}
@@ -245,7 +245,7 @@ export const FleetCommandCenter: React.FC = () => {
                     Inspect Trip Telemetry
                   </span>
                   <h3 className="font-heading font-bold text-lg text-white">
-                    {selectedRide ? `Trip #${selectedRide.id.replace('ride-', '')}` : 'Select a Trip'}
+                    {selectedRide ? `Trip ${selectedRide.rideReference || selectedRide.id}` : 'Select a Trip'}
                   </h3>
                 </div>
                 {selectedRide && (
@@ -336,7 +336,7 @@ export const FleetCommandCenter: React.FC = () => {
                       setAssignRideModalId(selectedRide.id);
                       setSelectedAssignDriverId(availableDrivers[0]?.id || '');
                     }}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold shadow-lg shadow-purple-500/20 hover:from-purple-500 hover:to-indigo-500 transition-all flex items-center justify-center space-x-2"
+                    className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-950 text-xs font-bold shadow-lg shadow-white/10 hover:bg-white transition-all flex items-center justify-center space-x-2"
                   >
                     <UserCheck className="w-4 h-4" />
                     <span>Manually Assign Driver</span>
@@ -391,7 +391,7 @@ export const FleetCommandCenter: React.FC = () => {
                     }`}
                   >
                     <td className="py-3 px-4 font-mono font-bold text-purple-400">
-                      #{ride.id.replace('ride-', '')}
+                      {ride.rideReference || `#${ride.id.replace('ride-', '')}`}
                     </td>
                     <td className="py-3 px-4 font-semibold text-slate-100">{ride.passengerName}</td>
                     <td className="py-3 px-4">

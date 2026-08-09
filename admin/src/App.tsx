@@ -45,7 +45,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
           <div className="max-w-md w-full glass-panel p-8 rounded-2xl border border-red-500/30 text-center space-y-4 shadow-2xl">
-            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto text-red-400">
+            <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto text-slate-200">
               <AlertTriangle className="w-6 h-6" />
             </div>
             <div>
@@ -54,12 +54,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
                 An unexpected exception occurred during rendering.
               </p>
             </div>
-            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-left text-xs font-mono text-red-400 overflow-x-auto max-h-32">
+            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-left text-xs font-mono text-slate-300 overflow-x-auto max-h-32">
               {this.state.error?.message || 'Unknown Error'}
             </div>
             <button
               onClick={() => window.location.reload()}
-              className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-all flex items-center justify-center space-x-2"
+              className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-white text-slate-950 font-bold text-xs transition-all flex items-center justify-center space-x-2"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Reload Console</span>
@@ -96,7 +96,7 @@ const AppShell: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-slate-200" />
       </div>
     );
   }
@@ -107,7 +107,7 @@ const AppShell: React.FC = () => {
 
   return (
     <AdminProvider>
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-purple-500 selection:text-white">
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
         <Header />
         <div className="flex-1 flex overflow-hidden">
           <Sidebar />

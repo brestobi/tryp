@@ -22,6 +22,7 @@ void main() {
       final trip = TripModel.fromJson(_rideJson(status: 'in_trip'));
 
       expect(trip.id, 'ride-1');
+      expect(trip.rideReference, 'T-00001');
       expect(trip.passengerId, 'passenger-1');
       expect(trip.passengerName, 'Passenger One');
       expect(trip.driverId, 'driver-1');
@@ -67,6 +68,7 @@ Map<String, dynamic> _rideJson({
 }) {
   return {
     'id': 'ride-1',
+    'ride_reference': 'T-00001',
     'passenger_id': 'passenger-1',
     'driver_id': 'driver-1',
     'origin': 'Pickup Point',

@@ -127,7 +127,7 @@ class _RideCompletionScreenState extends ConsumerState<RideCompletionScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${trip.paymentMethod} • $paymentStatus',
+                      '${trip.rideReference.isNotEmpty ? trip.rideReference : 'Trip'} • ${trip.paymentMethod} • $paymentStatus',
                       style: TRYPTypography.bodySmall.copyWith(
                         color: TRYPColors.white.withValues(alpha: 0.72),
                       ),

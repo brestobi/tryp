@@ -16,7 +16,7 @@ export const FinancialPayouts: React.FC = () => {
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   
   // Paystack Auditor lookup state
-  const [paystackTxRef, setPaystackTxRef] = useState<string>('pstk_tx_99812401');
+  const [paystackTxRef, setPaystackTxRef] = useState<string>('T-00001');
   const [paystackAuditResult, setPaystackAuditResult] = useState<{
     reference: string;
     amount: number;
@@ -118,7 +118,7 @@ export const FinancialPayouts: React.FC = () => {
 
         <button
           onClick={handleExportCSV}
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 hover:from-cyan-500 hover:to-blue-500 transition-all flex items-center space-x-2 shrink-0"
+          className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-950 text-xs font-bold shadow-lg shadow-white/10 hover:bg-white transition-all flex items-center space-x-2 shrink-0"
         >
           <Download className="w-4 h-4" />
           <span>Export SA Bank Batch (CSV/SEPA)</span>
@@ -253,7 +253,7 @@ export const FinancialPayouts: React.FC = () => {
                     type="text"
                     value={paystackTxRef}
                     onChange={e => setPaystackTxRef(e.target.value)}
-                    placeholder="e.g. pstk_tx_99812401"
+                    placeholder="e.g. T-00001"
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-mono text-xs focus:outline-none focus:border-cyan-500"
                   />
                   <button

@@ -493,7 +493,7 @@ export const DriverKYCInspector: React.FC = () => {
                   <button
                     onClick={handleApproveDriver}
                     disabled={busyAction !== null}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-400 transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-950 text-xs font-bold shadow-lg shadow-white/10 hover:bg-white transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {busyAction === 'driver' ? (
                       <Loader2 className="w-4 h-4 animate-spin" />

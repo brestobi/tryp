@@ -42,6 +42,7 @@ serve(async (request: Request) => {
     if (!ride || ride.passenger_id !== userData.user.id) return json({ error: "Ride not found." }, 404);
     if (!ride.payment_reference) return json({ error: "Payment has not been initialized." }, 409);
     if (ride.payment_status === "paid") return json({ status: "paid", reference: ride.payment_reference });
+    if (ride.payment_status === "cancelled") return json({ status: "cancelled", reference: ride.payment_reference });
 
     const verifyResponse = await fetch(
       `https://api.paystack.co/transaction/verify/${encodeURIComponent(ride.payment_reference)}`,
@@ -61,7 +62,7 @@ serve(async (request: Request) => {
       (!PAYSTACK_SUBACCOUNT_CODE || String(subaccount ?? "") === PAYSTACK_SUBACCOUNT_CODE);
 
     if (!verified) {
-      const failedStatuses = ["failed", "abandoned", "reversed"];
+      const failedStatuses = ["failed", "abandoned", "reversed", "cancelled"];
       if (failedStatuses.includes(String(payment?.status ?? "").toLowerCase())) {
         await adminClient.rpc("set_ride_payment_status", {
           p_ride_id: ride.id,
