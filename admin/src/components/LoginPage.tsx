@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import { ShieldCheck, Mail, Lock, Loader2, AlertCircle, Sun, Moon } from 'lucide-react';
 
 interface LoginPageProps {
   initialError?: string;
@@ -8,6 +9,7 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ initialError }) => {
   const { signIn } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,10 +31,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialError }) => {
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-white/[0.02] rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md z-10">
+        <div className="flex justify-end mb-4">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+          >
+            {theme === 'dark' ? <Sun className="h-3.5 w-3.5 text-amber-400" /> : <Moon className="h-3.5 w-3.5 text-indigo-500" />}
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          </button>
+        </div>
         {/* Brand */}
         <div className="text-center mb-8 space-y-3">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-100 text-slate-950 shadow-xl shadow-white/10 mb-2">
-            <ShieldCheck className="w-7 h-7 text-white" />
+            <ShieldCheck className="w-7 h-7 text-slate-950" />
           </div>
           <div>
             <h1 className="text-3xl font-extrabold text-white font-heading tracking-tight">
@@ -102,7 +116,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialError }) => {
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full py-3 rounded-xl bg-slate-100 text-slate-950 font-bold text-sm shadow-lg shadow-white/10 hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {loading ? (
                 <>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import type { AdminRole } from '../types/admin';
 import {
   ShieldCheck,
@@ -12,6 +13,8 @@ import {
   ChevronDown,
   LogOut,
   RefreshCw,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -29,6 +32,7 @@ export const Header: React.FC = () => {
   } = useAdmin();
 
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
@@ -49,10 +53,10 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="h-16 border-b border-slate-800 glass-panel sticky top-0 z-40 px-6 flex items-center justify-between">
+    <header className="min-h-16 border-b border-slate-800 glass-panel sticky top-0 z-40 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2">
       {/* Brand */}
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-4 min-w-0">
+        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-950 flex items-center justify-center shadow-lg shadow-white/10 font-bold text-lg font-heading">
             T
           </div>
@@ -91,7 +95,7 @@ export const Header: React.FC = () => {
       </div>
 
       {/* Controls */}
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
         {/* Refresh */}
         <button
           onClick={refresh}
@@ -100,6 +104,17 @@ export const Header: React.FC = () => {
           className="p-2 text-slate-400 hover:text-white rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors disabled:opacity-40"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          className="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+        >
+          {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-500" />}
+          <span className="font-medium hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
         </button>
 
         {/* Live toggle */}
@@ -197,7 +212,7 @@ export const Header: React.FC = () => {
         </div>
 
         {/* User avatar — populated from auth session */}
-        <div className="flex items-center space-x-3 pl-3 border-l border-slate-800">
+        <div className="flex items-center space-x-2 sm:space-x-3 pl-2 sm:pl-3 border-l border-slate-800">
           <img
             src={user?.avatarUrl ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.fullName ?? 'Admin')}&background=111111&color=ffffff`}
             alt={user?.fullName ?? 'Admin'}

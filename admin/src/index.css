@@ -3,8 +3,9 @@
 /*
  * TRYP Admin visual system
  *
- * The console is intentionally monochrome: hierarchy comes from contrast,
- * spacing, weight, borders, and motion rather than hue.
+ * Surfaces adapt between dark and light mode. Semantic colours are reserved
+ * for actions, status, alerts, and data emphasis so the interface stays calm
+ * without becoming flat.
  */
 @theme {
   --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
@@ -17,7 +18,117 @@
   --font-heading: "Inter", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
-  /* Neutralise Tailwind's semantic colour utilities into a tonal scale. */
+  --page-bg: #f8fafc;
+  --surface-0: #ffffff;
+  --surface-1: #f8fafc;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  --text-strong: #0f172a;
+  --text-body: #334155;
+  --text-muted: #64748b;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --focus-ring: #2563eb;
+
+  /* Tailwind slate utilities become light, readable structural tokens. */
+  --color-slate-950: #f8fafc;
+  --color-slate-900: #ffffff;
+  --color-slate-800: #e2e8f0;
+  --color-slate-700: #cbd5e1;
+  --color-slate-600: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-400: #475569;
+  --color-slate-300: #334155;
+  --color-slate-200: #1e293b;
+  --color-slate-100: #0f172a;
+  --color-slate-50: #020617;
+
+  --color-zinc-950: #f8fafc;
+  --color-zinc-900: #ffffff;
+  --color-zinc-800: #e2e8f0;
+  --color-zinc-700: #cbd5e1;
+  --color-zinc-600: #94a3b8;
+  --color-zinc-500: #64748b;
+  --color-zinc-400: #475569;
+  --color-zinc-300: #334155;
+  --color-zinc-200: #1e293b;
+  --color-zinc-100: #0f172a;
+  --color-zinc-50: #020617;
+
+  /* Semantic accents: accessible on light surfaces. */
+  --color-purple-950: #faf5ff;
+  --color-purple-900: #f3e8ff;
+  --color-purple-800: #e9d5ff;
+  --color-purple-700: #c084fc;
+  --color-purple-600: #7c3aed;
+  --color-purple-500: #8b5cf6;
+  --color-purple-400: #7c3aed;
+  --color-purple-300: #6d28d9;
+  --color-indigo-950: #eef2ff;
+  --color-indigo-900: #e0e7ff;
+  --color-indigo-800: #c7d2fe;
+  --color-indigo-700: #818cf8;
+  --color-indigo-600: #4f46e5;
+  --color-indigo-500: #6366f1;
+  --color-indigo-400: #4f46e5;
+  --color-indigo-300: #4338ca;
+  --color-pink-600: #db2777;
+  --color-pink-500: #ec4899;
+  --color-pink-400: #db2777;
+  --color-pink-300: #be185d;
+  --color-emerald-950: #ecfdf5;
+  --color-emerald-900: #d1fae5;
+  --color-emerald-800: #a7f3d0;
+  --color-emerald-700: #34d399;
+  --color-emerald-600: #059669;
+  --color-emerald-500: #10b981;
+  --color-emerald-400: #059669;
+  --color-emerald-300: #047857;
+  --color-amber-950: #fffbeb;
+  --color-amber-900: #fef3c7;
+  --color-amber-800: #fde68a;
+  --color-amber-700: #fbbf24;
+  --color-amber-600: #d97706;
+  --color-amber-500: #f59e0b;
+  --color-amber-400: #d97706;
+  --color-amber-300: #b45309;
+  --color-cyan-600: #0891b2;
+  --color-cyan-500: #06b6d4;
+  --color-cyan-400: #0891b2;
+  --color-cyan-300: #0e7490;
+  --color-blue-600: #2563eb;
+  --color-blue-500: #3b82f6;
+  --color-blue-400: #2563eb;
+  --color-teal-500: #14b8a6;
+  --color-teal-400: #0f766e;
+  --color-red-600: #dc2626;
+  --color-red-500: #ef4444;
+  --color-red-400: #dc2626;
+  --color-red-300: #b91c1c;
+}
+
+.theme-light .text-white {
+  color: var(--text-strong) !important;
+}
+
+.theme-light button.text-white,
+.theme-light a.text-white {
+  color: #ffffff !important;
+}
+
+.theme-dark {
+  --page-bg: #050505;
+  --surface-0: #0c0c0c;
+  --surface-1: #111111;
+  --surface-2: #181818;
+  --surface-3: #292929;
+  --text-strong: #f5f5f5;
+  --text-body: #dedede;
+  --text-muted: #a6a6a6;
+  --border-subtle: #242424;
+  --border-strong: #444444;
+  --focus-ring: #c4b5fd;
+
   --color-slate-950: #050505;
   --color-slate-900: #0b0b0b;
   --color-slate-800: #191919;
@@ -42,77 +153,81 @@
   --color-zinc-100: #eeeeee;
   --color-zinc-50: #fafafa;
 
-  /* Every accent uses the same neutral values, preserving contrast without hue. */
-  --color-purple-950: #050505;
-  --color-purple-900: #0b0b0b;
-  --color-purple-800: #191919;
-  --color-purple-700: #292929;
-  --color-purple-600: #3a3a3a;
-  --color-purple-500: #777777;
-  --color-purple-400: #bdbdbd;
-  --color-purple-300: #d4d4d4;
-  --color-indigo-950: #050505;
-  --color-indigo-900: #0b0b0b;
-  --color-indigo-800: #191919;
-  --color-indigo-700: #292929;
-  --color-indigo-600: #3a3a3a;
-  --color-indigo-500: #777777;
-  --color-indigo-400: #bdbdbd;
-  --color-indigo-300: #d4d4d4;
-  --color-pink-600: #3a3a3a;
-  --color-pink-500: #777777;
-  --color-pink-400: #bdbdbd;
-  --color-pink-300: #d4d4d4;
-  --color-emerald-950: #050505;
-  --color-emerald-900: #0b0b0b;
-  --color-emerald-800: #191919;
-  --color-emerald-700: #292929;
-  --color-emerald-600: #3a3a3a;
-  --color-emerald-500: #777777;
-  --color-emerald-400: #bdbdbd;
-  --color-emerald-300: #d4d4d4;
-  --color-amber-950: #050505;
-  --color-amber-900: #0b0b0b;
-  --color-amber-800: #191919;
-  --color-amber-700: #292929;
-  --color-amber-600: #3a3a3a;
-  --color-amber-500: #777777;
-  --color-amber-400: #bdbdbd;
-  --color-amber-300: #d4d4d4;
-  --color-cyan-600: #3a3a3a;
-  --color-cyan-500: #777777;
-  --color-cyan-400: #bdbdbd;
-  --color-cyan-300: #d4d4d4;
-  --color-blue-600: #3a3a3a;
-  --color-blue-500: #777777;
-  --color-blue-400: #bdbdbd;
-  --color-teal-500: #777777;
-  --color-teal-400: #bdbdbd;
-  --color-red-600: #3a3a3a;
-  --color-red-500: #777777;
-  --color-red-400: #bdbdbd;
-  --color-red-300: #d4d4d4;
+  --color-purple-950: #120b1c;
+  --color-purple-900: #24133d;
+  --color-purple-800: #3b1f63;
+  --color-purple-700: #7c3aed;
+  --color-purple-600: #9333ea;
+  --color-purple-500: #a855f7;
+  --color-purple-400: #c084fc;
+  --color-purple-300: #d8b4fe;
+  --color-indigo-950: #10112b;
+  --color-indigo-900: #1e1b4b;
+  --color-indigo-800: #312e81;
+  --color-indigo-700: #4338ca;
+  --color-indigo-600: #4f46e5;
+  --color-indigo-500: #6366f1;
+  --color-indigo-400: #818cf8;
+  --color-indigo-300: #a5b4fc;
+  --color-pink-600: #db2777;
+  --color-pink-500: #ec4899;
+  --color-pink-400: #f472b6;
+  --color-pink-300: #f9a8d4;
+  --color-emerald-950: #052e1b;
+  --color-emerald-900: #064e3b;
+  --color-emerald-800: #065f46;
+  --color-emerald-700: #059669;
+  --color-emerald-600: #10b981;
+  --color-emerald-500: #10b981;
+  --color-emerald-400: #34d399;
+  --color-emerald-300: #6ee7b7;
+  --color-amber-950: #3a2104;
+  --color-amber-900: #451a03;
+  --color-amber-800: #78350f;
+  --color-amber-700: #b45309;
+  --color-amber-600: #d97706;
+  --color-amber-500: #f59e0b;
+  --color-amber-400: #fbbf24;
+  --color-amber-300: #fcd34d;
+  --color-cyan-600: #0891b2;
+  --color-cyan-500: #06b6d4;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-300: #67e8f9;
+  --color-blue-600: #2563eb;
+  --color-blue-500: #3b82f6;
+  --color-blue-400: #60a5fa;
+  --color-teal-500: #14b8a6;
+  --color-teal-400: #2dd4bf;
+  --color-red-600: #dc2626;
+  --color-red-500: #ef4444;
+  --color-red-400: #f87171;
+  --color-red-300: #fca5a5;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
+body {
+  min-width: 320px;
+}
+
 html {
-  background: #050505;
+  background: var(--page-bg);
 }
 
 body {
   margin: 0;
-  min-width: 320px;
-  background-color: #050505;
-  color: #f5f5f5;
+  background-color: var(--page-bg);
+  color: var(--text-strong);
   font-family: var(--font-sans);
   font-size: 14px;
   letter-spacing: -0.01em;
   overflow-x: hidden;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 180ms ease, color 180ms ease;
 }
 
 button,
@@ -127,7 +242,7 @@ a,
 input,
 textarea,
 select {
-  outline-color: #f5f5f5;
+  outline-color: var(--focus-ring);
 }
 
 button:focus-visible,
@@ -135,7 +250,7 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid #f5f5f5;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -163,19 +278,18 @@ pre,
   letter-spacing: -0.02em;
 }
 
-/* Quiet, layered surfaces keep the UI black and white without feeling flat. */
 .glass-panel {
-  background: rgba(12, 12, 12, 0.92);
+  background: color-mix(in srgb, var(--surface-0) 92%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid #242424;
+  border: 1px solid var(--border-subtle);
 }
 
 .glass-card {
-  background: linear-gradient(145deg, #181818 0%, #0d0d0d 100%);
+  background: linear-gradient(145deg, var(--surface-2) 0%, var(--surface-1) 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid #282828;
+  border: 1px solid var(--border-subtle);
 }
 
 .glass-card-hover {
@@ -183,39 +297,37 @@ pre,
 }
 
 .glass-card-hover:hover {
-  border-color: #666666;
-  box-shadow: 0 14px 34px -18px rgba(255, 255, 255, 0.35);
+  border-color: var(--border-strong);
+  box-shadow: 0 14px 34px -18px color-mix(in srgb, var(--text-strong) 35%, transparent);
   transform: translateY(-2px);
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0b0b0b;
+  background: var(--surface-1);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3c3c3c;
-  border: 2px solid #0b0b0b;
+  background: var(--border-strong);
+  border: 2px solid var(--surface-1);
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #777777;
+  background: var(--text-muted);
 }
 
-/* Monochrome live indicator */
 @keyframes pulse-glow {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.24);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.28);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
   }
 }
 
@@ -223,32 +335,35 @@ pre,
   animation: pulse-glow 2s infinite;
 }
 
-/* Leaflet monochrome presentation */
 .leaflet-container {
-  background: #0b0b0b !important;
+  background: var(--surface-1) !important;
   border-radius: 0.75rem;
   font-family: inherit;
 }
 
 .leaflet-tile-pane {
+  filter: grayscale(1) brightness(0.82) contrast(1.1);
+}
+
+.theme-dark .leaflet-tile-pane {
   filter: grayscale(1) brightness(0.68) contrast(1.15);
 }
 
 .leaflet-popup-content-wrapper {
-  background: #111111 !important;
-  color: #f5f5f5 !important;
-  border: 1px solid #444444;
+  background: var(--surface-0) !important;
+  color: var(--text-strong) !important;
+  border: 1px solid var(--border-strong);
   border-radius: 0.75rem !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.7) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.28), 0 8px 10px -6px rgba(0, 0, 0, 0.22) !important;
 }
 
 .leaflet-popup-tip {
-  background: #111111 !important;
+  background: var(--surface-0) !important;
 }
 
 ::selection {
-  background: #f5f5f5;
-  color: #050505;
+  background: #c4b5fd;
+  color: #1e1b4b;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { LoginPage } from './components/LoginPage';
@@ -92,6 +93,7 @@ const MainContent: React.FC = () => {
 
 const AppShell: React.FC = () => {
   const { session, user, isAdmin, loading } = useAuth();
+  const { theme } = useTheme();
 
   if (loading) {
     return (
@@ -107,7 +109,7 @@ const AppShell: React.FC = () => {
 
   return (
     <AdminProvider>
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      <div className={`min-h-screen flex flex-col font-sans theme-root ${theme === 'light' ? 'theme-light' : 'theme-dark'}`}>
         <Header />
         <div className="flex-1 flex overflow-hidden">
           <Sidebar />
@@ -121,9 +123,11 @@ const AppShell: React.FC = () => {
 export function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <AppShell />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppShell />
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

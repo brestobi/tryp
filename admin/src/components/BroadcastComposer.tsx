@@ -241,7 +241,7 @@ export const BroadcastComposer: React.FC = () => {
               <button
                 type="submit"
                 disabled={!canSend}
-                className="px-6 py-2.5 rounded-xl bg-slate-100 text-slate-950 text-xs font-bold shadow-lg shadow-white/10 hover:bg-white transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 <span>{sending ? 'Broadcasting...' : `Broadcast to ${audienceCount} ${audienceLabel.toLowerCase()}`}</span>
@@ -262,11 +262,11 @@ export const BroadcastComposer: React.FC = () => {
             </div>
 
             {/* Phone-style notification card */}
-            <div className="rounded-2xl border border-slate-700/80 bg-gradient-to-br from-slate-900 to-slate-950 p-5">
+            <div className="rounded-2xl border border-slate-700/80 bg-slate-900 p-5">
               <div className="rounded-xl bg-slate-950/90 border border-slate-800 shadow-2xl overflow-hidden">
                 <div className="px-4 py-3 flex items-center space-x-3 border-b border-slate-800/60 bg-slate-900/40">
                   <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-950 flex items-center justify-center">
-                    <Bell className="w-4 h-4 text-white" />
+                    <Bell className="w-4 h-4 text-slate-950" />
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-400 font-medium">TRYP — {audienceLabel}</div>

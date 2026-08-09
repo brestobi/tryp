@@ -336,7 +336,7 @@ export const FleetCommandCenter: React.FC = () => {
                       setAssignRideModalId(selectedRide.id);
                       setSelectedAssignDriverId(availableDrivers[0]?.id || '');
                     }}
-                    className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-950 text-xs font-bold shadow-lg shadow-white/10 hover:bg-white transition-all flex items-center justify-center space-x-2"
+                    className="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all flex items-center justify-center space-x-2"
                   >
                     <UserCheck className="w-4 h-4" />
                     <span>Manually Assign Driver</span>
