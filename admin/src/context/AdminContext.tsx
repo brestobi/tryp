@@ -40,7 +40,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
-export type ActiveTab = 'dashboard' | 'kyc' | 'passenger-verification' | 'fleet' | 'fares' | 'payouts' | 'wallets' | 'users' | 'audit' | 'broadcast';
+export type ActiveTab = 'dashboard' | 'kyc' | 'passenger-verification' | 'fleet' | 'fares' | 'payouts' | 'wallets' | 'users' | 'audit' | 'broadcast' | 'statements';
 
 export interface AdminNotification {
   id: string;

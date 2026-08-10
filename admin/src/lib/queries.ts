@@ -582,3 +582,159 @@ export async function dbBroadcastNotification(params: {
   if (error) throw error;
   return (data ?? 0) as number;
 }
+
+// ─── Driver Statement Queries ────────────────────────────────────────────────
+
+import type { DriverStatementSummary, DriverStatementTrip } from '../types/admin';
+
+export async function fetchDriverStatementData(
+  driverId: string,
+  startDate: string,
+  endDate: string
+): Promise<DriverStatementSummary> {
+  // Fetch driver profile
+  const { data: driverProfile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', driverId)
+    .single();
+
+  if (profileError) throw profileError;
+
+  // Fetch wallet transactions for the period
+  const { data: transactions, error: txError } = await supabase
+    .from('driver_wallet_transactions')
+    .select('*')
+    .eq('driver_id', driverId)
+    .gte('created_at', startDate)
+    .lt('created_at', endDate)
+    .order('created_at', { ascending: true });
+
+  if (txError) throw txError;
+
+  // Fetch ride details for each transaction
+  const trips: DriverStatementTrip[] = [];
+  let totalDistance = 0;
+  let totalDuration = 0;
+  let longestTrip = 0;
+  let shortestTrip = Infinity;
+
+  for (const tx of transactions ?? []) {
+    const { data: ride } = await supabase
+      .from('rides')
+      .select('*')
+      .eq('id', tx.ride_id)
+      .single();
+
+    if (ride) {
+      const distance = parseFloat(ride.distance_km ?? '0') || 0;
+      const duration = ride.duration_mins ?? 0;
+      totalDistance += distance;
+      totalDuration += duration;
+      if (distance > longestTrip) longestTrip = distance;
+      if (distance > 0 && distance < shortestTrip) shortestTrip = distance;
+
+      trips.push({
+        id: ride.id,
+        rideReference: ride.ride_reference ?? '',
+        passengerName: ride.passenger_name ?? 'Passenger',
+        pickupAddress: ride.origin ?? '',
+        destAddress: ride.destination ?? '',
+        fare: parseFloat(ride.fare ?? '0') || 0,
+        paymentMethod: tx.payment_method as 'Cash' | 'Online',
+        platformFee: parseFloat(tx.platform_fee ?? '0') || 0,
+        driverNetAmount: parseFloat(tx.driver_net_amount ?? '0') || 0,
+        completedAt: tx.created_at,
+        distanceKm: distance,
+        durationMins: duration,
+        tier: ride.ride_type ?? 'TRYP Go',
+      });
+    }
+  }
+
+  // Calculate summaries
+  const cashTrips = trips.filter(t => t.paymentMethod === 'Cash');
+  const onlineTrips = trips.filter(t => t.paymentMethod === 'Online');
+
+  const totalGross = trips.reduce((sum, t) => sum + t.fare, 0);
+  const totalPlatformFees = trips.reduce((sum, t) => sum + t.platformFee, 0);
+  const totalNetEarnings = trips.reduce((sum, t) => sum + t.driverNetAmount, 0);
+
+  const cashCollected = cashTrips.reduce((sum, t) => sum + t.fare, 0);
+  const cashFeesOwed = cashTrips.reduce((sum, t) => sum + t.platformFee, 0);
+  const onlineEarnings = onlineTrips.reduce((sum, t) => sum + t.fare, 0);
+  const onlineFeesWithheld = onlineTrips.reduce((sum, t) => sum + t.platformFee, 0);
+
+  return {
+    driverId,
+    driverName: driverProfile.full_name ?? 'Driver',
+    driverEmail: driverProfile.email ?? '',
+    driverPhone: driverProfile.phone ?? '',
+    vehiclePlate: driverProfile.vehicle_plate ?? '',
+    bankName: driverProfile.bank_name ?? '',
+    bankAccount: driverProfile.bank_account_number ?? '',
+    periodStart: startDate,
+    periodEnd: endDate,
+    totalTrips: trips.length,
+    cashTrips: cashTrips.length,
+    onlineTrips: onlineTrips.length,
+    totalGross,
+    totalPlatformFees,
+    totalNetEarnings,
+    cashCollected,
+    cashFeesOwed,
+    onlineEarnings,
+    onlineFeesWithheld,
+    pendingOnlinePayout: onlineEarnings - onlineFeesWithheld,
+    averageFare: trips.length > 0 ? totalGross / trips.length : 0,
+    longestTrip: longestTrip === Infinity ? 0 : longestTrip,
+    shortestTrip: shortestTrip === Infinity ? 0 : shortestTrip,
+    totalDistanceKm: totalDistance,
+    totalDurationMins: totalDuration,
+    rating: parseFloat(driverProfile.rating ?? '5') || 5,
+    trips,
+  };
+}
+
+export async function fetchAllDriverStatements(
+  startDate: string,
+  endDate: string
+): Promise<DriverStatementSummary[]> {
+  // Fetch all approved drivers
+  const { data: drivers, error: driversError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('role', 'driver')
+    .eq('driver_status', 'approved');
+
+  if (driversError) throw driversError;
+
+  const statements: DriverStatementSummary[] = [];
+  for (const driver of drivers ?? []) {
+    const statement = await fetchDriverStatementData(driver.id, startDate, endDate);
+    statements.push(statement);
+  }
+
+  return statements;
+}
+
+export async function sendDriverStatements(
+  statements: DriverStatementSummary[]
+): Promise<{ success: number; failed: number }> {
+  let success = 0;
+  let failed = 0;
+
+  for (const statement of statements) {
+    try {
+      const { error } = await supabase.functions.invoke('send-driver-statement', {
+        body: { statement },
+      });
+      if (error) throw error;
+      success++;
+    } catch {
+      failed++;
+    }
+  }
+
+  return { success, failed };
+}

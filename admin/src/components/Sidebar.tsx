@@ -14,6 +14,7 @@ import {
   Zap,
   Server,
   Megaphone,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -44,6 +45,7 @@ export const Sidebar: React.FC = () => {
     { id: 'users',     label: 'User Directory',        icon: Users },
     { id: 'audit',     label: 'Admin Audit Logs',      icon: FileText },
     { id: 'broadcast', label: 'Broadcast Center',      icon: Megaphone },
+    { id: 'statements', label: 'Driver Statements',    icon: FileSpreadsheet },
   ];
 
   return (

@@ -16,6 +16,7 @@ import { DriverWalletOverview } from './components/DriverWalletOverview';
 import { UserDirectory } from './components/UserDirectory';
 import { AuditLogsView } from './components/AuditLogsView';
 import { BroadcastComposer } from './components/BroadcastComposer';
+import { DriverStatements } from './components/DriverStatements';
 import { useAdmin } from './context/AdminContext';
 import { Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -89,6 +90,7 @@ const MainContent: React.FC = () => {
       {activeTab === 'users'     && <UserDirectory />}
       {activeTab === 'audit'     && <AuditLogsView />}
       {activeTab === 'broadcast' && <BroadcastComposer />}
+      {activeTab === 'statements' && <DriverStatements />}
     </main>
   );
 };

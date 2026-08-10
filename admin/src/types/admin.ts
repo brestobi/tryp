@@ -155,3 +155,56 @@ export interface AdminAuditLog {
   ipAddress: string;
   timestamp: string;
 }
+
+// Driver Statement Types
+export interface DriverStatementTrip {
+  id: string;
+  rideReference: string;
+  passengerName: string;
+  pickupAddress: string;
+  destAddress: string;
+  fare: number;
+  paymentMethod: 'Cash' | 'Online';
+  platformFee: number;
+  driverNetAmount: number;
+  completedAt: string;
+  distanceKm: number;
+  durationMins: number;
+  tier: string;
+}
+
+export interface DriverStatementSummary {
+  driverId: string;
+  driverName: string;
+  driverEmail: string;
+  driverPhone: string;
+  vehiclePlate: string;
+  bankName: string;
+  bankAccount: string;
+  periodStart: string;
+  periodEnd: string;
+  totalTrips: number;
+  cashTrips: number;
+  onlineTrips: number;
+  totalGross: number;
+  totalPlatformFees: number;
+  totalNetEarnings: number;
+  cashCollected: number;
+  cashFeesOwed: number;
+  onlineEarnings: number;
+  onlineFeesWithheld: number;
+  pendingOnlinePayout: number;
+  averageFare: number;
+  longestTrip: number;
+  shortestTrip: number;
+  totalDistanceKm: number;
+  totalDurationMins: number;
+  rating: number;
+  trips: DriverStatementTrip[];
+}
+
+export interface StatementPeriod {
+  start: string;
+  end: string;
+  label: string;
+}
