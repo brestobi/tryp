@@ -1281,13 +1281,26 @@ class _PassengerHomeScreenPageState
       automaticallyImplyLeading: false,
       title: Row(
         children: [
-          // Transparent red brand logo; no white container.
-          Image.asset(
-            'assets/images/tryp-red.png',
-            width: 64,
-            height: 42,
-            fit: BoxFit.contain,
-            semanticLabel: 'TRYP logo',
+          // Logo badge using the branded image asset.
+          Container(
+            width: 48,
+            height: 40,
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: TRYPColors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Image.asset(
+              'assets/images/tryp_icon.png',
+              fit: BoxFit.contain,
+            ),
           ),
           const SizedBox(width: 10),
 

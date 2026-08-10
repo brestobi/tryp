@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -108,7 +107,6 @@ class PushNotificationService {
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
-          color: const Color(0xFFE21B2D),
           icon: 'tryp_notification',
         ),
         iOS: const DarwinNotificationDetails(
