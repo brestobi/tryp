@@ -10,6 +10,7 @@ import type {
   DocumentType,
   DocumentStatus,
   DriverStatus,
+  DriverWallet,
   PassengerProfile,
   PassengerVerification,
   Ride,
@@ -224,6 +225,27 @@ export async function fetchDrivers(): Promise<DriverProfile[]> {
   }
 
   return profiles.map((p) => mapDriver(p, docsByDriver[p.id] ?? []));
+}
+
+export async function fetchDriverWallets(): Promise<DriverWallet[]> {
+  const { data, error } = await supabase
+    .from('driver_wallets')
+    .select('driver_id, cash_collected, online_held, cash_platform_fee_owed, platform_fees_total, updated_at, driver:driver_id (full_name)')
+    .order('updated_at', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map((row) => {
+    const driver = Array.isArray(row.driver) ? row.driver[0] : row.driver;
+    return {
+      driverId: row.driver_id,
+      driverName: driver?.full_name ?? 'Driver',
+      cashCollected: parseFloat(row.cash_collected ?? '0') || 0,
+      onlineHeld: parseFloat(row.online_held ?? '0') || 0,
+      cashPlatformFeeOwed: parseFloat(row.cash_platform_fee_owed ?? '0') || 0,
+      platformFeesTotal: parseFloat(row.platform_fees_total ?? '0') || 0,
+      updatedAt: row.updated_at,
+    } satisfies DriverWallet;
+  });
 }
 
 export async function fetchPassengerVerifications(): Promise<PassengerVerification[]> {

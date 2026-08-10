@@ -11,8 +11,9 @@ import 'package:tryp/core/services/fare_calculator.dart';
 import 'package:tryp/core/services/location_service.dart';
 import 'package:tryp/core/services/notification_service.dart';
 import 'package:tryp/core/services/payment_service.dart';
+import 'package:tryp/core/services/payment_checkout_result.dart';
+import 'package:tryp/core/services/ride_request_readiness.dart';
 import 'package:tryp/core/services/passenger_verification_service.dart';
-import 'package:tryp/features/passenger/presentation/screens/paystack_checkout_screen.dart';
 import 'package:tryp/core/services/trip_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
@@ -167,8 +168,10 @@ class _PassengerHomeScreenPageState
   String _paymentMethod = 'Cash';
   bool _isScheduledRide = false;
   DateTime? _scheduledFor;
-  double _calculatedDistanceKm = 6.4;
-  int _calculatedDurationMins = 12;
+  double? _calculatedDistanceKm;
+  int? _calculatedDurationMins;
+  bool _isRouteCalculationComplete = false;
+  int _routeCalculationId = 0;
   bool _isLoading = false;
 
   // Map markers & polylines
@@ -179,6 +182,8 @@ class _PassengerHomeScreenPageState
   late AnimationController _radarAnimController;
   RealtimeChannel? _rideSubscription;
   Timer? _rideStatusRefreshTimer;
+  Timer? _searchDebounceTimer;
+  int _searchRequestId = 0;
   String? _completionRideId;
   String? _watchedRideId;
   bool _rideStatusRefreshInFlight = false;
@@ -211,12 +216,28 @@ class _PassengerHomeScreenPageState
 
   Future<void> _verifyOnlinePayment(String rideId) async {
     try {
-      await PaymentService.verifyRidePayment(rideId: rideId);
+      final status = await PaymentService.verifyRidePayment(rideId: rideId);
       if (!mounted) return;
-      final updatedTrip = await ref
-          .read(tripServiceProvider)
-          .getTripById(rideId);
-      if (updatedTrip != null) {
+
+      final tripService = ref.read(tripServiceProvider);
+      final result = paymentCheckoutResultForStatus(status);
+      if (result == PaymentCheckoutResult.failed ||
+          result == PaymentCheckoutResult.cancelled) {
+        await tripService.updateTripStatus(
+          rideId: rideId,
+          status: TripStatus.cancelled,
+        );
+        ref.read(activeTripStateProvider.notifier).stateTrip = null;
+        _watchedRideId = null;
+        _rideStatusRefreshTimer?.cancel();
+        _rideSubscription?.unsubscribe();
+        _rideSubscription = null;
+        if (mounted) setState(() => _mode = PassengerRideMode.idle);
+        return;
+      }
+
+      final updatedTrip = await tripService.getTripById(rideId);
+      if (updatedTrip != null && mounted) {
         ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
         setState(() {
           _mode = _isFutureScheduledRide(updatedTrip)
@@ -238,6 +259,7 @@ class _PassengerHomeScreenPageState
     _destinationSearchController.dispose();
     _pickupSearchController.dispose();
     _rideStatusRefreshTimer?.cancel();
+    _searchDebounceTimer?.cancel();
     _rideSubscription?.unsubscribe();
     super.dispose();
   }
@@ -483,6 +505,26 @@ class _PassengerHomeScreenPageState
     if (activeTrip == null) return;
 
     final tripService = ref.read(tripServiceProvider);
+    if (activeTrip.paymentMethod != 'Cash' &&
+        activeTrip.paymentStatus != 'paid') {
+      final paymentStatusUpdated = await tripService.setPaymentStatus(
+        rideId: activeTrip.id,
+        status: 'cancelled',
+      );
+      if (!paymentStatusUpdated) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Could not safely cancel the payment. Please try again.',
+              ),
+              backgroundColor: TRYPColors.error,
+            ),
+          );
+        }
+        return;
+      }
+    }
     final updated = await tripService.updateTripStatus(
       rideId: activeTrip.id,
       status: TripStatus.cancelled,
@@ -639,8 +681,8 @@ class _PassengerHomeScreenPageState
     final selectionId = ++_locationSelectionId;
 
     // Curated villages and the current GPS location already contain a
-    // deliberate coordinate. Future advanced map search results may carry a
-    // place ID and be resolved through Place Details before map use.
+    // deliberate coordinate. OpenStreetMap results carry an encoded result ID
+    // and are resolved locally before map use.
     if (item.placeId == null) return item;
 
     final details = await ref
@@ -651,8 +693,10 @@ class _PassengerHomeScreenPageState
     }
 
     return LocationItem(
-      name: details.shortName,
-      address: details.address,
+      // Keep the display text returned by Nominatim while using the exact
+      // coordinates resolved from its encoded result ID.
+      name: item.name,
+      address: item.address,
       lat: details.latitude,
       lng: details.longitude,
       icon: item.icon,
@@ -662,12 +706,24 @@ class _PassengerHomeScreenPageState
   }
 
   Future<void> _selectDestination(LocationItem item) async {
+    ++_routeCalculationId;
+    setState(() {
+      _isRouteCalculationComplete = false;
+      _calculatedDistanceKm = null;
+      _calculatedDurationMins = null;
+      _polylines = {};
+    });
+
     final resolved = await _resolveLocationItem(item);
     if (!mounted || resolved == null) return;
 
     setState(() {
       _destination = resolved;
       _destinationSearchController.text = resolved.name;
+      _isRouteCalculationComplete = false;
+      _calculatedDistanceKm = null;
+      _calculatedDurationMins = null;
+      _polylines = {};
       _mode = PassengerRideMode.tierSelection;
     });
 
@@ -676,7 +732,22 @@ class _PassengerHomeScreenPageState
   }
 
   Future<void> _recalculateRoute() async {
-    if (_destination == null) return;
+    final calculationId = ++_routeCalculationId;
+    if (_destination == null) {
+      if (mounted) {
+        setState(() {
+          _isRouteCalculationComplete = false;
+          _calculatedDistanceKm = null;
+          _calculatedDurationMins = null;
+          _polylines = {};
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _isRouteCalculationComplete = false);
+    }
 
     final locationService = ref.read(locationServiceProvider);
     final routeResult = await locationService.getRealRoute(
@@ -686,11 +757,12 @@ class _PassengerHomeScreenPageState
       endLng: _destination!.lng,
     );
 
-    if (!mounted) return;
+    if (!mounted || calculationId != _routeCalculationId) return;
 
     setState(() {
       _calculatedDistanceKm = routeResult.distanceKm;
       _calculatedDurationMins = routeResult.durationMins;
+      _isRouteCalculationComplete = true;
 
       _polylines = {
         Polyline(
@@ -734,7 +806,13 @@ class _PassengerHomeScreenPageState
   }
 
   Future<void> _requestRide() async {
-    if (_destination == null) return;
+    if (_destination == null ||
+        !_isRouteCalculationComplete ||
+        _calculatedDistanceKm == null ||
+        _calculatedDurationMins == null ||
+        _isLoading) {
+      return;
+    }
 
     final isVerified = await ref
         .read(passengerVerificationServiceProvider)
@@ -761,8 +839,8 @@ class _PassengerHomeScreenPageState
     }
 
     final fare = FareCalculatorService.calculateFare(
-      distanceKm: _calculatedDistanceKm,
-      durationMins: _calculatedDurationMins.toDouble(),
+      distanceKm: _calculatedDistanceKm!,
+      durationMins: _calculatedDurationMins!.toDouble(),
       rideTypeId: _selectedRideType,
       schema: fareSchema,
     );
@@ -782,8 +860,8 @@ class _PassengerHomeScreenPageState
         fare: fare,
         rideType: _selectedRideType,
         paymentMethod: _paymentMethod,
-        distanceKm: _calculatedDistanceKm,
-        durationMins: _calculatedDurationMins.toDouble(),
+        distanceKm: _calculatedDistanceKm!,
+        durationMins: _calculatedDurationMins!.toDouble(),
         pickupLat: _pickup.lat,
         pickupLng: _pickup.lng,
         destLat: _destination!.lat,
@@ -823,16 +901,26 @@ class _PassengerHomeScreenPageState
           if (!mounted) return;
           if (checkoutResult == PaymentCheckoutResult.cancelled ||
               checkoutResult == PaymentCheckoutResult.failed) {
-            await tripService.setPaymentStatus(
+            final paymentStatusUpdated = await tripService.setPaymentStatus(
               rideId: newTrip.id,
               status: checkoutResult == PaymentCheckoutResult.failed
                   ? 'failed'
                   : 'cancelled',
             );
-            await tripService.updateTripStatus(
+            if (!paymentStatusUpdated) {
+              throw StateError(
+                'The payment state could not be updated safely. Ride cancellation was not completed.',
+              );
+            }
+            final rideCancelled = await tripService.updateTripStatus(
               rideId: newTrip.id,
               status: TripStatus.cancelled,
             );
+            if (rideCancelled == null) {
+              throw StateError(
+                'The payment was settled, but the ride could not be cancelled.',
+              );
+            }
             if (!mounted) return;
             ref.read(activeTripStateProvider.notifier).stateTrip = null;
             _watchedRideId = null;
@@ -949,19 +1037,53 @@ class _PassengerHomeScreenPageState
   }
 
   void _onSearchQueryChanged(String query) {
-    final trimmed = query.trim().toLowerCase();
+    _searchDebounceTimer?.cancel();
+    final requestId = ++_searchRequestId;
+    final trimmed = query.trim();
+    final normalized = trimmed.toLowerCase();
+
     if (trimmed.isEmpty) {
       setState(() => _searchResults = tzaneenVillages);
       return;
     }
 
     final localMatches = tzaneenVillages.where((item) {
-      return item.name.toLowerCase().contains(trimmed) ||
-          item.address.toLowerCase().contains(trimmed) ||
-          item.city.toLowerCase().contains(trimmed);
+      return item.name.toLowerCase().contains(normalized) ||
+          item.address.toLowerCase().contains(normalized) ||
+          item.city.toLowerCase().contains(normalized);
+    }).toList();
+    setState(() => _searchResults = localMatches);
+
+    if (trimmed.length < 2) return;
+
+    // Nominatim's public service is rate-limited. Debounce typing and ignore
+    // late responses so old results cannot overwrite a newer query.
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 700), () {
+      unawaited(_searchOpenStreetMap(trimmed, requestId));
+    });
+  }
+
+  Future<void> _searchOpenStreetMap(String query, int requestId) async {
+    final suggestions = await ref
+        .read(locationServiceProvider)
+        .searchPlaces(query, near: LatLng(_pickup.lat, _pickup.lng));
+    if (!mounted || requestId != _searchRequestId) return;
+
+    final osmResults = suggestions.map((suggestion) {
+      return LocationItem(
+        name: suggestion.name,
+        address: suggestion.address,
+        lat: 0,
+        lng: 0,
+        icon: Icons.location_on_rounded,
+        city: 'OpenStreetMap',
+        placeId: suggestion.placeId,
+      );
     }).toList();
 
-    setState(() => _searchResults = localMatches);
+    setState(() {
+      _searchResults = osmResults.isEmpty ? _searchResults : osmResults;
+    });
   }
 
   void _showPaymentMethodPicker() {
@@ -1546,6 +1668,14 @@ class _PassengerHomeScreenPageState
                         return;
                       }
 
+                      ++_routeCalculationId;
+                      setState(() {
+                        _isRouteCalculationComplete = false;
+                        _calculatedDistanceKm = null;
+                        _calculatedDurationMins = null;
+                        _polylines = {};
+                      });
+
                       final resolved = await _resolveLocationItem(item);
                       if (!mounted || resolved == null) return;
 
@@ -1553,6 +1683,10 @@ class _PassengerHomeScreenPageState
                         _pickup = resolved;
                         _pickupSearchController.text = resolved.name;
                         _isSearchingPickup = false;
+                        _isRouteCalculationComplete = false;
+                        _calculatedDistanceKm = null;
+                        _calculatedDurationMins = null;
+                        _polylines = {};
                       });
                       FocusScope.of(context).unfocus();
                       await _recalculateRoute();
@@ -1571,6 +1705,15 @@ class _PassengerHomeScreenPageState
   Widget _buildTierSelectionSheet(Map<String, FareSchema> fareSchemas) {
     final dist = _calculatedDistanceKm;
     final duration = _calculatedDurationMins;
+    final activeSchema = fareSchemas[_selectedRideType];
+    final activeFare = dist == null || duration == null || activeSchema == null
+        ? null
+        : FareCalculatorService.calculateFare(
+            distanceKm: dist,
+            durationMins: duration.toDouble(),
+            rideTypeId: _selectedRideType,
+            schema: activeSchema,
+          );
 
     final tiers = [
       {
@@ -1607,16 +1750,6 @@ class _PassengerHomeScreenPageState
         'eta': '4 min',
       },
     ];
-
-    final activeSchema = fareSchemas[_selectedRideType];
-    final activeFare = activeSchema == null
-        ? null
-        : FareCalculatorService.calculateFare(
-            distanceKm: dist,
-            durationMins: duration.toDouble(),
-            rideTypeId: _selectedRideType,
-            schema: activeSchema,
-          );
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -1673,7 +1806,9 @@ class _PassengerHomeScreenPageState
                       ),
                     ),
                     Text(
-                      '${dist.toStringAsFixed(1)} km • ~$duration mins',
+                      dist == null || duration == null
+                          ? 'Calculating route…'
+                          : '${dist.toStringAsFixed(1)} km • ~$duration mins',
                       style: TRYPTypography.bodySmall.copyWith(
                         color: TRYPColors.grey,
                       ),
@@ -1690,7 +1825,8 @@ class _PassengerHomeScreenPageState
             final tierId = tier['id'] as String;
             final isSelected = _selectedRideType == tierId;
             final tierSchema = fareSchemas[tierId];
-            final fareAmt = tierSchema == null
+            final fareAmt =
+                tierSchema == null || dist == null || duration == null
                 ? null
                 : FareCalculatorService.calculateFare(
                     distanceKm: dist,
@@ -1833,7 +1969,11 @@ class _PassengerHomeScreenPageState
                 ? 'Loading current fares…'
                 : 'Request $_selectedRideType • R${activeFare.toStringAsFixed(2)}',
             isLoading: _isLoading,
-            enabled: activeFare != null && !_isLoading,
+            enabled: canRequestTrip(
+              mapCalculationComplete: _isRouteCalculationComplete,
+              fare: activeFare,
+              isLoading: _isLoading,
+            ),
             onPressed: _requestRide,
           ),
         ],

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:tryp_driver/app/routes.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/widgets/driver_bottom_nav_bar.dart';
 
@@ -79,13 +81,22 @@ class DriverProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            Text('Account', style: TRYPTypography.headingSmall.copyWith(fontSize: 18)),
+            Text(
+              'Account',
+              style: TRYPTypography.headingSmall.copyWith(fontSize: 18),
+            ),
             const SizedBox(height: 10),
             _ProfileActionTile(
               icon: Icons.badge_outlined,
               title: 'Driver details',
               subtitle: 'Personal and vehicle information',
               onTap: () {},
+            ),
+            _ProfileActionTile(
+              icon: Icons.account_balance_wallet_rounded,
+              title: 'Driver wallet',
+              subtitle: 'View cash collected and online payments held by TRYP',
+              onTap: () => context.go(Routes.driverWallet),
             ),
             _ProfileActionTile(
               icon: Icons.account_balance_outlined,
@@ -102,7 +113,7 @@ class DriverProfileScreen extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 3),
+      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 4),
     );
   }
 }
@@ -142,7 +153,10 @@ class _ProfileActionTile extends StatelessWidget {
         ),
         title: Text(title, style: TRYPTypography.titleMedium),
         subtitle: Text(subtitle, style: TRYPTypography.bodySmall),
-        trailing: const Icon(Icons.chevron_right_rounded, color: TRYPColors.grey),
+        trailing: const Icon(
+          Icons.chevron_right_rounded,
+          color: TRYPColors.grey,
+        ),
       ),
     );
   }

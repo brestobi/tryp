@@ -10,9 +10,11 @@ import type {
   AdminAuditLog,
   DriverStatus,
   DocumentStatus,
+  DriverWallet,
 } from '../types/admin';
 import {
   fetchDrivers,
+  fetchDriverWallets,
   fetchPassengers,
   fetchPassengerVerifications,
   dbReviewPassengerVerification,
@@ -38,7 +40,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
-export type ActiveTab = 'dashboard' | 'kyc' | 'passenger-verification' | 'fleet' | 'fares' | 'payouts' | 'users' | 'audit' | 'broadcast';
+export type ActiveTab = 'dashboard' | 'kyc' | 'passenger-verification' | 'fleet' | 'fares' | 'payouts' | 'wallets' | 'users' | 'audit' | 'broadcast';
 
 export interface AdminNotification {
   id: string;
@@ -67,6 +69,7 @@ interface AdminContextType {
   rides: Ride[];
   fareSchemas: FareSchema[];
   payouts: PayoutSettlement[];
+  driverWallets: DriverWallet[];
   auditLogs: AdminAuditLog[];
   notifications: AdminNotification[];
   isRealtimeLive: boolean;
@@ -116,6 +119,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [rides, setRides] = useState<Ride[]>([]);
   const [fareSchemas, setFareSchemas] = useState<FareSchema[]>([]);
   const [payouts, setPayouts] = useState<PayoutSettlement[]>([]);
+  const [driverWallets, setDriverWallets] = useState<DriverWallet[]>([]);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
 
@@ -124,8 +128,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLoading(true);
     setError(null);
     try {
-      const [d, p, pv, r, f, pay, logs] = await Promise.all([
+      const [d, wallets, p, pv, r, f, pay, logs] = await Promise.all([
         fetchDrivers(),
+        fetchDriverWallets(),
         fetchPassengers(),
         fetchPassengerVerifications(),
         fetchRides(),
@@ -134,6 +139,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         fetchAuditLogs(),
       ]);
       setDrivers(d);
+      setDriverWallets(wallets);
       setPassengers(p);
       setPassengerVerifications(pv);
       setRides(r);
@@ -159,6 +165,13 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       .channel('admin-rides')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, () => {
         fetchRides().then(setRides).catch(console.error);
+      })
+      .subscribe();
+
+    const walletsChannel = supabase
+      .channel('admin-driver-wallets')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_wallets' }, () => {
+        fetchDriverWallets().then(setDriverWallets).catch(console.error);
       })
       .subscribe();
 
@@ -190,6 +203,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return () => {
       supabase.removeChannel(ridesChannel);
+      supabase.removeChannel(walletsChannel);
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(logsChannel);
     };
@@ -473,6 +487,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         rides,
         fareSchemas,
         payouts,
+        driverWallets,
         auditLogs,
         notifications,
         isRealtimeLive,

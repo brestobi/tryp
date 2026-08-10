@@ -1,4 +1,3 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,10 +5,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
-import 'package:tryp/core/services/push_notification_service.dart';
 import 'package:tryp/core/services/supabase_service.dart';
-import 'package:tryp/core/services/welcome_notification_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
+
+bool passengerProfileIsApproved(Map<String, dynamic>? profile) {
+  return profile?['passenger_verification_status'] == 'approved';
+}
 
 class PassengerProfileScreen extends ConsumerStatefulWidget {
   const PassengerProfileScreen({super.key});
@@ -27,6 +28,7 @@ class _PassengerProfileScreenState
   final _homeAddressController = TextEditingController();
   final _workAddressController = TextEditingController();
   final _emergencyContactController = TextEditingController();
+  final _emergencyNameController = TextEditingController();
 
   bool _isEditing = false;
   bool _isLoading = false;
@@ -34,7 +36,7 @@ class _PassengerProfileScreenState
   String? _avatarUrl;
   bool _pinVerificationEnabled = false;
   bool _shareTripEnabled = true;
-  double _walletBalance = 150.00;
+  bool _isVerified = false;
   double _userRating = 4.9;
 
   @override
@@ -51,6 +53,7 @@ class _PassengerProfileScreenState
     _homeAddressController.dispose();
     _workAddressController.dispose();
     _emergencyContactController.dispose();
+    _emergencyNameController.dispose();
     super.dispose();
   }
 
@@ -96,6 +99,9 @@ class _PassengerProfileScreenState
                 (data?['work_address'] as String?) ?? '';
             _emergencyContactController.text =
                 (data?['emergency_contact_phone'] as String?) ?? '';
+            _emergencyNameController.text =
+                (data?['emergency_contact_name'] as String?) ?? '';
+            _isVerified = passengerProfileIsApproved(data);
           });
         }
       } else {
@@ -266,6 +272,8 @@ class _PassengerProfileScreenState
       _homeAddressController.text = '';
       _workAddressController.text = '';
       _emergencyContactController.text = '';
+      _emergencyNameController.text = '';
+      _isVerified = false;
     });
   }
 
@@ -281,6 +289,7 @@ class _PassengerProfileScreenState
           'phone_number': _phoneController.text.trim(),
           'home_address': _homeAddressController.text.trim(),
           'work_address': _workAddressController.text.trim(),
+          'emergency_contact_name': _emergencyNameController.text.trim(),
           'emergency_contact_phone': _emergencyContactController.text.trim(),
           'updated_at': DateTime.now().toIso8601String(),
         });
@@ -312,61 +321,6 @@ class _PassengerProfileScreenState
     } catch (_) {}
     if (mounted) {
       context.go(Routes.login);
-    }
-  }
-
-  Future<void> _testPushNotification() async {
-    try {
-      final pushService = PushNotificationService();
-      final allowed = await pushService.hasPermission();
-      if (!allowed) {
-        final settings = await pushService.requestPermission();
-        if (settings.authorizationStatus == AuthorizationStatus.denied) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Notification permission denied. Enable it in device settings to test push messages.'),
-              backgroundColor: TRYPColors.error,
-            ),
-          );
-          return;
-        }
-      }
-
-      final token = await pushService.getPushToken();
-      debugPrint('🧪 Test notification token: $token');
-
-      if (!mounted) return;
-      WelcomeNotificationService.showWelcomeNotification(
-        callback: (title, body) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$title\n$body'),
-              duration: const Duration(seconds: 4),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: TRYPColors.secondary,
-            ),
-          );
-        },
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(token == null
-              ? 'Push permission granted. No token was returned yet.'
-              : 'Push permission granted. Device token generated successfully for testing.'),
-          backgroundColor: TRYPColors.primary,
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error testing push notification: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Push test failed: $e'),
-          backgroundColor: TRYPColors.error,
-        ),
-      );
     }
   }
 
@@ -471,12 +425,52 @@ class _PassengerProfileScreenState
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Text(
-                              _nameController.text,
-                              style: TRYPTypography.headingMedium.copyWith(
-                                fontSize: 20,
-                                color: TRYPColors.primary,
-                              ),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 6,
+                              children: [
+                                Text(
+                                  _nameController.text,
+                                  style: TRYPTypography.headingMedium.copyWith(
+                                    fontSize: 20,
+                                    color: TRYPColors.primary,
+                                  ),
+                                ),
+                                if (_isVerified)
+                                  Tooltip(
+                                    message: 'Identity verified',
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade50,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.verified_rounded,
+                                            size: 16,
+                                            color: Colors.green.shade700,
+                                          ),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            'Verified',
+                                            style: TextStyle(
+                                              color: Colors.green.shade700,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Row(
@@ -511,60 +505,6 @@ class _PassengerProfileScreenState
                                   ),
                                 ),
                               ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Wallet Balance Card
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: TRYPColors.dark,
-                          borderRadius: BorderRadius.circular(22),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'TRYP Wallet Balance',
-                                  style: TRYPTypography.bodySmall.copyWith(
-                                    color: TRYPColors.muted,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'R${_walletBalance.toStringAsFixed(2)}',
-                                  style: TRYPTypography.headingMedium.copyWith(
-                                    color: TRYPColors.accent,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Wallet Top Up powered by Paystack',
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.add_rounded, size: 18),
-                              label: const Text('Top Up'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: TRYPColors.accent,
-                                foregroundColor: TRYPColors.primary,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
                             ),
                           ],
                         ),
@@ -614,6 +554,29 @@ class _PassengerProfileScreenState
                         label: 'Work Address',
                         controller: _workAddressController,
                         prefixIcon: Icons.work_outline,
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Emergency Contact
+                      _SectionHeader(
+                        title: 'Emergency Contact',
+                        isEditing: _isEditing,
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        label: 'Contact Name',
+                        hint: 'e.g. Sarah (Spouse / Parent)',
+                        controller: _emergencyNameController,
+                        prefixIcon: Icons.contact_phone_outlined,
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        label: 'Contact Phone',
+                        hint: 'e.g. +27 71 987 6543',
+                        controller: _emergencyContactController,
+                        keyboardType: TextInputType.phone,
+                        prefixIcon: Icons.phone_iphone_rounded,
                       ),
 
                       const SizedBox(height: 24),
@@ -674,34 +637,29 @@ class _PassengerProfileScreenState
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        leading: const Icon(
-                          Icons.verified_user_rounded,
-                          color: TRYPColors.primary,
+                        leading: Icon(
+                          _isVerified
+                              ? Icons.verified_rounded
+                              : Icons.verified_user_rounded,
+                          color: _isVerified
+                              ? Colors.green.shade700
+                              : TRYPColors.primary,
                         ),
-                        title: const Text('Passenger identity verification'),
-                        subtitle: const Text('Submit your ID and camera selfie for admin review'),
-                        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                        onTap: () => context.go(Routes.passengerVerification),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // Test Push Notification
-                      ListTile(
-                        tileColor: TRYPColors.lightGrey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                        title: Text(
+                          _isVerified
+                              ? 'Identity verified'
+                              : 'Passenger identity verification',
                         ),
-                        leading: const Icon(
-                          Icons.notifications_active_rounded,
-                          color: TRYPColors.primary,
+                        subtitle: Text(
+                          _isVerified
+                              ? 'Your identity has been approved by TRYP'
+                              : 'Submit your ID and camera selfie for admin review',
                         ),
-                        title: const Text('Test Push Notification'),
-                        subtitle: const Text('Request permission and verify notification readiness'),
                         trailing: const Icon(
                           Icons.arrow_forward_ios_rounded,
                           size: 14,
                         ),
-                        onTap: _testPushNotification,
+                        onTap: () => context.go(Routes.passengerVerification),
                       ),
                       const SizedBox(height: 10),
 

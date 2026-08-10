@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:dio/dio.dart';
-import 'package:tryp_driver/config/environment.dart';
 
 class UserLocation {
   final double latitude;
@@ -22,11 +21,11 @@ class UserLocation {
   });
 
   factory UserLocation.fallback() => const UserLocation(
-        latitude: -26.1076,
-        longitude: 28.0567,
-        address: 'Sandton City, Sandton',
-        shortName: 'Current Location',
-      );
+    latitude: -26.1076,
+    longitude: 28.0567,
+    address: 'Sandton City, Sandton',
+    shortName: 'Current Location',
+  );
 }
 
 class PlaceSuggestion {
@@ -54,9 +53,94 @@ class RouteResult {
 }
 
 class LocationService {
-  final Dio _dio = Dio();
+  static const String _nominatimSearchUrl =
+      'https://nominatim.openstreetmap.org/search';
+  static const String _nominatimReverseUrl =
+      'https://nominatim.openstreetmap.org/reverse';
 
-  String get _googleMapsApiKey => Environment.googleMapsApiKey;
+  final Dio _dio;
+
+  LocationService({Dio? dio}) : _dio = dio ?? Dio();
+
+  Options get _nominatimOptions => Options(
+    headers: const {'User-Agent': 'TRYPApp/1.0', 'Accept-Language': 'en'},
+  );
+
+  /// Parse Nominatim search results into the app's suggestion model.
+  ///
+  /// Nominatim returns coordinates with each search result, so the values are
+  /// encoded in the legacy placeId field. This lets existing selection flows
+  /// resolve a result without making a second provider request.
+  static List<PlaceSuggestion> parseNominatimSearchResults(dynamic data) {
+    if (data is! List) return [];
+
+    return data
+        .whereType<Map>()
+        .map((item) {
+          final lat = item['lat']?.toString();
+          final lon = item['lon']?.toString();
+          final displayName = item['display_name']?.toString().trim() ?? '';
+          final rawName = item['name']?.toString().trim() ?? '';
+          final name = rawName.isNotEmpty
+              ? rawName
+              : displayName.split(',').first.trim();
+
+          return PlaceSuggestion(
+            placeId: lat != null && lon != null ? 'osm:$lat,$lon' : '',
+            name: name.isNotEmpty ? name : 'Selected place',
+            address: displayName.isNotEmpty ? displayName : name,
+          );
+        })
+        .where((suggestion) => suggestion.placeId.isNotEmpty)
+        .toList();
+  }
+
+  /// Parse a Nominatim result's encoded coordinates into a location.
+  static UserLocation? parseNominatimPlaceId(String placeId) {
+    if (!placeId.startsWith('osm:')) return null;
+    final coordinates = placeId.substring(4).split(',');
+    if (coordinates.length != 2) return null;
+
+    final latitude = double.tryParse(coordinates[0]);
+    final longitude = double.tryParse(coordinates[1]);
+    if (latitude == null || longitude == null) return null;
+
+    return UserLocation(
+      latitude: latitude,
+      longitude: longitude,
+      address: 'Selected OpenStreetMap location',
+      shortName: 'Selected place',
+      placeId: placeId,
+    );
+  }
+
+  static UserLocation? parseNominatimReverseResult(
+    dynamic data, {
+    required double latitude,
+    required double longitude,
+  }) {
+    if (data is! Map) return null;
+    final displayName = data['display_name']?.toString().trim() ?? '';
+    if (displayName.isEmpty) return null;
+
+    final address = data['address'];
+    final addressMap = address is Map ? address : const <String, dynamic>{};
+    final rawName = data['name']?.toString().trim() ?? '';
+    final fallbackName =
+        addressMap['suburb'] ??
+        addressMap['town'] ??
+        addressMap['city'] ??
+        addressMap['municipality'] ??
+        'Your Location';
+    final shortName = rawName.isNotEmpty ? rawName : fallbackName.toString();
+
+    return UserLocation(
+      latitude: latitude,
+      longitude: longitude,
+      address: displayName,
+      shortName: shortName,
+    );
+  }
 
   /// Request permission and get the device's current GPS position
   Future<Position?> getCurrentPosition() async {
@@ -93,74 +177,30 @@ class LocationService {
     }
   }
 
-  /// Reverse geocode a lat/lng to a human-readable address via Google Maps API or Nominatim fallback
+  /// Reverse geocode a lat/lng to a human-readable address via OpenStreetMap.
   Future<UserLocation> reverseGeocode(double lat, double lng) async {
     try {
       final response = await _dio.get(
-        'https://maps.googleapis.com/maps/api/geocode/json',
-        queryParameters: {
-          'latlng': '$lat,$lng',
-          'key': _googleMapsApiKey,
-          'result_type': 'street_address|sublocality|locality',
-          'language': 'en',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = response.data is String
-            ? jsonDecode(response.data as String)
-            : response.data as Map<String, dynamic>;
-
-        if (data['status'] == 'OK' && (data['results'] as List).isNotEmpty) {
-          final result = (data['results'] as List).first as Map<String, dynamic>;
-          final fullAddress = result['formatted_address'] as String? ?? '';
-          
-          String shortName = _extractShortName(result);
-
-          return UserLocation(
-            latitude: lat,
-            longitude: lng,
-            address: fullAddress,
-            shortName: shortName,
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('❌ Google Reverse geocode error: $e');
-    }
-
-    // Try Nominatim reverse geocode fallback
-    try {
-      final nomResponse = await _dio.get(
-        'https://nominatim.openstreetmap.org/reverse',
+        _nominatimReverseUrl,
         queryParameters: {
           'lat': lat,
           'lon': lng,
-          'format': 'json',
+          'format': 'jsonv2',
+          'addressdetails': 1,
         },
-        options: Options(headers: {'User-Agent': 'TRYPApp/1.0'}),
+        options: _nominatimOptions,
       );
-
-      if (nomResponse.statusCode == 200) {
-        final data = nomResponse.data is String
-            ? jsonDecode(nomResponse.data as String)
-            : nomResponse.data as Map<String, dynamic>;
-        final displayName = data['display_name'] as String? ?? '';
-        final name = (data['name'] as String?).toString().isNotEmpty
-            ? data['name'] as String
-            : (data['address']?['suburb'] ?? data['address']?['town'] ?? 'Location');
-
-        if (displayName.isNotEmpty) {
-          return UserLocation(
-            latitude: lat,
-            longitude: lng,
-            address: displayName,
-            shortName: name,
-          );
-        }
-      }
+      final data = response.data is String
+          ? jsonDecode(response.data as String)
+          : response.data;
+      final location = parseNominatimReverseResult(
+        data,
+        latitude: lat,
+        longitude: lng,
+      );
+      if (location != null) return location;
     } catch (e) {
-      debugPrint('❌ Nominatim Reverse geocode error: $e');
+      debugPrint('❌ OpenStreetMap reverse geocode error: $e');
     }
 
     return UserLocation(
@@ -171,39 +211,6 @@ class LocationService {
     );
   }
 
-  String _extractShortName(Map<String, dynamic> result) {
-    final components = result['address_components'] as List? ?? [];
-    
-    String? sublocality;
-    String? locality;
-    String? route;
-    String? streetNumber;
-
-    for (final component in components) {
-      final types = (component['types'] as List).cast<String>();
-      final longName = component['long_name'] as String;
-
-      if (types.contains('sublocality_level_1') || types.contains('sublocality')) {
-        sublocality = longName;
-      }
-      if (types.contains('locality')) {
-        locality = longName;
-      }
-      if (types.contains('route')) {
-        route = longName;
-      }
-      if (types.contains('street_number')) {
-        streetNumber = longName;
-      }
-    }
-
-    if (sublocality != null) return sublocality;
-    if (route != null && streetNumber != null) return '$streetNumber $route';
-    if (route != null) return route;
-    if (locality != null) return locality;
-    return 'Your Location';
-  }
-
   /// Full pipeline: get GPS → reverse geocode → return UserLocation
   Future<UserLocation> getUserLocationWithAddress() async {
     final position = await getCurrentPosition();
@@ -211,101 +218,44 @@ class LocationService {
     return reverseGeocode(position.latitude, position.longitude);
   }
 
-  /// Search Google Places for driver-facing location suggestions.
+  /// Search OpenStreetMap Nominatim for driver-facing location suggestions.
+  /// Coordinates are returned with every result, so no API key is required.
   Future<List<PlaceSuggestion>> searchPlaces(
     String query, {
     LatLng? near,
   }) async {
-    if (query.trim().length < 2 || _googleMapsApiKey.isEmpty) return [];
-
-    try {
-      final parameters = <String, dynamic>{
-        'input': query.trim(),
-        'key': _googleMapsApiKey,
-        'language': 'en',
-        'components': 'country:za',
-      };
-      if (near != null) {
-        parameters['location'] = '${near.latitude},${near.longitude}';
-        parameters['radius'] = 50000;
-      }
-
-      final response = await _dio.get(
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json',
-        queryParameters: parameters,
-      );
-      final data = response.data is String
-          ? jsonDecode(response.data as String)
-          : response.data as Map<String, dynamic>;
-
-      if (response.statusCode == 200 && data['status'] == 'OK') {
-        return (data['predictions'] as List? ?? []).map((prediction) {
-          final item = prediction as Map<String, dynamic>;
-          final formatting = item['structured_formatting'] as Map<String, dynamic>?;
-          return PlaceSuggestion(
-            placeId: item['place_id'] as String,
-            name: formatting?['main_text'] as String? ??
-                item['description'] as String? ??
-                'Selected place',
-            address: formatting?['secondary_text'] as String? ??
-                item['description'] as String? ??
-                '',
-          );
-        }).toList();
-      }
-
-      debugPrint('⚠️ Google Places autocomplete status: ${data['status']}');
-    } catch (e) {
-      debugPrint('❌ Google Places autocomplete error: $e');
-    }
-
-    return [];
-  }
-
-  /// Resolve the selected Google Place ID to map coordinates.
-  Future<UserLocation?> getPlaceDetails(String placeId) async {
-    if (placeId.isEmpty || _googleMapsApiKey.isEmpty) return null;
+    final trimmedQuery = query.trim();
+    if (trimmedQuery.length < 2) return [];
 
     try {
       final response = await _dio.get(
-        'https://maps.googleapis.com/maps/api/place/details/json',
+        _nominatimSearchUrl,
         queryParameters: {
-          'place_id': placeId,
-          'key': _googleMapsApiKey,
-          'fields': 'place_id,name,formatted_address,geometry,address_component',
-          'language': 'en',
+          'q': trimmedQuery,
+          'format': 'jsonv2',
+          'addressdetails': 1,
+          'limit': 8,
+          'countrycodes': 'za',
+          'accept-language': 'en',
         },
+        options: _nominatimOptions,
       );
       final data = response.data is String
           ? jsonDecode(response.data as String)
-          : response.data as Map<String, dynamic>;
-      final result = data['result'] as Map<String, dynamic>?;
-      final geometry = result?['geometry'] as Map<String, dynamic>?;
-      final location = geometry?['location'] as Map<String, dynamic>?;
-      final lat = (location?['lat'] as num?)?.toDouble();
-      final lng = (location?['lng'] as num?)?.toDouble();
-
-      if (data['status'] != 'OK' || result == null || lat == null || lng == null) {
-        debugPrint('⚠️ Google Place Details status: ${data['status']}');
-        return null;
-      }
-
-      final name = result['name'] as String? ?? 'Selected place';
-      final address = result['formatted_address'] as String? ?? name;
-      return UserLocation(
-        latitude: lat,
-        longitude: lng,
-        address: address,
-        shortName: name,
-        placeId: result['place_id'] as String? ?? placeId,
-      );
+          : response.data;
+      return parseNominatimSearchResults(data);
     } catch (e) {
-      debugPrint('❌ Google Place Details error: $e');
-      return null;
+      debugPrint('❌ OpenStreetMap autocomplete error: $e');
+      return [];
     }
   }
 
-  /// Backward-compatible helper that returns resolved Google locations.
+  /// Resolve a selected OpenStreetMap result without a second network call.
+  Future<UserLocation?> getPlaceDetails(String placeId) async {
+    return parseNominatimPlaceId(placeId);
+  }
+
+  /// Backward-compatible helper that returns resolved OpenStreetMap locations.
   Future<List<UserLocation>> searchLocations(String query) async {
     final suggestions = await searchPlaces(query);
     final locations = <UserLocation>[];
@@ -326,10 +276,7 @@ class LocationService {
     try {
       final response = await _dio.get(
         'http://router.project-osrm.org/route/v1/driving/$startLng,$startLat;$endLng,$endLat',
-        queryParameters: {
-          'overview': 'full',
-          'geometries': 'geojson',
-        },
+        queryParameters: {'overview': 'full', 'geometries': 'geojson'},
         options: Options(receiveTimeout: const Duration(seconds: 8)),
       );
 
@@ -341,16 +288,16 @@ class LocationService {
         if (data['code'] == 'Ok' && (data['routes'] as List).isNotEmpty) {
           final route = (data['routes'] as List).first;
           final leg = (route['legs'] as List).first;
-          
+
           final distanceMeters = (leg['distance'] as num).toDouble();
           final durationSeconds = (leg['duration'] as num).toDouble();
-          
+
           final distanceKm = distanceMeters / 1000.0;
           final durationMins = (durationSeconds / 60.0).round();
 
           final geometry = route['geometry'];
           final coordinates = (geometry['coordinates'] as List);
-          
+
           final List<LatLng> points = coordinates.map((coord) {
             final lngVal = (coord[0] as num).toDouble();
             final latVal = (coord[1] as num).toDouble();
@@ -369,7 +316,12 @@ class LocationService {
     }
 
     // Fallback: Haversine distance with 1.35x road factor & interpolated points
-    final distanceMeters = Geolocator.distanceBetween(startLat, startLng, endLat, endLng);
+    final distanceMeters = Geolocator.distanceBetween(
+      startLat,
+      startLng,
+      endLat,
+      endLng,
+    );
     final straightKm = distanceMeters / 1000.0;
     final roadKm = straightKm * 1.35;
     final durationMins = (roadKm / 35.0 * 60).round();
@@ -398,4 +350,3 @@ final currentUserLocationProvider = FutureProvider<UserLocation>((ref) async {
   final service = ref.read(locationServiceProvider);
   return service.getUserLocationWithAddress();
 });
-

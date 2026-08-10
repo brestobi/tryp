@@ -7,6 +7,7 @@ import 'package:tryp_driver/app/theme.dart';
 ///
 /// Active trips and onboarding intentionally stay outside this bar so drivers
 /// can focus on the current ride or verification flow without losing context.
+/// Wallet is protected separately by its PIN/biometric screen.
 class DriverBottomNavBar extends StatelessWidget {
   final int currentIndex;
 
@@ -22,6 +23,11 @@ class DriverBottomNavBar extends StatelessWidget {
       icon: Icons.verified_user_rounded,
       label: 'Documents',
       route: Routes.driverDocuments,
+    ),
+    _DriverNavItemData(
+      icon: Icons.account_balance_wallet_rounded,
+      label: 'Wallet',
+      route: Routes.driverWallet,
     ),
     _DriverNavItemData(
       icon: Icons.notifications_none_rounded,
@@ -119,9 +125,14 @@ class _DriverNavItem extends StatelessWidget {
               AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOut,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: selected ? TRYPColors.primary.withValues(alpha: 0.12) : Colors.transparent,
+                  color: selected
+                      ? TRYPColors.primary.withValues(alpha: 0.12)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(data.icon, size: 22, color: color),

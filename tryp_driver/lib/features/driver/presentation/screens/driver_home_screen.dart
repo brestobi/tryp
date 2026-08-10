@@ -26,8 +26,6 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
   String _driverName = 'Driver';
   String _driverStatus = 'under_review';
   String _vehicleInfo = 'Vehicle not set';
-  double _todayEarnings = 0.00;
-  int _completedTripsToday = 0;
   double _driverRating = 4.9;
   bool _isLoading = false;
 
@@ -918,18 +916,38 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          Text(
-                            'Today’s Earnings',
-                            style: TRYPTypography.bodySmall.copyWith(
-                              color: TRYPColors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'R${_todayEarnings.toStringAsFixed(2)}',
-                            style: TRYPTypography.headingLarge.copyWith(
-                              color: TRYPColors.secondary,
-                              fontSize: 32,
+                          InkWell(
+                            onTap: () => context.go(Routes.driverWallet),
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: TRYPColors.inputFill,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.lock_outline_rounded,
+                                    color: TRYPColors.secondary,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      'Your real wallet balances are protected. Tap to view cash collected and online payments held by TRYP.',
+                                      style: TRYPTypography.bodySmall.copyWith(
+                                        color: TRYPColors.secondary,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    size: 14,
+                                    color: TRYPColors.grey,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 20),

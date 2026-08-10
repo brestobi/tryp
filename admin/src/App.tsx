@@ -12,6 +12,7 @@ import { PassengerVerificationInspector } from './components/PassengerVerificati
 import { FleetCommandCenter } from './components/FleetCommandCenter';
 import { FarePricingEngine } from './components/FarePricingEngine';
 import { FinancialPayouts } from './components/FinancialPayouts';
+import { DriverWalletOverview } from './components/DriverWalletOverview';
 import { UserDirectory } from './components/UserDirectory';
 import { AuditLogsView } from './components/AuditLogsView';
 import { BroadcastComposer } from './components/BroadcastComposer';
@@ -84,6 +85,7 @@ const MainContent: React.FC = () => {
       {activeTab === 'fleet'     && <FleetCommandCenter />}
       {activeTab === 'fares'     && <FarePricingEngine />}
       {activeTab === 'payouts'   && <FinancialPayouts />}
+      {activeTab === 'wallets'   && <DriverWalletOverview />}
       {activeTab === 'users'     && <UserDirectory />}
       {activeTab === 'audit'     && <AuditLogsView />}
       {activeTab === 'broadcast' && <BroadcastComposer />}

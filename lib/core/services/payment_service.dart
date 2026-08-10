@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/core/services/fare_calculator.dart';
+import 'package:tryp/core/services/payment_checkout_result.dart';
 import 'package:tryp/features/passenger/presentation/screens/paystack_checkout_screen.dart';
 
 /// TRYP Payment Service — initializes Paystack hosted checkout server-side.
@@ -35,7 +36,8 @@ class PaymentService {
         ),
       ),
     );
-    return result ?? PaymentCheckoutResult.cancelled;
+    // An unexpected checkout dismissal is unresolved, not proof of cancellation.
+    return result ?? PaymentCheckoutResult.pending;
   }
 
   /// Ask the server to verify a payment after returning from hosted checkout

@@ -15,6 +15,7 @@ import 'package:tryp_driver/features/authentication/presentation/screens/forgot_
 import 'package:tryp_driver/features/authentication/presentation/screens/reset_password_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_home_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_profile_screen.dart';
+import 'package:tryp_driver/features/driver/presentation/screens/driver_wallet_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_onboarding_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_documents_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/active_trip_screen.dart';
@@ -91,6 +92,10 @@ GoRouter buildRouter(AppVariant variant, {DriverRouteGuard? routeGuard}) {
     GoRoute(
       path: Routes.driverProfile,
       builder: (context, state) => const DriverProfileScreen(),
+    ),
+    GoRoute(
+      path: Routes.driverWallet,
+      builder: (context, state) => const DriverWalletScreen(),
     ),
     GoRoute(
       path: Routes.driverOnboarding,

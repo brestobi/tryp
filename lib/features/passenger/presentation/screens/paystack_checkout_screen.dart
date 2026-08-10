@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:tryp/app/theme.dart';
-
-/// Result returned when the passenger leaves the in-app Paystack checkout.
-enum PaymentCheckoutResult { paid, failed, cancelled, pending }
+import 'package:tryp/core/services/payment_checkout_result.dart';
 
 class PaystackCheckoutScreen extends StatefulWidget {
   final String checkoutUrl;
@@ -88,10 +86,12 @@ class _PaystackCheckoutScreenState extends State<PaystackCheckoutScreen> {
   }
 
   Future<String> _verifyWithRetries() async {
-    String status = 'unverified';
+    var status = 'unverified';
     for (var attempt = 0; attempt < 3; attempt++) {
-      status = await widget.verifyPayment();
-      if (status == 'paid' || status == 'failed') return status;
+      status = (await widget.verifyPayment()).trim().toLowerCase();
+      if (status == 'paid' || status == 'failed' || status == 'cancelled') {
+        return status;
+      }
       if (attempt < 2) {
         await Future<void>.delayed(Duration(seconds: attempt + 1));
       }
@@ -106,13 +106,7 @@ class _PaystackCheckoutScreenState extends State<PaystackCheckoutScreen> {
     try {
       final status = await _verifyWithRetries();
       if (!mounted) return;
-      Navigator.of(context).pop(
-        status == 'paid'
-            ? PaymentCheckoutResult.paid
-            : status == 'failed'
-            ? PaymentCheckoutResult.failed
-            : PaymentCheckoutResult.pending,
-      );
+      Navigator.of(context).pop(paymentCheckoutResultForStatus(status));
     } catch (error) {
       debugPrint('Paystack return verification failed: $error');
       if (mounted) {
@@ -126,20 +120,15 @@ class _PaystackCheckoutScreenState extends State<PaystackCheckoutScreen> {
     setState(() => _isHandlingReturn = true);
 
     try {
-      // Verify once before treating an app-bar close as a cancellation. This
-      // handles a successful payment whose callback navigation was interrupted.
-      final status = await widget.verifyPayment();
+      // Use the same retry window as the callback path. An unresolved status
+      // is pending, not cancelled, because Paystack/webhook settlement may be
+      // delayed after the user closes the hosted checkout.
+      final status = await _verifyWithRetries();
       if (!mounted) return;
-      Navigator.of(context).pop(
-        status == 'paid'
-            ? PaymentCheckoutResult.paid
-            : status == 'failed'
-            ? PaymentCheckoutResult.failed
-            : PaymentCheckoutResult.cancelled,
-      );
+      Navigator.of(context).pop(paymentCheckoutResultForStatus(status));
     } catch (error) {
       debugPrint('Paystack close verification failed: $error');
-      if (mounted) Navigator.of(context).pop(PaymentCheckoutResult.cancelled);
+      if (mounted) Navigator.of(context).pop(PaymentCheckoutResult.pending);
     }
   }
 

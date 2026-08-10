@@ -47,6 +47,16 @@ export interface DriverProfile {
 
 export type PassengerVerificationStatus = 'unverified' | 'pending' | 'under_review' | 'approved' | 'rejected';
 
+export interface DriverWallet {
+  driverId: string;
+  driverName: string;
+  cashCollected: number;
+  onlineHeld: number;
+  cashPlatformFeeOwed: number;
+  platformFeesTotal: number;
+  updatedAt: string;
+}
+
 export interface PassengerProfile {
   id: string;
   fullName: string;

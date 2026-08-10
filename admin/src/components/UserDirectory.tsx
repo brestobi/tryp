@@ -211,7 +211,7 @@ export const UserDirectory: React.FC = () => {
             User Directory & Account Control
           </h1>
           <p className="text-slate-400 text-xs mt-1">
-            Edit profile fields, manage wallet balances, adjust driver ratings, suspend accounts, and manage users.
+            Manage profile fields and legacy account credits. Authoritative driver ride balances are in Driver Wallets.
           </p>
         </div>
 
@@ -264,7 +264,7 @@ export const UserDirectory: React.FC = () => {
                   <th className="py-3 px-4">Driver Profile</th>
                   <th className="py-3 px-4">City & Vehicle</th>
                   <th className="py-3 px-4">Rating & Trips</th>
-                  <th className="py-3 px-4">Wallet Balance</th>
+                  <th className="py-3 px-4">Legacy Account Credit</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Account Actions</th>
                 </tr>
@@ -365,7 +365,7 @@ export const UserDirectory: React.FC = () => {
                         }}
                         className="px-2 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/40 text-[11px] font-semibold"
                       >
-                        Wallet
+                        Legacy Credit
                       </button>
                       <button
                         onClick={() => handleToggleStatus(drv.id, true)}
@@ -414,7 +414,7 @@ export const UserDirectory: React.FC = () => {
                   <th className="py-3 px-4">Passenger Profile</th>
                   <th className="py-3 px-4">Emergency Contact</th>
                   <th className="py-3 px-4">Rating & Rides</th>
-                  <th className="py-3 px-4">Wallet Balance</th>
+                  <th className="py-3 px-4">Legacy Account Credit</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right">Account Actions</th>
                 </tr>
@@ -506,7 +506,7 @@ export const UserDirectory: React.FC = () => {
                         }}
                         className="px-2 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/40 text-[11px] font-semibold"
                       >
-                        Wallet
+                        Legacy Credit
                       </button>
                       <button
                         onClick={() => handleToggleStatus(pas.id, false)}
@@ -744,7 +744,7 @@ export const UserDirectory: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="font-heading font-bold text-white flex items-center space-x-2">
                 <Wallet className="w-5 h-5 text-emerald-400" />
-                <span>Adjust User Wallet Balance</span>
+                <span>Adjust Legacy Account Credit</span>
               </h3>
               <button
                 onClick={() => setWalletModalUser(null)}
