@@ -280,7 +280,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
             content: Text(
               'Trip status updated: ${nextStatus.toDbString().toUpperCase()}',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: TRYPColors.primary,
           ),
         );
       }
@@ -409,7 +409,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
             children: [
               const Icon(
                 Icons.check_circle_rounded,
-                color: Colors.green,
+                color: TRYPColors.primary,
                 size: 28,
               ),
               const SizedBox(width: 10),

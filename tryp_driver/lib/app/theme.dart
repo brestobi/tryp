@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// TRYP Color Palette — simple monochrome ride-hailing UI.
+/// TRYP Driver Color Palette — green driver branding with neutral surfaces.
 class TRYPColors {
   // Brand and action colors.
-  static const Color primary = Color(0xFF000000);
-  static const Color primaryAlt = Color(0xFF1A1A1A);
+  static const Color primary = Color(0xFF1B8F3A);
+  static const Color primaryAlt = Color(0xFF116B2A);
   static const Color secondary = Color(0xFF111111);
-  // Neutral emphasis color for legacy highlighted UI elements.
-  static const Color accent = Color(0xFF555555);
-  static const Color accentSoft = Color(0xFFF1F1F1);
+  static const Color accent = Color(0xFF1B8F3A);
+  static const Color accentSoft = Color(0xFFE5F5E9);
 
   // Surfaces.
   static const Color surface = Color(0xFFF7F7F7);
@@ -26,7 +25,7 @@ class TRYPColors {
   static const Color secondaryLight = Color(0xFFBDBDBD);
   static const Color greyLight = Color(0xFFE5E5E5);
   static const Color lightGrey = Color(0xFFF1F1F1);
-  static const Color success = Color(0xFF218739);
+  static const Color success = Color(0xFF1B8F3A);
   static const Color liveTracking = Color(0xFF2563EB);
   static const Color error = Color(0xFFD92D20);
   static const Color warning = Color(0xFFB54708);
@@ -120,7 +119,7 @@ class TRYPTypography {
   );
 }
 
-/// TRYP Theme — white canvas, black actions, and quiet gray controls.
+/// TRYP Driver Theme — white canvas with green actions and highlights.
 class TRYPTheme {
   static const ColorScheme lightColorScheme = ColorScheme.light(
     primary: TRYPColors.primary,

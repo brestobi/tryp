@@ -118,7 +118,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: TRYPColors.secondary,
+      backgroundColor: TRYPColors.primaryAlt,
       body: Stack(
         children: [
           // Subtle background grid glow pattern
@@ -161,30 +161,13 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                           },
                         ),
 
-                        // Gold Logo Container
-                        Container(
-                          width: 88,
-                          height: 88,
-                          decoration: BoxDecoration(
-                            color: TRYPColors.primary,
-                            borderRadius: BorderRadius.circular(26),
-                            boxShadow: [
-                              BoxShadow(
-                                color: TRYPColors.primary.withValues(
-                                  alpha: 0.4,
-                                ),
-                                blurRadius: 28,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Image.asset(
-                              'assets/images/tryp_logo_light.png',
-                              width: 56,
-                              height: 56,
-                            ),
-                          ),
+                        // Green driver brand logo without a white container.
+                        Image.asset(
+                          'assets/images/tryp-logo-green.png',
+                          width: 112,
+                          height: 112,
+                          fit: BoxFit.contain,
+                          semanticLabel: 'TRYP Driver logo',
                         ),
                       ],
                     ),

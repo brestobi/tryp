@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- TRYP primary yellow for FCM notification accent color -->
-    <color name="notification_color">#FFD700</color>
+    <!-- TRYP passenger brand red for FCM notification accent color -->
+    <color name="notification_color">#E21B2D</color>
 	<color name="ic_launcher_background">#FFFFFF</color>
 </resources>

@@ -46,10 +46,12 @@ class DriverProfileScreen extends StatelessWidget {
                       color: TRYPColors.primary,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Icon(
-                      Icons.person_rounded,
-                      color: TRYPColors.secondary,
-                      size: 34,
+                    child: Image.asset(
+                      'assets/images/tryp-logo-green.png',
+                      width: 52,
+                      height: 52,
+                      fit: BoxFit.contain,
+                      semanticLabel: 'TRYP Driver logo',
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -109,6 +111,28 @@ class DriverProfileScreen extends StatelessWidget {
               title: 'Driver support',
               subtitle: 'Get help with rides or your account',
               onTap: () {},
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: Column(
+                children: [
+                  Image.asset(
+                    'assets/images/tryp-logo-green.png',
+                    width: 96,
+                    height: 74,
+                    fit: BoxFit.contain,
+                    semanticLabel: 'TRYP Driver logo',
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'by hungry developers',
+                    style: TRYPTypography.bodySmall.copyWith(
+                      color: TRYPColors.grey,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

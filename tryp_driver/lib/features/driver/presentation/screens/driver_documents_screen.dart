@@ -14,7 +14,8 @@ class DriverDocumentsScreen extends ConsumerStatefulWidget {
   const DriverDocumentsScreen({super.key});
 
   @override
-  ConsumerState<DriverDocumentsScreen> createState() => _DriverDocumentsScreenState();
+  ConsumerState<DriverDocumentsScreen> createState() =>
+      _DriverDocumentsScreenState();
 }
 
 class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
@@ -57,7 +58,9 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
             ),
             const SizedBox(height: 20),
             ListTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               tileColor: TRYPColors.inputFill,
               leading: Container(
                 padding: const EdgeInsets.all(10),
@@ -65,15 +68,31 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                   color: TRYPColors.primary,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.camera_alt_rounded, color: TRYPColors.secondary, size: 20),
+                child: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: TRYPColors.secondary,
+                  size: 20,
+                ),
               ),
-              title: Text('Take Photo with Camera', style: TRYPTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
-              subtitle: Text('Ensure good lighting and full document frame', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+              title: Text(
+                'Take Photo with Camera',
+                style: TRYPTypography.bodyLarge.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                'Ensure good lighting and full document frame',
+                style: TRYPTypography.bodySmall.copyWith(
+                  color: TRYPColors.grey,
+                ),
+              ),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             const SizedBox(height: 10),
             ListTile(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               tileColor: TRYPColors.inputFill,
               leading: Container(
                 padding: const EdgeInsets.all(10),
@@ -81,10 +100,24 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                   color: TRYPColors.secondary,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.photo_library_rounded, color: TRYPColors.white, size: 20),
+                child: const Icon(
+                  Icons.photo_library_rounded,
+                  color: TRYPColors.white,
+                  size: 20,
+                ),
               ),
-              title: Text('Choose from Photo Gallery', style: TRYPTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold)),
-              subtitle: Text('Select saved clear photo or scanned document', style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+              title: Text(
+                'Choose from Photo Gallery',
+                style: TRYPTypography.bodyLarge.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                'Select saved clear photo or scanned document',
+                style: TRYPTypography.bodySmall.copyWith(
+                  color: TRYPColors.grey,
+                ),
+              ),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             const SizedBox(height: 12),
@@ -119,13 +152,17 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
             ),
             backgroundColor: TRYPColors.secondary,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Upload failed for ${doc.title}. Please check network connection.'),
+            content: Text(
+              'Upload failed for ${doc.title}. Please check network connection.',
+            ),
             backgroundColor: TRYPColors.error,
           ),
         );
@@ -159,11 +196,16 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                   Expanded(
                     child: Text(
                       title,
-                      style: TRYPTypography.titleLarge.copyWith(color: TRYPColors.white),
+                      style: TRYPTypography.titleLarge.copyWith(
+                        color: TRYPColors.white,
+                      ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: TRYPColors.white),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: TRYPColors.white,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -181,7 +223,9 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                     height: 260,
                     color: TRYPColors.inputFill,
                     child: const Center(
-                      child: CircularProgressIndicator(color: TRYPColors.primary),
+                      child: CircularProgressIndicator(
+                        color: TRYPColors.primary,
+                      ),
                     ),
                   );
                 },
@@ -192,9 +236,18 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.broken_image_rounded, size: 48, color: TRYPColors.grey),
+                      const Icon(
+                        Icons.broken_image_rounded,
+                        size: 48,
+                        color: TRYPColors.grey,
+                      ),
                       const SizedBox(height: 12),
-                      Text('Image preview unavailable', style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey)),
+                      Text(
+                        'Image preview unavailable',
+                        style: TRYPTypography.bodyMedium.copyWith(
+                          color: TRYPColors.grey,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -228,14 +281,18 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.read(driverOnboardingStateProvider.notifier).loadData(),
+            onPressed: () =>
+                ref.read(driverOnboardingStateProvider.notifier).loadData(),
           ),
         ],
       ),
       body: SafeArea(
         child: onboardingAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: TRYPColors.primary)),
-          error: (err, stack) => Center(child: Text('Error loading documents: $err')),
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: TRYPColors.primary),
+          ),
+          error: (err, stack) =>
+              Center(child: Text('Error loading documents: $err')),
           data: (data) {
             final docs = DriverOnboardingConfig.requiredDocuments;
             int uploadedCount = 0;
@@ -248,13 +305,19 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
               if (status == 'approved') verifiedCount++;
             }
 
-            final progressPercent = docs.isEmpty ? 0.0 : uploadedCount / docs.length;
+            final progressPercent = docs.isEmpty
+                ? 0.0
+                : uploadedCount / docs.length;
 
             return RefreshIndicator(
               color: TRYPColors.secondary,
-              onRefresh: () => ref.read(driverOnboardingStateProvider.notifier).loadData(),
+              onRefresh: () =>
+                  ref.read(driverOnboardingStateProvider.notifier).loadData(),
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 children: [
                   // Verification Banner
                   Container(
@@ -317,8 +380,12 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                           child: LinearProgressIndicator(
                             value: progressPercent,
                             minHeight: 8,
-                            backgroundColor: Colors.white.withValues(alpha: 0.15),
-                            valueColor: const AlwaysStoppedAnimation<Color>(TRYPColors.primary),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.15,
+                            ),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              TRYPColors.primary,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -333,9 +400,14 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
-                                color: TRYPColors.primary.withValues(alpha: 0.2),
+                                color: TRYPColors.primary.withValues(
+                                  alpha: 0.2,
+                                ),
                                 borderRadius: BorderRadius.circular(100),
                               ),
                               child: Text(
@@ -361,14 +433,18 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                   const SizedBox(height: 6),
                   Text(
                     'Upload legibly scanned or captured photo documents for admin review.',
-                    style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+                    style: TRYPTypography.bodySmall.copyWith(
+                      color: TRYPColors.grey,
+                    ),
                   ),
                   const SizedBox(height: 16),
 
                   // Document Cards List
                   ...docs.map((doc) {
                     final url = data.documentUrls[doc.key];
-                    final status = data.documentStatuses[doc.key] ?? (url != null ? 'pending' : 'not_uploaded');
+                    final status =
+                        data.documentStatuses[doc.key] ??
+                        (url != null ? 'pending' : 'not_uploaded');
                     final isUploadingThis = _uploadingDocKey == doc.key;
 
                     return _DocumentUploadCard(
@@ -392,7 +468,10 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.help_outline_rounded, color: TRYPColors.secondary),
+                        const Icon(
+                          Icons.help_outline_rounded,
+                          color: TRYPColors.secondary,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -400,11 +479,15 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                             children: [
                               Text(
                                 'Need document assistance?',
-                                style: TRYPTypography.titleMedium.copyWith(fontSize: 14),
+                                style: TRYPTypography.titleMedium.copyWith(
+                                  fontSize: 14,
+                                ),
                               ),
                               Text(
                                 'Contact TRYP Driver Support 24/7 for verification help.',
-                                style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+                                style: TRYPTypography.bodySmall.copyWith(
+                                  color: TRYPColors.grey,
+                                ),
                               ),
                             ],
                           ),
@@ -450,8 +533,8 @@ class _DocumentUploadCard extends StatelessWidget {
 
     switch (status) {
       case 'approved':
-        badgeBg = Colors.green.withValues(alpha: 0.12);
-        badgeFg = Colors.green;
+        badgeBg = TRYPColors.primary.withValues(alpha: 0.12);
+        badgeFg = TRYPColors.primary;
         badgeLabel = 'Verified';
         badgeIcon = Icons.check_circle_rounded;
         break;
@@ -487,8 +570,10 @@ class _DocumentUploadCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: status == 'approved'
-              ? Colors.green.withValues(alpha: 0.4)
-              : (status == 'action_required' || status == 'rejected' ? TRYPColors.error : TRYPColors.divider),
+              ? TRYPColors.primary.withValues(alpha: 0.4)
+              : (status == 'action_required' || status == 'rejected'
+                    ? TRYPColors.error
+                    : TRYPColors.divider),
           width: 1.5,
         ),
       ),
@@ -503,13 +588,15 @@ class _DocumentUploadCard extends StatelessWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   color: status == 'approved'
-                      ? Colors.green.withValues(alpha: 0.1)
+                      ? TRYPColors.primary.withValues(alpha: 0.1)
                       : TRYPColors.primary.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
                   doc.icon,
-                  color: status == 'approved' ? Colors.green : TRYPColors.secondary,
+                  color: status == 'approved'
+                      ? TRYPColors.primary
+                      : TRYPColors.secondary,
                   size: 24,
                 ),
               ),
@@ -525,13 +612,18 @@ class _DocumentUploadCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       doc.description,
-                      style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+                      style: TRYPTypography.bodySmall.copyWith(
+                        color: TRYPColors.grey,
+                      ),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: badgeBg,
                   borderRadius: BorderRadius.circular(100),
@@ -573,7 +665,10 @@ class _DocumentUploadCard extends StatelessWidget {
                   const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2.5, color: TRYPColors.secondary),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: TRYPColors.secondary,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -593,14 +688,21 @@ class _DocumentUploadCard extends StatelessWidget {
                   GestureDetector(
                     onTap: onView,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: TRYPColors.inputFill,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.remove_red_eye_rounded, size: 16, color: TRYPColors.secondary),
+                          const Icon(
+                            Icons.remove_red_eye_rounded,
+                            size: 16,
+                            color: TRYPColors.secondary,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             'View Scan',
@@ -619,13 +721,19 @@ class _DocumentUploadCard extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: onUpload,
                     icon: Icon(
-                      hasFile ? Icons.file_upload_outlined : Icons.add_a_photo_rounded,
+                      hasFile
+                          ? Icons.file_upload_outlined
+                          : Icons.add_a_photo_rounded,
                       size: 16,
                     ),
                     label: Text(hasFile ? 'Replace Photo' : 'Upload Scan'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: hasFile ? TRYPColors.inputFill : TRYPColors.secondary,
-                      foregroundColor: hasFile ? TRYPColors.secondary : TRYPColors.white,
+                      backgroundColor: hasFile
+                          ? TRYPColors.inputFill
+                          : TRYPColors.secondary,
+                      foregroundColor: hasFile
+                          ? TRYPColors.secondary
+                          : TRYPColors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(

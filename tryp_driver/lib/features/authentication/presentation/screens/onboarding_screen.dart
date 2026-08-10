@@ -38,7 +38,7 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
           '0% commission on passenger tips, verified rider profiles, and dedicated 24/7 South African support.',
       badgeLabel: 'VERIFIED DRIVERS & RIDERS',
       icon: Icons.shield_rounded,
-      accentColor: Colors.green,
+      accentColor: TRYPColors.primary,
     ),
   ];
 
@@ -53,7 +53,7 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: TRYPColors.secondary,
+      backgroundColor: TRYPColors.primaryAlt,
       body: SafeArea(
         child: Column(
           children: [
@@ -73,10 +73,11 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Image.asset(
-                          'assets/images/tryp_logo_light.png',
-                          width: 24,
-                          height: 24,
+                          'assets/images/tryp-logo-green.png',
+                          width: 28,
+                          height: 28,
                           fit: BoxFit.contain,
+                          semanticLabel: 'TRYP Driver logo',
                         ),
                       ),
                       const SizedBox(width: 12),

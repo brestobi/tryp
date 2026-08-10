@@ -4,7 +4,7 @@ import 'package:tryp/app/routes.dart';
 import 'package:tryp/app/theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Primary Button  — solid black pill  (Bolt-style)
+// Primary Button  — solid TRYP red pill
 // ─────────────────────────────────────────────────────────────────────────────
 
 class PrimaryButton extends StatelessWidget {
@@ -16,7 +16,7 @@ class PrimaryButton extends StatelessWidget {
   final double height;
   final IconData? icon;
 
-  /// Override button background color (defaults to TRYPColors.secondary = black)
+  /// Override button background color (defaults to the TRYP red brand color).
   final Color? backgroundColor;
 
   /// Override text / icon color (defaults to white)
@@ -37,7 +37,7 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = backgroundColor ?? TRYPColors.secondary;
+    final bg = backgroundColor ?? TRYPColors.primary;
     final fg = foregroundColor ?? TRYPColors.white;
 
     return SizedBox(

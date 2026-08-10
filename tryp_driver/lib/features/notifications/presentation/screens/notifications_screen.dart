@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tryp_driver/app/routes.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/services/notification_service.dart';
 import 'package:tryp_driver/core/widgets/driver_bottom_nav_bar.dart';
@@ -62,7 +63,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 child: Text(
                   '$unreadCount New',
                   style: TRYPTypography.bodySmall.copyWith(
-                    color: TRYPColors.secondary,
+                    color: TRYPColors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
                   ),
@@ -240,8 +241,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                               ref
                                   .read(notificationsProvider.notifier)
                                   .markAsRead(notif.id);
-                              if (notif.routePath != null) {
-                                context.go(notif.routePath!);
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go(
+                                  notif.routePath ?? Routes.driverHome,
+                                );
                               }
                             },
                             onDismissed: () {
@@ -301,8 +306,8 @@ class _NotificationCard extends StatelessWidget {
         icon = Icons.local_offer_rounded;
         break;
       case NotificationType.payment:
-        iconBg = Colors.green.withValues(alpha: 0.15);
-        iconColor = Colors.green;
+        iconBg = TRYPColors.primary.withValues(alpha: 0.15);
+        iconColor = TRYPColors.primary;
         icon = Icons.receipt_long_rounded;
         break;
       case NotificationType.system:

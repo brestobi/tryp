@@ -104,7 +104,7 @@ class _DriverNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? TRYPColors.secondary : TRYPColors.grey;
+    final color = selected ? TRYPColors.primary : TRYPColors.grey;
 
     return Semantics(
       button: true,

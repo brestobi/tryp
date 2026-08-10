@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// TRYP Color Palette — simple monochrome ride-hailing UI.
+/// TRYP Color Palette — red passenger branding with neutral supporting tones.
 class TRYPColors {
   // Brand and action colors.
-  static const Color primary = Color(0xFF000000);
-  static const Color primaryAlt = Color(0xFF1A1A1A);
+  static const Color primary = Color(0xFFE21B2D);
+  static const Color primaryAlt = Color(0xFFB51221);
   static const Color secondary = Color(0xFF111111);
-  // Neutral emphasis color for legacy highlighted UI elements.
-  static const Color accent = Color(0xFF555555);
-  static const Color accentSoft = Color(0xFFF1F1F1);
+  static const Color accent = Color(0xFFE21B2D);
+  static const Color accentSoft = Color(0xFFFFE8EB);
 
   // Surfaces.
   static const Color surface = Color(0xFFF7F7F7);
@@ -120,7 +119,7 @@ class TRYPTypography {
   );
 }
 
-/// TRYP Theme — white canvas, black actions, and quiet gray controls.
+/// TRYP Theme — white canvas with TRYP red actions and highlights.
 class TRYPTheme {
   static const ColorScheme lightColorScheme = ColorScheme.light(
     primary: TRYPColors.primary,

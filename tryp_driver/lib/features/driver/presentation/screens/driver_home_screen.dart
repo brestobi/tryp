@@ -226,7 +226,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
               ? 'ONLINE — Listening for real-time ride requests'
               : 'OFFLINE',
         ),
-        backgroundColor: newOnlineState ? Colors.green : Colors.orange,
+        backgroundColor: newOnlineState ? TRYPColors.primary : Colors.orange,
       ),
     );
   }
@@ -370,7 +370,10 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
               // Pickup location
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.my_location, color: Colors.green),
+                leading: const Icon(
+                  Icons.my_location,
+                  color: TRYPColors.primary,
+                ),
                 title: Text(
                   request.origin,
                   style: TRYPTypography.titleMedium.copyWith(
@@ -509,7 +512,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Ride Accepted! En route to pickup passenger.'),
-            backgroundColor: Colors.green,
+            backgroundColor: TRYPColors.primary,
           ),
         );
         context.go(Routes.activeTrip);
@@ -677,18 +680,34 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: TRYPColors.accent,
+                color: TRYPColors.accentSoft,
                 borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                'TRYP DRIVER',
-                style: TextStyle(
-                  color: TRYPColors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                border: Border.all(
+                  color: TRYPColors.primary.withValues(alpha: 0.25),
                 ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/images/tryp-logo-green.png',
+                    width: 42,
+                    height: 26,
+                    fit: BoxFit.contain,
+                    semanticLabel: 'TRYP Driver logo',
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'DRIVER',
+                    style: TextStyle(
+                      color: TRYPColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -699,7 +718,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
               isVerified
                   ? Icons.verified_user_rounded
                   : Icons.pending_actions_rounded,
-              color: isVerified ? Colors.green : Colors.orange,
+              color: isVerified ? TRYPColors.primary : Colors.orange,
             ),
             onPressed: () => context.go(Routes.driverDocuments),
             tooltip: 'Verification Documents',
@@ -881,7 +900,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                                     height: 10,
                                     decoration: BoxDecoration(
                                       color: _isOnline
-                                          ? Colors.green
+                                          ? TRYPColors.primary
                                           : (isVerified
                                                 ? Colors.red
                                                 : Colors.orange),
@@ -897,7 +916,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                                               : 'UNVERIFIED'),
                                     style: TRYPTypography.labelLarge.copyWith(
                                       color: _isOnline
-                                          ? Colors.green
+                                          ? TRYPColors.primary
                                           : (isVerified
                                                 ? Colors.red
                                                 : Colors.orange),
@@ -1108,7 +1127,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                                               const Icon(
                                                 Icons.my_location,
                                                 size: 14,
-                                                color: Colors.green,
+                                                color: TRYPColors.primary,
                                               ),
                                               const SizedBox(width: 6),
                                               Expanded(

@@ -446,7 +446,7 @@ class _PassengerProfileScreenState
                                         vertical: 3,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.green.shade50,
+                                        color: TRYPColors.accentSoft,
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Row(
@@ -455,13 +455,13 @@ class _PassengerProfileScreenState
                                           Icon(
                                             Icons.verified_rounded,
                                             size: 16,
-                                            color: Colors.green.shade700,
+                                            color: TRYPColors.primary,
                                           ),
                                           const SizedBox(width: 3),
                                           Text(
                                             'Verified',
                                             style: TextStyle(
-                                              color: Colors.green.shade700,
+                                              color: TRYPColors.primary,
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
                                             ),
@@ -641,9 +641,7 @@ class _PassengerProfileScreenState
                           _isVerified
                               ? Icons.verified_rounded
                               : Icons.verified_user_rounded,
-                          color: _isVerified
-                              ? Colors.green.shade700
-                              : TRYPColors.primary,
+                          color: TRYPColors.primary,
                         ),
                         title: Text(
                           _isVerified
@@ -710,6 +708,30 @@ class _PassengerProfileScreenState
 
                       // Logout Button
                       SecondaryButton(label: 'Log Out', onPressed: _logout),
+                      const SizedBox(height: 26),
+
+                      // Passenger brand signature.
+                      Center(
+                        child: Column(
+                          children: [
+                            Image.asset(
+                              'assets/images/tryp-red.png',
+                              width: 92,
+                              height: 72,
+                              fit: BoxFit.contain,
+                              semanticLabel: 'TRYP logo',
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'by hungry developers',
+                              style: TRYPTypography.bodySmall.copyWith(
+                                color: TRYPColors.grey,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 24),
                     ],
                   ),

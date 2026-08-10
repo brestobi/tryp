@@ -214,7 +214,7 @@ class _DriverOnboardingScreenState
             content: Text(
               '🎉 Application submitted successfully for admin review!',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: TRYPColors.primary,
           ),
         );
       } else {
@@ -362,7 +362,7 @@ class _DriverOnboardingScreenState
                 ? '${doc.title} uploaded successfully.'
                 : 'Failed to upload ${doc.title}. Please try again.',
           ),
-          backgroundColor: success ? Colors.green : TRYPColors.error,
+          backgroundColor: success ? TRYPColors.primary : TRYPColors.error,
         ),
       );
     } finally {
@@ -1172,9 +1172,9 @@ class _DriverOnboardingScreenState
           IconData statusIcon = Icons.cloud_upload_outlined;
 
           if (status == 'approved') {
-            borderCol = Colors.green.withValues(alpha: 0.4);
-            statusBg = Colors.green.withValues(alpha: 0.12);
-            statusFg = Colors.green;
+            borderCol = TRYPColors.primary.withValues(alpha: 0.4);
+            statusBg = TRYPColors.primary.withValues(alpha: 0.12);
+            statusFg = TRYPColors.primary;
             statusLabel = 'Verified';
             statusIcon = Icons.check_circle_rounded;
           } else if (status == 'action_required' || status == 'rejected') {
@@ -1363,7 +1363,7 @@ class _DriverOnboardingScreenState
     final isRejected = data.driverStatus == DriverVerificationStatus.rejected;
 
     Color badgeBg = isApproved
-        ? Colors.green
+        ? TRYPColors.primary
         : (isRejected ? TRYPColors.error : Colors.orange);
     String statusTitle = isApproved
         ? 'Verification Approved! 🎉'
@@ -1410,7 +1410,7 @@ class _DriverOnboardingScreenState
                             ? Icons.warning_amber_rounded
                             : Icons.hourglass_empty_rounded),
                   color: isApproved
-                      ? Colors.green
+                      ? TRYPColors.primary
                       : (isRejected ? Colors.red : TRYPColors.white),
                   size: 40,
                 ),

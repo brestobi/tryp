@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TRYP Driver green branding -->
+    <color name="notification_color">#1B8F3A</color>
+    <color name="ic_launcher_background">#116B2A</color>
+</resources>

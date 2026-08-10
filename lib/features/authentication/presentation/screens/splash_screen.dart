@@ -99,7 +99,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: TRYPColors.secondary,
+      backgroundColor: TRYPColors.primaryAlt,
       body: Center(
         child: FadeTransition(
           opacity: _fadeIn,
@@ -108,21 +108,13 @@ class _SplashScreenPageState extends State<SplashScreenPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Yellow logo mark
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    color: TRYPColors.primary,
-                    borderRadius: BorderRadius.circular(26),
-                  ),
-                  child: Center(
-                    child: Image.asset(
-                      'assets/images/tryp_logo_light.png',
-                      width: 60,
-                      height: 60,
-                    ),
-                  ),
+                // Passenger red brand logo.
+                Image.asset(
+                  'assets/images/tryp-red.png',
+                  width: 150,
+                  height: 150,
+                  fit: BoxFit.contain,
+                  semanticLabel: 'TRYP logo',
                 ),
                 const SizedBox(height: 22),
                 Text(

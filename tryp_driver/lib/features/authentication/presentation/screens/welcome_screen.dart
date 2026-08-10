@@ -12,7 +12,7 @@ class WelcomeScreenPage extends StatelessWidget {
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: TRYPColors.secondary,
+      backgroundColor: TRYPColors.primaryAlt,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
@@ -36,9 +36,9 @@ class WelcomeScreenPage extends StatelessWidget {
                 ),
                 child: Center(
                   child: Image.asset(
-                    'assets/images/tryp_logo_light.png',
-                    width: 34,
-                    height: 34,
+                    'assets/images/tryp-logo-green.png',
+                    width: 42,
+                    height: 42,
                     fit: BoxFit.contain,
                   ),
                 ),
