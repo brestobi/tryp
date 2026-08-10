@@ -230,35 +230,53 @@ serve(async (req) => {
     // Build email HTML
     const emailHtml = buildStatementEmail(statement);
     
-    // Send email using Resend (or your preferred email service)
-    // For now, we'll log the email and mark it as sent
+    // Send email using Resend
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    
+    if (!resendApiKey) {
+      console.error("RESEND_API_KEY not configured");
+      return new Response(
+        JSON.stringify({ error: "Email service not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     console.log(`Sending statement to ${statement.driverEmail}`);
     console.log(`Statement period: ${statement.periodStart} to ${statement.periodEnd}`);
     console.log(`Total trips: ${statement.totalTrips}, Net earnings: R${statement.totalNetEarnings}`);
     
-    // TODO: Integrate with your email service (Resend, SendGrid, etc.)
-    // Example with Resend:
-    // const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    // const response = await fetch("https://api.resend.com/emails", {
-    //   method: "POST",
-    //   headers: {
-    //     "Authorization": `Bearer ${resendApiKey}`,
-    //     "Content-Type": "application/json",
-    //   },
-    //   body: JSON.stringify({
-    //     from: "TRYP Statements <statements@tryp.co.za>",
-    //     to: statement.driverEmail,
-    //     subject: `TRYP Weekly Statement - ${formatDate(statement.periodStart)} to ${formatDate(statement.periodEnd)}`,
-    //     html: emailHtml,
-    //   }),
-    // });
+    const emailResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "TRYP Statements <noreply@updates.illdoit.space>",
+        to: statement.driverEmail,
+        subject: `TRYP Weekly Statement - ${formatDate(statement.periodStart)} to ${formatDate(statement.periodEnd)}`,
+        html: emailHtml,
+      }),
+    });
+
+    const emailResult = await emailResponse.json();
+
+    if (!emailResponse.ok) {
+      console.error("Email send failed:", emailResult);
+      return new Response(
+        JSON.stringify({ error: "Failed to send email", details: emailResult }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Email sent successfully to ${statement.driverEmail}`);
     
-    // For now, return success
     return new Response(
       JSON.stringify({
         success: true,
         message: `Statement sent to ${statement.driverName}`,
         email: statement.driverEmail,
+        emailId: emailResult.id,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

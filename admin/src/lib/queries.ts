@@ -602,12 +602,16 @@ export async function fetchDriverStatementData(
   if (profileError) throw profileError;
 
   // Fetch wallet transactions for the period
+  // Add time to dates for proper comparison
+  const startDateTime = startDate.includes('T') ? startDate : `${startDate}T00:00:00.000Z`;
+  const endDateTime = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`;
+  
   const { data: transactions, error: txError } = await supabase
     .from('driver_wallet_transactions')
     .select('*')
     .eq('driver_id', driverId)
-    .gte('created_at', startDate)
-    .lt('created_at', endDate)
+    .gte('created_at', startDateTime)
+    .lte('created_at', endDateTime)
     .order('created_at', { ascending: true });
 
   if (txError) throw txError;

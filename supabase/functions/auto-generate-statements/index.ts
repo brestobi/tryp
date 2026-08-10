@@ -307,12 +307,15 @@ serve(async (req) => {
         }
 
         // Fetch wallet transactions for the period
+        const startDateTime = formatDate(periodStart) + "T00:00:00.000Z";
+        const endDateTime = formatDate(periodEnd) + "T23:59:59.999Z";
+        
         const { data: transactions, error: txError } = await supabase
           .from("driver_wallet_transactions")
           .select("*")
           .eq("driver_id", driver.id)
-          .gte("created_at", formatDate(periodStart))
-          .lt("created_at", new Date(periodEnd.getTime() + 86400000).toISOString())
+          .gte("created_at", startDateTime)
+          .lte("created_at", endDateTime)
           .order("created_at", { ascending: true });
 
         if (txError) {
@@ -390,14 +393,38 @@ serve(async (req) => {
           rating: parseFloat(driverProfile.rating ?? "5") || 5,
         };
 
-        // Send email
-        console.log(`Sending statement to ${statement.driverEmail}`);
+        // Send email using Resend
+        const resendApiKey = Deno.env.get("RESEND_API_KEY");
         
-        // TODO: Integrate with your email service (Resend, SendGrid, etc.)
-        // For now, we'll just log the statement
-        console.log(`Statement for ${statement.driverName}: ${statement.totalTrips} trips, ${formatCurrency(statement.totalNetEarnings)} net earnings`);
+        if (resendApiKey) {
+          console.log(`Sending statement to ${statement.driverEmail}`);
+          
+          const emailResponse = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${resendApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "TRYP Statements <noreply@updates.illdoit.space>",
+              to: statement.driverEmail,
+              subject: `TRYP Weekly Statement - ${formatDateShort(statement.periodStart)} to ${formatDateShort(statement.periodEnd)}`,
+              html: buildStatementEmail(statement),
+            }),
+          });
 
-        successCount++;
+          if (emailResponse.ok) {
+            console.log(`Email sent successfully to ${statement.driverEmail}`);
+            successCount++;
+          } else {
+            const error = await emailResponse.text();
+            console.error(`Failed to send email to ${statement.driverEmail}:`, error);
+            failedCount++;
+          }
+        } else {
+          console.log(`Statement for ${statement.driverName}: ${statement.totalTrips} trips, ${formatCurrency(statement.totalNetEarnings)} net earnings (email not configured)`);
+          successCount++;
+        }
         
       } catch (error) {
         console.error(`Failed to process driver ${driver.id}:`, error);
