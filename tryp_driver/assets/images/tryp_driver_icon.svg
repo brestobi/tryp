@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <title>TRYP Driver app icon</title>
+  <desc>Monochrome TRYP Driver mark combining a navigation route and steering wheel.</desc>
+  <defs>
+    <linearGradient id="bg" x1="120" y1="80" x2="900" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1A1A1A"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <filter id="shadow" x="160" y="160" width="760" height="760" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000000" flood-opacity="0.38"/>
+    </filter>
+  </defs>
+
+  <!-- App-icon safe area and monochrome TRYP surface -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <path d="M224 0h576c123.712 0 224 100.288 224 224v576c0 123.712-100.288 224-224 224H224C100.288 1024 0 923.712 0 800V224C0 100.288 100.288 0 224 0Z" stroke="#2B2B2B" stroke-width="8"/>
+
+  <!-- Soft route arc: the driver's journey -->
+  <path d="M308 714c-29-81-18-171 33-242 51-71 128-116 213-126 75-9 148 11 205 56" stroke="#6B6B6B" stroke-width="28" stroke-linecap="round" stroke-dasharray="4 52"/>
+  <path d="M310 714c-20-58-16-120 13-172" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" opacity="0.34"/>
+
+  <!-- Direction pin/arrival point -->
+  <path d="M755 250c-69 0-125 56-125 125 0 93 125 207 125 207s125-114 125-207c0-69-56-125-125-125Z" fill="#FFFFFF" filter="url(#shadow)"/>
+  <circle cx="755" cy="375" r="42" fill="#000000"/>
+  <path d="m739 375 12 12 25-29" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Steering wheel: driver-first identity -->
+  <circle cx="512" cy="560" r="210" fill="#FFFFFF" filter="url(#shadow)"/>
+  <circle cx="512" cy="560" r="151" fill="#000000"/>
+  <circle cx="512" cy="560" r="61" fill="#FFFFFF"/>
+  <circle cx="512" cy="560" r="27" fill="#000000"/>
+
+  <!-- Three bold spokes, kept simple for small-size legibility -->
+  <path d="M512 499V418" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round"/>
+  <path d="m467 586-80 47" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round"/>
+  <path d="m557 586 80 47" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round"/>
+
+  <!-- Bottom route cue -->
+  <path d="M327 776h162" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round"/>
+  <path d="m459 735 41 41-41 41" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
