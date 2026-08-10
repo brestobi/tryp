@@ -274,7 +274,7 @@ class _SplashScreenPageState extends State<SplashScreenPage>
             left: 0,
             right: 0,
             child: Text(
-              'v${AppConstants.appVersion} • Powered by Supabase & Google Cloud',
+              'v${AppConstants.appVersion}',
               textAlign: TextAlign.center,
               style: TRYPTypography.bodySmall.copyWith(
                 color: TRYPColors.secondaryLight.withValues(alpha: 0.8),

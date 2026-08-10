@@ -135,6 +135,7 @@ class TripModel {
   final double destLat;
   final double destLng;
   final DateTime requestedAt;
+  final DateTime? scheduledFor;
   final DateTime? acceptedAt;
   final DateTime? startedAt;
   final DateTime? completedAt;
@@ -172,6 +173,7 @@ class TripModel {
     required this.destLat,
     required this.destLng,
     required this.requestedAt,
+    this.scheduledFor,
     this.acceptedAt,
     this.startedAt,
     this.completedAt,
@@ -261,6 +263,9 @@ class TripModel {
       requestedAt:
           DateTime.tryParse(json['requested_at'] as String? ?? '') ??
           DateTime.now(),
+      scheduledFor: json['scheduled_for'] != null
+          ? DateTime.tryParse(json['scheduled_for'] as String)
+          : null,
       acceptedAt: json['accepted_at'] != null
           ? DateTime.tryParse(json['accepted_at'] as String)
           : null,
@@ -319,6 +324,7 @@ class TripModel {
     double? destLat,
     double? destLng,
     DateTime? requestedAt,
+    DateTime? scheduledFor,
     DateTime? acceptedAt,
     DateTime? startedAt,
     DateTime? completedAt,
@@ -356,6 +362,7 @@ class TripModel {
       destLat: destLat ?? this.destLat,
       destLng: destLng ?? this.destLng,
       requestedAt: requestedAt ?? this.requestedAt,
+      scheduledFor: scheduledFor ?? this.scheduledFor,
       acceptedAt: acceptedAt ?? this.acceptedAt,
       startedAt: startedAt ?? this.startedAt,
       completedAt: completedAt ?? this.completedAt,

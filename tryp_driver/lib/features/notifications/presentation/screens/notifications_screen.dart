@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/services/notification_service.dart';
+import 'package:tryp_driver/core/widgets/driver_bottom_nav_bar.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -209,6 +210,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 2),
     );
   }
 }

@@ -383,6 +383,16 @@ class _TripCard extends StatelessWidget {
                         color: TRYPColors.grey,
                       ),
                     ),
+                    if (trip.scheduledFor != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Pickup scheduled: ${_formatTripDate(trip.scheduledFor!)}',
+                        style: TRYPTypography.bodySmall.copyWith(
+                          color: TRYPColors.secondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(
                       'From: ${trip.origin}',

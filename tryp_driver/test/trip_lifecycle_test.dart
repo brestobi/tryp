@@ -34,6 +34,17 @@ void main() {
       expect(trip.passengerCompleted, isFalse);
     });
 
+    test('parses an optional scheduled pickup timestamp', () {
+      final trip = TripModel.fromJson(
+        _rideJson(
+          status: 'requested',
+          scheduledFor: '2026-08-12T09:30:00.000Z',
+        ),
+      );
+
+      expect(trip.scheduledFor, DateTime.parse('2026-08-12T09:30:00.000Z'));
+    });
+
     test('preserves completion metadata when status changes locally', () {
       final completed = TripModel.fromJson(
         _rideJson(
@@ -65,6 +76,7 @@ Map<String, dynamic> _rideJson({
   required String status,
   bool driverCompleted = false,
   bool passengerCompleted = false,
+  String? scheduledFor,
 }) {
   return {
     'id': 'ride-1',
@@ -84,6 +96,7 @@ Map<String, dynamic> _rideJson({
     'dest_lat': -26.2,
     'dest_lng': 28.1,
     'requested_at': '2026-08-07T12:00:00.000Z',
+    'scheduled_for': scheduledFor,
     'accepted_at': '2026-08-07T12:02:00.000Z',
     'started_at': '2026-08-07T12:15:00.000Z',
     'completed_at': '2026-08-07T12:40:00.000Z',

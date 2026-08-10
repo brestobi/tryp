@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
+import 'package:tryp_driver/core/constants/map_styles.dart';
 import 'package:tryp_driver/core/services/location_service.dart';
 import 'package:tryp_driver/core/services/trip_service.dart';
 import 'package:tryp_driver/core/widgets/common_widgets.dart';
@@ -645,6 +646,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                 polylines: _polylines,
                 myLocationEnabled: true,
                 zoomControlsEnabled: false,
+                style: TRYPMapStyles.dark,
                 onMapCreated: (controller) => _mapController = controller,
               ),
             ),

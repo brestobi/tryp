@@ -11,6 +11,7 @@ import 'package:tryp_driver/core/services/notification_service.dart';
 import 'package:tryp_driver/core/services/supabase_service.dart';
 import 'package:tryp_driver/core/services/trip_service.dart';
 import 'package:tryp_driver/core/widgets/common_widgets.dart';
+import 'package:tryp_driver/core/widgets/driver_bottom_nav_bar.dart';
 
 class DriverHomeScreenPage extends ConsumerStatefulWidget {
   const DriverHomeScreenPage({Key? key}) : super(key: key);
@@ -332,6 +333,40 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                 ],
               ),
 
+              if (request.scheduledFor != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: TRYPColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_month_rounded,
+                        size: 18,
+                        color: TRYPColors.secondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Scheduled pickup: ${_formatTripDate(request.scheduledFor!)}',
+                          style: TRYPTypography.bodySmall.copyWith(
+                            color: TRYPColors.secondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               const Divider(height: 24),
 
               // Pickup location
@@ -449,6 +484,18 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
         ),
       );
     }
+  }
+
+  String _formatTripDate(DateTime dt) {
+    final local = dt.toLocal();
+    final hour = local.hour == 0
+        ? 12
+        : local.hour > 12
+        ? local.hour - 12
+        : local.hour;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
+    return '${local.day}/${local.month}/${local.year} at $hour:$minute $period';
   }
 
   Future<void> _acceptRideRequest(TripModel request) async {
@@ -1072,7 +1119,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                                               const SizedBox(width: 6),
                                               Expanded(
                                                 child: Text(
-                                                  request.destination,
+                                                  '${request.destination}${request.scheduledFor == null ? '' : ' • ${_formatTripDate(request.scheduledFor!)}'}',
                                                   style: TRYPTypography
                                                       .bodySmall
                                                       .copyWith(
@@ -1119,6 +1166,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                 ),
               ),
             ),
+      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 0),
     );
   }
 }

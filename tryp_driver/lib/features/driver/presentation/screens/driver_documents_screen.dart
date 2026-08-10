@@ -6,6 +6,7 @@ import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/services/document_storage_service.dart';
 import 'package:tryp_driver/core/widgets/common_widgets.dart';
+import 'package:tryp_driver/core/widgets/driver_bottom_nav_bar.dart';
 import 'package:tryp_driver/features/driver/data/repositories/driver_onboarding_repository.dart';
 import 'package:tryp_driver/features/driver/domain/models/driver_onboarding_config.dart';
 
@@ -418,6 +419,7 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
           },
         ),
       ),
+      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 1),
     );
   }
 }

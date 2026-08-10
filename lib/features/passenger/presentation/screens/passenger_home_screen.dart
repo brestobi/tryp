@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
+import 'package:tryp/core/constants/map_styles.dart';
 import 'package:tryp/core/services/fare_calculator.dart';
 import 'package:tryp/core/services/location_service.dart';
 import 'package:tryp/core/services/notification_service.dart';
@@ -23,6 +24,7 @@ class LocationItem {
   final double lng;
   final IconData icon;
   final String city;
+  final String? placeId;
 
   const LocationItem({
     required this.name,
@@ -31,74 +33,87 @@ class LocationItem {
     required this.lng,
     this.icon = Icons.location_on_rounded,
     this.city = 'Johannesburg',
+    this.placeId,
   });
 }
 
-/// South African Popular Landmarks Preset List
-const List<LocationItem> saLandmarks = [
+/// Suggested villages and localities between Tzaneen and The Oaks, Limpopo.
+///
+/// These are intentionally curated map-centre coordinates, not exact pickup
+/// entrances. The optional advanced map-pin flow can provide that precision
+/// later without making the basic destination finder depend on a network API.
+const List<LocationItem> tzaneenVillages = [
   LocationItem(
-    name: 'Rosebank Mall',
-    address: '50 Bath Ave, Rosebank, Johannesburg',
-    lat: -26.1464,
-    lng: 28.0436,
-    icon: Icons.shopping_bag_outlined,
-    city: 'Rosebank',
+    name: 'Tzaneen',
+    address: 'Tzaneen, Greater Tzaneen, Limpopo',
+    lat: -23.8333,
+    lng: 30.1667,
+    icon: Icons.location_city_rounded,
+    city: 'Greater Tzaneen',
   ),
   LocationItem(
-    name: 'O.R. Tambo International Airport',
-    address: '1 Jones Rd, Kempton Park, Johannesburg',
-    lat: -26.1367,
-    lng: 28.2411,
-    icon: Icons.flight_takeoff_rounded,
-    city: 'Kempton Park',
+    name: 'Nkowankowa',
+    address: 'Nkowankowa, Greater Tzaneen, Limpopo',
+    lat: -23.8833,
+    lng: 30.3833,
+    icon: Icons.home_work_outlined,
+    city: 'Greater Tzaneen',
   ),
   LocationItem(
-    name: 'Mall of Africa',
-    address: 'Lone Creek Cres, Waterfall City, Midrand',
-    lat: -26.0152,
-    lng: 28.1070,
-    icon: Icons.storefront_rounded,
-    city: 'Midrand',
+    name: 'Letsitele',
+    address: 'Letsitele, Greater Tzaneen, Limpopo',
+    lat: -23.9000,
+    lng: 30.3833,
+    icon: Icons.agriculture_outlined,
+    city: 'Greater Tzaneen',
   ),
   LocationItem(
-    name: 'Montecasino Entertainment World',
-    address: 'Montecasino Blvd, Fourways, Sandton',
-    lat: -26.0243,
-    lng: 28.0131,
-    icon: Icons.local_activity_rounded,
-    city: 'Fourways',
+    name: 'Lenyenye',
+    address: 'Lenyenye, Greater Tzaneen, Limpopo',
+    lat: -23.9500,
+    lng: 30.3167,
+    icon: Icons.home_work_outlined,
+    city: 'Greater Tzaneen',
   ),
   LocationItem(
-    name: 'Nelson Mandela Square',
-    address: '5th St, Sandown, Sandton',
-    lat: -26.1068,
-    lng: 28.0543,
-    icon: Icons.nature_people_rounded,
-    city: 'Sandton',
+    name: 'Gravelotte',
+    address: 'Gravelotte, Mopani District, Limpopo',
+    lat: -23.9333,
+    lng: 30.6167,
+    icon: Icons.route_rounded,
+    city: 'Mopani District',
   ),
   LocationItem(
-    name: 'Johannesburg Park Station',
-    address: 'Rissik St, Braamfontein, Johannesburg',
-    lat: -26.1969,
-    lng: 28.0416,
-    icon: Icons.train_rounded,
-    city: 'Johannesburg',
+    name: 'Ofcolaco',
+    address: 'Ofcolaco, Mopani District, Limpopo',
+    lat: -24.0802,
+    lng: 30.3950,
+    icon: Icons.home_work_outlined,
+    city: 'Mopani District',
   ),
   LocationItem(
-    name: 'Vilakazi Street, Soweto',
-    address: 'Vilakazi St, Orlando West, Soweto',
-    lat: -26.2367,
-    lng: 27.9069,
-    icon: Icons.restaurant_rounded,
-    city: 'Soweto',
+    name: 'Trichardtsdal',
+    address: 'Trichardtsdal, Mopani District, Limpopo',
+    lat: -24.1695,
+    lng: 30.4006,
+    icon: Icons.home_work_outlined,
+    city: 'Mopani District',
   ),
   LocationItem(
-    name: 'Menlyn Park Shopping Centre',
-    address: 'Atterbury Rd & Lois Ave, Menlyn, Pretoria',
-    lat: -25.7825,
-    lng: 28.2753,
-    icon: Icons.shopping_cart_rounded,
-    city: 'Pretoria',
+    name: 'Calais',
+    address: 'Calais, Mopani District, Limpopo',
+    lat: -24.1320,
+    lng: 30.3480,
+    icon: Icons.home_work_outlined,
+    city: 'Mopani District',
+  ),
+  LocationItem(
+    name: 'The Oaks',
+    address: 'The Oaks, Maruleng, Limpopo',
+    lat: -24.3630,
+    lng: 30.6730,
+    icon: Icons.location_on_rounded,
+    city: 'Maruleng',
   ),
 ];
 
@@ -106,6 +121,7 @@ enum PassengerRideMode {
   idle, // Showing "Where to?" bar & map
   searchOverlay, // Searching destination/pickup
   tierSelection, // Selecting TRYP Go / Comfort / XL / Exec tier
+  scheduledConfirmation, // Scheduled ride saved for a future pickup
   dispatching, // Searching for driver (pulsing radar)
   activeTrip, // Driver assigned & en route
 }
@@ -142,13 +158,15 @@ class _PassengerHomeScreenPageState
   final TextEditingController _destinationSearchController =
       TextEditingController();
   final TextEditingController _pickupSearchController = TextEditingController();
-  List<LocationItem> _searchResults = saLandmarks;
-  Timer? _searchDebounceTimer;
+  List<LocationItem> _searchResults = tzaneenVillages;
+  int _locationSelectionId = 0;
   bool _isSearchingPickup = false;
 
   // Selection & Pricing
   String _selectedRideType = 'TRYP Go';
   String _paymentMethod = 'Cash';
+  bool _isScheduledRide = false;
+  DateTime? _scheduledFor;
   double _calculatedDistanceKm = 6.4;
   int _calculatedDurationMins = 12;
   bool _isLoading = false;
@@ -164,29 +182,6 @@ class _PassengerHomeScreenPageState
   String? _completionRideId;
   String? _watchedRideId;
   bool _rideStatusRefreshInFlight = false;
-
-  static const String _darkMapStyle = '''[
-  {
-    "featureType": "all",
-    "elementType": "geometry",
-    "stylers": [{"saturation": -20}, {"lightness": 5}]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [{"lightness": 15}]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "labels",
-    "stylers": [{"visibility": "simplified"}]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [{"color": "#d4e6f1"}]
-  }
-]''';
 
   @override
   void initState() {
@@ -224,7 +219,9 @@ class _PassengerHomeScreenPageState
       if (updatedTrip != null) {
         ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
         setState(() {
-          _mode = updatedTrip.status == TripStatus.requested
+          _mode = _isFutureScheduledRide(updatedTrip)
+              ? PassengerRideMode.scheduledConfirmation
+              : updatedTrip.status == TripStatus.requested
               ? PassengerRideMode.dispatching
               : PassengerRideMode.activeTrip;
         });
@@ -240,7 +237,6 @@ class _PassengerHomeScreenPageState
     _radarAnimController.dispose();
     _destinationSearchController.dispose();
     _pickupSearchController.dispose();
-    _searchDebounceTimer?.cancel();
     _rideStatusRefreshTimer?.cancel();
     _rideSubscription?.unsubscribe();
     super.dispose();
@@ -252,9 +248,12 @@ class _PassengerHomeScreenPageState
     if (!mounted || activeTrip == null) return;
 
     ref.read(activeTripStateProvider.notifier).stateTrip = activeTrip;
+    _syncScheduleFromTrip(activeTrip);
     _watchedRideId = activeTrip.id;
     setState(() {
-      _mode = activeTrip.status == TripStatus.requested
+      _mode = _isFutureScheduledRide(activeTrip)
+          ? PassengerRideMode.scheduledConfirmation
+          : activeTrip.status == TripStatus.requested
           ? PassengerRideMode.dispatching
           : PassengerRideMode.activeTrip;
     });
@@ -307,14 +306,176 @@ class _PassengerHomeScreenPageState
       }
 
       ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
+      _syncScheduleFromTrip(updatedTrip);
       setState(() {
-        _mode = updatedTrip.status == TripStatus.requested
+        _mode = _isFutureScheduledRide(updatedTrip)
+            ? PassengerRideMode.scheduledConfirmation
+            : updatedTrip.status == TripStatus.requested
             ? PassengerRideMode.dispatching
             : PassengerRideMode.activeTrip;
       });
     } finally {
       _rideStatusRefreshInFlight = false;
     }
+  }
+
+  bool _isFutureScheduledRide(TripModel trip) {
+    final scheduledFor = trip.scheduledFor;
+    return scheduledFor != null && scheduledFor.isAfter(DateTime.now());
+  }
+
+  void _syncScheduleFromTrip(TripModel trip) {
+    _scheduledFor = trip.scheduledFor;
+    _isScheduledRide = trip.scheduledFor != null;
+    if (trip.destination.isNotEmpty && trip.destLat != 0 && trip.destLng != 0) {
+      _destination = LocationItem(
+        name: trip.destination,
+        address: trip.destination,
+        lat: trip.destLat,
+        lng: trip.destLng,
+        city: 'Booked destination',
+      );
+    }
+  }
+
+  String _formatPickupTime(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    final hour = local.hour == 0
+        ? 12
+        : local.hour > 12
+        ? local.hour - 12
+        : local.hour;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
+    return '${local.day}/${local.month}/${local.year} at $hour:$minute $period';
+  }
+
+  Future<void> _chooseScheduledPickup() async {
+    final now = DateTime.now();
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate:
+          (_scheduledFor?.toLocal() ?? now.add(const Duration(hours: 1))),
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 30)),
+      helpText: 'Choose pickup date',
+    );
+    if (!mounted || selectedDate == null) return;
+
+    final selectedTime = await showTimePicker(
+      context: context,
+      initialTime: _scheduledFor == null
+          ? TimeOfDay.fromDateTime(now.add(const Duration(hours: 1)))
+          : TimeOfDay.fromDateTime(_scheduledFor!.toLocal()),
+      helpText: 'Choose pickup time',
+    );
+    if (!mounted || selectedTime == null) return;
+
+    final scheduledFor = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    );
+    if (!scheduledFor.isAfter(now.add(const Duration(minutes: 10)))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please choose a pickup time at least 10 minutes from now.',
+          ),
+          backgroundColor: TRYPColors.error,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isScheduledRide = true;
+      _scheduledFor = scheduledFor;
+    });
+  }
+
+  void _showPickupTimePicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: TRYPColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Pickup time', style: TRYPTypography.headingSmall),
+              const SizedBox(height: 6),
+              Text(
+                'Choose whether you need a ride now or later.',
+                style: TRYPTypography.bodySmall.copyWith(
+                  color: TRYPColors.grey,
+                ),
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                tileColor: !_isScheduledRide ? TRYPColors.inputFill : null,
+                leading: const Icon(
+                  Icons.flash_on_rounded,
+                  color: TRYPColors.primary,
+                ),
+                title: const Text('Now'),
+                subtitle: const Text('Request a nearby driver immediately'),
+                trailing: !_isScheduledRide
+                    ? const Icon(
+                        Icons.check_circle_rounded,
+                        color: TRYPColors.secondary,
+                      )
+                    : null,
+                onTap: () {
+                  setState(() {
+                    _isScheduledRide = false;
+                    _scheduledFor = null;
+                  });
+                  Navigator.pop(sheetContext);
+                },
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                tileColor: _isScheduledRide ? TRYPColors.inputFill : null,
+                leading: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: TRYPColors.secondary,
+                ),
+                title: Text(
+                  _scheduledFor == null
+                      ? 'Schedule for later'
+                      : _formatPickupTime(_scheduledFor!),
+                ),
+                subtitle: const Text('Book a date and time in advance'),
+                trailing: _isScheduledRide
+                    ? const Icon(
+                        Icons.check_circle_rounded,
+                        color: TRYPColors.secondary,
+                      )
+                    : const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _chooseScheduledPickup();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _cancelActiveRide() async {
@@ -361,14 +522,17 @@ class _PassengerHomeScreenPageState
         }
 
         ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
+        _syncScheduleFromTrip(updatedTrip);
         if (updatedTrip.status == TripStatus.cancelled) {
           ref.read(activeTripStateProvider.notifier).stateTrip = null;
         }
         setState(() {
-          _mode = updatedTrip.status == TripStatus.requested
-              ? PassengerRideMode.dispatching
-              : updatedTrip.status == TripStatus.cancelled
+          _mode = updatedTrip.status == TripStatus.cancelled
               ? PassengerRideMode.idle
+              : _isFutureScheduledRide(updatedTrip)
+              ? PassengerRideMode.scheduledConfirmation
+              : updatedTrip.status == TripStatus.requested
+              ? PassengerRideMode.dispatching
               : PassengerRideMode.activeTrip;
         });
       },
@@ -469,10 +633,41 @@ class _PassengerHomeScreenPageState
     });
   }
 
+  Future<LocationItem?> _resolveLocationItem(LocationItem item) async {
+    // Every tap invalidates an earlier async selection, including a preset or
+    // current-location tap that does not need a network request.
+    final selectionId = ++_locationSelectionId;
+
+    // Curated villages and the current GPS location already contain a
+    // deliberate coordinate. Future advanced map search results may carry a
+    // place ID and be resolved through Place Details before map use.
+    if (item.placeId == null) return item;
+
+    final details = await ref
+        .read(locationServiceProvider)
+        .getPlaceDetails(item.placeId!);
+    if (!mounted || selectionId != _locationSelectionId || details == null) {
+      return null;
+    }
+
+    return LocationItem(
+      name: details.shortName,
+      address: details.address,
+      lat: details.latitude,
+      lng: details.longitude,
+      icon: item.icon,
+      city: item.city,
+      placeId: details.placeId,
+    );
+  }
+
   Future<void> _selectDestination(LocationItem item) async {
+    final resolved = await _resolveLocationItem(item);
+    if (!mounted || resolved == null) return;
+
     setState(() {
-      _destination = item;
-      _destinationSearchController.text = item.name;
+      _destination = resolved;
+      _destinationSearchController.text = resolved.name;
       _mode = PassengerRideMode.tierSelection;
     });
 
@@ -593,19 +788,25 @@ class _PassengerHomeScreenPageState
         pickupLng: _pickup.lng,
         destLat: _destination!.lat,
         destLng: _destination!.lng,
+        scheduledFor: _isScheduledRide ? _scheduledFor : null,
       );
 
       ref.read(activeTripStateProvider.notifier).stateTrip = newTrip;
+      _syncScheduleFromTrip(newTrip);
       _watchedRideId = newTrip.id;
+      if (_isFutureScheduledRide(newTrip)) {
+        setState(() => _mode = PassengerRideMode.scheduledConfirmation);
+      }
       _startRideStatusRefreshTimer();
 
       // Add Notification
       ref
           .read(notificationsProvider.notifier)
           .addNotification(
-            title: 'Ride Requested!',
-            body:
-                'Searching for nearby drivers to ${_destination!.name} (R${fare.toStringAsFixed(2)})',
+            title: _isScheduledRide ? 'Ride Scheduled' : 'Ride Requested!',
+            body: _isScheduledRide
+                ? 'Your ride to ${_destination!.name} is booked for ${_formatPickupTime(_scheduledFor!)}.'
+                : 'Searching for nearby drivers to ${_destination!.name} (R${fare.toStringAsFixed(2)})',
             type: NotificationType.ride,
             routePath: Routes.passengerHome,
           );
@@ -750,49 +951,17 @@ class _PassengerHomeScreenPageState
   void _onSearchQueryChanged(String query) {
     final trimmed = query.trim().toLowerCase();
     if (trimmed.isEmpty) {
-      setState(() => _searchResults = saLandmarks);
+      setState(() => _searchResults = tzaneenVillages);
       return;
     }
 
-    final localMatches = saLandmarks.where((item) {
+    final localMatches = tzaneenVillages.where((item) {
       return item.name.toLowerCase().contains(trimmed) ||
           item.address.toLowerCase().contains(trimmed) ||
           item.city.toLowerCase().contains(trimmed);
     }).toList();
 
     setState(() => _searchResults = localMatches);
-
-    _searchDebounceTimer?.cancel();
-    _searchDebounceTimer = Timer(const Duration(milliseconds: 350), () async {
-      final locationService = ref.read(locationServiceProvider);
-      final apiResults = await locationService.searchLocations(trimmed);
-      if (!mounted) return;
-
-      if (apiResults.isNotEmpty) {
-        final apiItems = apiResults
-            .map(
-              (loc) => LocationItem(
-                name: loc.shortName,
-                address: loc.address,
-                lat: loc.latitude,
-                lng: loc.longitude,
-                icon: Icons.place_rounded,
-                city: 'Search Result',
-              ),
-            )
-            .toList();
-
-        setState(() {
-          final existingNames = localMatches
-              .map((e) => e.name.toLowerCase())
-              .toSet();
-          final uniqueApi = apiItems.where(
-            (item) => !existingNames.contains(item.name.toLowerCase()),
-          );
-          _searchResults = [...localMatches, ...uniqueApi];
-        });
-      }
-    });
   }
 
   void _showPaymentMethodPicker() {
@@ -897,7 +1066,7 @@ class _PassengerHomeScreenPageState
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
-            style: _darkMapStyle,
+            style: TRYPMapStyles.dark,
             onMapCreated: (controller) {
               _mapController = controller;
             },
@@ -1103,6 +1272,8 @@ class _PassengerHomeScreenPageState
     switch (_mode) {
       case PassengerRideMode.tierSelection:
         return _buildTierSelectionSheet(fareSchemas);
+      case PassengerRideMode.scheduledConfirmation:
+        return _buildScheduledRideSheet();
       case PassengerRideMode.dispatching:
         return _buildDispatchingSheet();
       case PassengerRideMode.activeTrip:
@@ -1275,6 +1446,10 @@ class _PassengerHomeScreenPageState
                       Expanded(
                         child: TextField(
                           controller: _pickupSearchController,
+                          onTap: () {
+                            _isSearchingPickup = true;
+                            _onSearchQueryChanged('');
+                          },
                           onChanged: (val) {
                             _isSearchingPickup = true;
                             _onSearchQueryChanged(val);
@@ -1309,6 +1484,10 @@ class _PassengerHomeScreenPageState
                         child: TextField(
                           controller: _destinationSearchController,
                           autofocus: true,
+                          onTap: () {
+                            _isSearchingPickup = false;
+                            _onSearchQueryChanged('');
+                          },
                           onChanged: (val) {
                             _isSearchingPickup = false;
                             _onSearchQueryChanged(val);
@@ -1361,16 +1540,22 @@ class _PassengerHomeScreenPageState
                       item.address,
                       style: TRYPTypography.bodySmall,
                     ),
-                    onTap: () {
-                      if (_isSearchingPickup) {
-                        setState(() {
-                          _pickup = item;
-                          _pickupSearchController.text = item.name;
-                          _isSearchingPickup = false;
-                        });
-                      } else {
-                        _selectDestination(item);
+                    onTap: () async {
+                      if (!_isSearchingPickup) {
+                        await _selectDestination(item);
+                        return;
                       }
+
+                      final resolved = await _resolveLocationItem(item);
+                      if (!mounted || resolved == null) return;
+
+                      setState(() {
+                        _pickup = resolved;
+                        _pickupSearchController.text = resolved.name;
+                        _isSearchingPickup = false;
+                      });
+                      FocusScope.of(context).unfocus();
+                      await _recalculateRoute();
                     },
                   );
                 },
@@ -1596,6 +1781,9 @@ class _PassengerHomeScreenPageState
 
           const SizedBox(height: 12),
 
+          _buildPickupTimeSelector(),
+          const SizedBox(height: 12),
+
           // Payment selector & CTA
           Row(
             children: [
@@ -1647,6 +1835,122 @@ class _PassengerHomeScreenPageState
             isLoading: _isLoading,
             enabled: activeFare != null && !_isLoading,
             onPressed: _requestRide,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPickupTimeSelector() {
+    final label = !_isScheduledRide || _scheduledFor == null
+        ? 'Now'
+        : _formatPickupTime(_scheduledFor!);
+    return GestureDetector(
+      onTap: _showPickupTimePicker,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: _isScheduledRide
+              ? TRYPColors.primary.withValues(alpha: 0.12)
+              : TRYPColors.inputFill,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _isScheduledRide ? TRYPColors.primary : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              _isScheduledRide
+                  ? Icons.calendar_month_rounded
+                  : Icons.flash_on_rounded,
+              size: 19,
+              color: TRYPColors.secondary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pickup time',
+                    style: TRYPTypography.labelSmall.copyWith(
+                      color: TRYPColors.grey,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: TRYPTypography.labelMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.edit_calendar_rounded,
+              size: 19,
+              color: TRYPColors.grey,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScheduledRideSheet() {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        24,
+        24,
+        MediaQuery.of(context).padding.bottom + 24,
+      ),
+      decoration: const BoxDecoration(
+        color: TRYPColors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: TRYPColors.primary.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.event_available_rounded,
+              color: TRYPColors.secondary,
+              size: 32,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text('Ride scheduled', style: TRYPTypography.headingSmall),
+          const SizedBox(height: 8),
+          Text(
+            _scheduledFor == null
+                ? 'Your ride has been booked.'
+                : 'Pickup: ${_formatPickupTime(_scheduledFor!)}',
+            textAlign: TextAlign.center,
+            style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'To ${_destination?.name ?? 'your destination'}',
+            style: TRYPTypography.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton(
+            onPressed: _cancelActiveRide,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(100),
+              ),
+            ),
+            child: const Text('Cancel Scheduled Ride'),
           ),
         ],
       ),

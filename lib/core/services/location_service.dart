@@ -4,18 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:dio/dio.dart';
+import 'package:tryp/config/environment.dart';
 
 class UserLocation {
   final double latitude;
   final double longitude;
   final String address;
   final String shortName;
+  final String? placeId;
 
   const UserLocation({
     required this.latitude,
     required this.longitude,
     required this.address,
     required this.shortName,
+    this.placeId,
   });
 
   factory UserLocation.fallback() => const UserLocation(
@@ -24,6 +27,18 @@ class UserLocation {
         address: 'Sandton City, Sandton',
         shortName: 'Current Location',
       );
+}
+
+class PlaceSuggestion {
+  final String placeId;
+  final String name;
+  final String address;
+
+  const PlaceSuggestion({
+    required this.placeId,
+    required this.name,
+    required this.address,
+  });
 }
 
 class RouteResult {
@@ -39,8 +54,9 @@ class RouteResult {
 }
 
 class LocationService {
-  static const String _googleMapsApiKey = 'AIzaSyBRezyrM8OMsEeMjHpoD6w70zLhfBLUmsk';
   final Dio _dio = Dio();
+
+  String get _googleMapsApiKey => Environment.googleMapsApiKey;
 
   /// Request permission and get the device's current GPS position
   Future<Position?> getCurrentPosition() async {
@@ -195,48 +211,110 @@ class LocationService {
     return reverseGeocode(position.latitude, position.longitude);
   }
 
-  /// Real-world place search via Nominatim OpenStreetMap API
-  Future<List<UserLocation>> searchLocations(String query) async {
-    if (query.trim().length < 2) return [];
+  /// Search Google Places for user-facing autocomplete suggestions.
+  /// Coordinates are intentionally resolved only after a suggestion is selected.
+  Future<List<PlaceSuggestion>> searchPlaces(
+    String query, {
+    LatLng? near,
+  }) async {
+    if (query.trim().length < 2 || _googleMapsApiKey.isEmpty) return [];
 
     try {
+      final parameters = <String, dynamic>{
+        'input': query.trim(),
+        'key': _googleMapsApiKey,
+        'language': 'en',
+        'components': 'country:za',
+      };
+      if (near != null) {
+        parameters['location'] = '${near.latitude},${near.longitude}';
+        parameters['radius'] = 50000;
+      }
+
       final response = await _dio.get(
-        'https://nominatim.openstreetmap.org/search',
-        queryParameters: {
-          'q': query,
-          'format': 'json',
-          'addressdetails': 1,
-          'limit': 10,
-        },
-        options: Options(headers: {'User-Agent': 'TRYPApp/1.0'}),
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json',
+        queryParameters: parameters,
       );
+      final data = response.data is String
+          ? jsonDecode(response.data as String)
+          : response.data as Map<String, dynamic>;
 
-      if (response.statusCode == 200) {
-        final List list = response.data is String
-            ? jsonDecode(response.data as String)
-            : response.data as List;
-
-        return list.map((item) {
-          final lat = double.tryParse(item['lat'].toString()) ?? 0.0;
-          final lon = double.tryParse(item['lon'].toString()) ?? 0.0;
-          final displayName = item['display_name'] as String? ?? '';
-          final name = (item['name'] as String?).toString().isNotEmpty
-              ? item['name'] as String
-              : displayName.split(',').first;
-
-          return UserLocation(
-            latitude: lat,
-            longitude: lon,
-            address: displayName,
-            shortName: name,
+      if (response.statusCode == 200 && data['status'] == 'OK') {
+        return (data['predictions'] as List? ?? []).map((prediction) {
+          final item = prediction as Map<String, dynamic>;
+          final formatting = item['structured_formatting'] as Map<String, dynamic>?;
+          return PlaceSuggestion(
+            placeId: item['place_id'] as String,
+            name: formatting?['main_text'] as String? ??
+                item['description'] as String? ??
+                'Selected place',
+            address: formatting?['secondary_text'] as String? ??
+                item['description'] as String? ??
+                '',
           );
         }).toList();
       }
+
+      debugPrint('⚠️ Google Places autocomplete status: ${data['status']}');
     } catch (e) {
-      debugPrint('❌ Location search error: $e');
+      debugPrint('❌ Google Places autocomplete error: $e');
     }
 
     return [];
+  }
+
+  /// Resolve the selected Google Place ID to the exact map coordinates.
+  Future<UserLocation?> getPlaceDetails(String placeId) async {
+    if (placeId.isEmpty || _googleMapsApiKey.isEmpty) return null;
+
+    try {
+      final response = await _dio.get(
+        'https://maps.googleapis.com/maps/api/place/details/json',
+        queryParameters: {
+          'place_id': placeId,
+          'key': _googleMapsApiKey,
+          'fields': 'place_id,name,formatted_address,geometry,address_component',
+          'language': 'en',
+        },
+      );
+      final data = response.data is String
+          ? jsonDecode(response.data as String)
+          : response.data as Map<String, dynamic>;
+      final result = data['result'] as Map<String, dynamic>?;
+      final geometry = result?['geometry'] as Map<String, dynamic>?;
+      final location = geometry?['location'] as Map<String, dynamic>?;
+      final lat = (location?['lat'] as num?)?.toDouble();
+      final lng = (location?['lng'] as num?)?.toDouble();
+
+      if (data['status'] != 'OK' || result == null || lat == null || lng == null) {
+        debugPrint('⚠️ Google Place Details status: ${data['status']}');
+        return null;
+      }
+
+      final name = result['name'] as String? ?? 'Selected place';
+      final address = result['formatted_address'] as String? ?? name;
+      return UserLocation(
+        latitude: lat,
+        longitude: lng,
+        address: address,
+        shortName: name,
+        placeId: result['place_id'] as String? ?? placeId,
+      );
+    } catch (e) {
+      debugPrint('❌ Google Place Details error: $e');
+      return null;
+    }
+  }
+
+  /// Backward-compatible helper that returns resolved Google locations.
+  Future<List<UserLocation>> searchLocations(String query) async {
+    final suggestions = await searchPlaces(query);
+    final locations = <UserLocation>[];
+    for (final suggestion in suggestions) {
+      final location = await getPlaceDetails(suggestion.placeId);
+      if (location != null) locations.add(location);
+    }
+    return locations;
   }
 
   /// Get real road driving route calculation via OSRM API
