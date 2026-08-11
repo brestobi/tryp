@@ -34,4 +34,5 @@ class Routes {
   static const String driverOnboarding = '/driver/onboarding';
   static const String driverDocuments = '/driver/documents';
   static const String activeTrip = '/driver/active-trip';
+  static const String driverLongDistance = '/driver/long-distance';
 }

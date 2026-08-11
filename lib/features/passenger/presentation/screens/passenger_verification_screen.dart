@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tryp/app/router.dart';
+import 'package:tryp/features/passenger/presentation/screens/in_app_camera_capture_screen.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/passenger_verification_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
@@ -48,12 +49,25 @@ class _PassengerVerificationScreenState
   }
 
   Future<void> _captureId() async {
-    final file = await ref.read(passengerVerificationServiceProvider).capturePhoto();
+    final file = await Navigator.of(context).push<XFile>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const InAppCameraCaptureScreen(
+          kind: PassengerCaptureKind.idDocument,
+        ),
+      ),
+    );
     if (file != null && mounted) setState(() => _idDocument = file);
   }
 
   Future<void> _captureSelfie() async {
-    final file = await ref.read(passengerVerificationServiceProvider).capturePhoto();
+    final file = await Navigator.of(context).push<XFile>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) =>
+            const InAppCameraCaptureScreen(kind: PassengerCaptureKind.selfie),
+      ),
+    );
     if (file != null && mounted) setState(() => _selfie = file);
   }
 
@@ -61,10 +75,9 @@ class _PassengerVerificationScreenState
     if (_idDocument == null || _selfie == null) return;
     setState(() => _submitting = true);
     try {
-      await ref.read(passengerVerificationServiceProvider).submitVerification(
-            idDocument: _idDocument!,
-            selfie: _selfie!,
-          );
+      await ref
+          .read(passengerVerificationServiceProvider)
+          .submitVerification(idDocument: _idDocument!, selfie: _selfie!);
       if (!mounted) return;
       setState(() {
         _status = 'pending';
@@ -74,7 +87,9 @@ class _PassengerVerificationScreenState
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Verification submitted. Our team will review it shortly.'),
+          content: Text(
+            'Verification submitted. Our team will review it shortly.',
+          ),
           backgroundColor: TRYPColors.primary,
         ),
       );
@@ -110,7 +125,9 @@ class _PassengerVerificationScreenState
         ],
       ),
       body: _loadingStatus
-          ? const Center(child: CircularProgressIndicator(color: TRYPColors.secondary))
+          ? const Center(
+              child: CircularProgressIndicator(color: TRYPColors.secondary),
+            )
           : SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -119,21 +136,27 @@ class _PassengerVerificationScreenState
                   children: [
                     _StatusBanner(status: _status, reviewNotes: _reviewNotes),
                     const SizedBox(height: 20),
-                    Text('Verify your identity', style: TRYPTypography.headingLarge),
+                    Text(
+                      'Verify your identity',
+                      style: TRYPTypography.headingLarge,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       isApproved
                           ? 'Your identity is approved. You can request TRYP rides.'
                           : isPending
-                              ? 'Your documents are with our review team. You can return here to check the status.'
-                              : 'For passenger safety, you must complete identity verification before requesting a ride.',
-                      style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+                          ? 'Your documents are with our review team. You can return here to check the status.'
+                          : 'For passenger safety, you must complete identity verification before requesting a ride.',
+                      style: TRYPTypography.bodyMedium.copyWith(
+                        color: TRYPColors.grey,
+                      ),
                     ),
                     if (!isApproved && !isPending) ...[
                       const SizedBox(height: 20),
                       _CaptureCard(
                         title: '1. Capture your ID card',
-                        description: 'Use the camera to capture the front of your government-issued ID card clearly.',
+                        description:
+                            'Capture the front of your government-issued ID clearly inside TRYP.',
                         icon: Icons.badge_outlined,
                         file: _idDocument,
                         onCapture: _captureId,
@@ -141,7 +164,8 @@ class _PassengerVerificationScreenState
                       const SizedBox(height: 12),
                       _CaptureCard(
                         title: '2. Take a live selfie holding your ID',
-                        description: 'Use the camera only. Hold the same ID card beside your face so the details are visible.',
+                        description:
+                            'Hold the same ID card beside your face while capturing inside TRYP.',
                         icon: Icons.face_retouching_natural_rounded,
                         file: _selfie,
                         onCapture: _captureSelfie,
@@ -152,17 +176,24 @@ class _PassengerVerificationScreenState
                         decoration: BoxDecoration(
                           color: TRYPColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: TRYPColors.primary.withValues(alpha: 0.25)),
+                          border: Border.all(
+                            color: TRYPColors.primary.withValues(alpha: 0.25),
+                          ),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.lock_outline_rounded, color: TRYPColors.secondary),
+                            const Icon(
+                              Icons.lock_outline_rounded,
+                              color: TRYPColors.secondary,
+                            ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 'Your ID and selfie are stored privately and can only be viewed by authorized TRYP reviewers.',
-                                style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.secondary),
+                                style: TRYPTypography.bodySmall.copyWith(
+                                  color: TRYPColors.secondary,
+                                ),
                               ),
                             ),
                           ],
@@ -206,24 +237,26 @@ class _StatusBanner extends StatelessWidget {
     final color = approved
         ? TRYPColors.success
         : rejected
-            ? TRYPColors.error
-            : pending
-                ? TRYPColors.secondary
-                : TRYPColors.grey;
+        ? TRYPColors.error
+        : pending
+        ? TRYPColors.secondary
+        : TRYPColors.grey;
     final title = approved
         ? 'Identity approved'
         : rejected
-            ? 'Action needed'
-            : pending
-                ? 'Review in progress'
-                : 'Verification required';
+        ? 'Action needed'
+        : pending
+        ? 'Review in progress'
+        : 'Verification required';
     final message = rejected
-        ? (reviewNotes?.isNotEmpty == true ? reviewNotes! : 'Please capture clearer images and submit again.')
+        ? (reviewNotes?.isNotEmpty == true
+              ? reviewNotes!
+              : 'Please capture clearer images and submit again.')
         : approved
-            ? 'You are cleared to request rides.'
-            : pending
-                ? 'An admin is checking that your ID and selfie match.'
-                : 'Complete the two camera captures below.';
+        ? 'You are cleared to request rides.'
+        : pending
+        ? 'An admin is checking that your ID and selfie match.'
+        : 'Complete the two camera captures below.';
 
     return Container(
       width: double.infinity,
@@ -236,15 +269,33 @@ class _StatusBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(approved ? Icons.verified_rounded : pending ? Icons.hourglass_top_rounded : Icons.info_outline_rounded, color: color),
+          Icon(
+            approved
+                ? Icons.verified_rounded
+                : pending
+                ? Icons.hourglass_top_rounded
+                : Icons.info_outline_rounded,
+            color: color,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TRYPTypography.titleMedium.copyWith(color: color, fontWeight: FontWeight.w800)),
+                Text(
+                  title,
+                  style: TRYPTypography.titleMedium.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(message, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.secondary)),
+                Text(
+                  message,
+                  style: TRYPTypography.bodySmall.copyWith(
+                    color: TRYPColors.secondary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -284,24 +335,45 @@ class _CaptureCard extends StatelessWidget {
             width: 58,
             height: 58,
             decoration: BoxDecoration(
-              color: file == null ? TRYPColors.inputFill : TRYPColors.success.withValues(alpha: 0.12),
+              color: file == null
+                  ? TRYPColors.inputFill
+                  : TRYPColors.success.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(file == null ? icon : Icons.check_rounded, color: file == null ? TRYPColors.secondary : TRYPColors.success, size: 28),
+            child: Icon(
+              file == null ? icon : Icons.check_rounded,
+              color: file == null ? TRYPColors.secondary : TRYPColors.success,
+              size: 28,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TRYPTypography.titleMedium.copyWith(fontWeight: FontWeight.w800)),
+                Text(
+                  title,
+                  style: TRYPTypography.titleMedium.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(description, style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey)),
+                Text(
+                  description,
+                  style: TRYPTypography.bodySmall.copyWith(
+                    color: TRYPColors.grey,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: onCapture,
-                  icon: Icon(file == null ? Icons.camera_alt_rounded : Icons.refresh_rounded, size: 17),
-                  label: Text(file == null ? 'Open camera' : 'Retake'),
+                  icon: Icon(
+                    file == null
+                        ? Icons.camera_alt_rounded
+                        : Icons.refresh_rounded,
+                    size: 17,
+                  ),
+                  label: Text(file == null ? 'Capture in app' : 'Retake'),
                 ),
               ],
             ),

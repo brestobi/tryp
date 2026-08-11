@@ -18,6 +18,7 @@ import 'package:tryp/features/passenger/presentation/screens/ride_request_screen
 import 'package:tryp/features/passenger/presentation/screens/trip_tracking_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/ride_completion_screen.dart';
 import 'package:tryp/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:tryp/features/passenger/presentation/screens/long_distance_rides_screen.dart';
 import 'package:tryp/app/routes.dart';
 import 'package:tryp/core/services/trip_service.dart';
 
@@ -109,6 +110,10 @@ GoRouter buildRouter() {
     GoRoute(
       path: Routes.tripHistory,
       builder: (context, state) => const PassengerActivityScreen(),
+    ),
+    GoRoute(
+      path: Routes.longDistanceRides,
+      builder: (context, state) => const LongDistanceRidesScreen(),
     ),
   ]);
 

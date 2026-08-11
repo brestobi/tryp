@@ -58,6 +58,9 @@ class DriverVerificationStatus {
 
 /// Master Configurations for Driver Verification
 class DriverOnboardingConfig {
+  /// Offline fallback while the Supabase lookup catalog is loading.
+  /// Keep the original national areas so existing drivers remain valid while
+  /// the Tzaneen–The Oaks corridor is now available in the same search field.
   static const List<String> operatingCities = [
     'Johannesburg',
     'Pretoria / Tshwane',
@@ -67,6 +70,45 @@ class DriverOnboardingConfig {
     'Bloemfontein',
     'Polokwane',
     'Nelspruit / Mbombela',
+    'Tzaneen',
+    'Dan Village',
+    'Nkowankowa',
+    'Mokgoloboto',
+    'Matafuleni',
+    'Maake',
+    'Ha-Maake',
+    'Khopo',
+    'Morokolotsi',
+    'Letsitele',
+    'Lenyenye',
+    'Gravelotte',
+    'Ofcolaco',
+    'The Oaks',
+    'Trichardtsdal',
+    'Calais',
+  ];
+
+  static const List<String> fallbackVehicleMakes = [
+    'Toyota',
+    'Volkswagen',
+    'Ford',
+    'Nissan',
+    'Hyundai',
+    'Kia',
+    'Mercedes-Benz',
+    'BMW',
+    'Isuzu',
+    'Suzuki',
+    'Mahindra',
+    'GWM',
+    'Haval',
+    'Honda',
+    'Mazda',
+    'Renault',
+    'Chevrolet',
+    'Mitsubishi',
+    'Audi',
+    'Lexus',
   ];
 
   static const List<VehicleCategoryInfo> vehicleCategories = [
@@ -126,13 +168,40 @@ class DriverOnboardingConfig {
   static const List<String> vehicleColors = [
     'Black',
     'White',
+    'Pearl White',
+    'Ivory',
+    'Cream',
     'Silver',
+    'Platinum',
     'Grey',
+    'Charcoal',
+    'Gunmetal',
     'Blue',
+    'Navy Blue',
+    'Light Blue',
+    'Sky Blue',
     'Red',
-    'Green',
-    'Brown',
+    'Maroon',
+    'Burgundy',
+    'Orange',
+    'Copper',
+    'Yellow',
     'Gold',
+    'Green',
+    'Dark Green',
+    'Lime',
+    'Teal',
+    'Turquoise',
+    'Brown',
+    'Beige',
+    'Tan',
+    'Bronze',
+    'Purple',
+    'Violet',
+    'Pink',
+    'Magenta',
+    'Multi-colour',
+    'Two-tone',
     'Other',
   ];
 

@@ -68,18 +68,39 @@ serve(async (request: Request) => {
       .eq("payment_reference", reference)
       .maybeSingle();
     if (rideError) throw rideError;
-    if (!ride) return json({ received: true });
-    if (ride.payment_status === "paid" || ride.payment_status === "cancelled") {
+
+    // Long-distance bookings use the same Paystack webhook endpoint but have
+    // their own settlement RPC and amount source.
+    const { data: longDistanceBooking, error: longDistanceError } = await supabase
+      .from("long_distance_bookings")
+      .select("id, amount_paid, payment_status, payment_reference")
+      .eq("payment_reference", reference)
+      .maybeSingle();
+    if (longDistanceError) throw longDistanceError;
+
+    if (!ride && !longDistanceBooking) return json({ received: true });
+    if (ride && (ride.payment_status === "paid" || ride.payment_status === "cancelled")) {
+      return json({ received: true, already_processed: true });
+    }
+    if (longDistanceBooking && longDistanceBooking.payment_status === "paid") {
       return json({ received: true, already_processed: true });
     }
 
     if (event.event !== "charge.success") {
       if (["charge.failed", "charge.reversed"].includes(event.event ?? "")) {
-        await supabase.rpc("set_ride_payment_status", {
-          p_ride_id: ride.id,
-          p_status: "failed",
-          p_reference: reference,
-        });
+        if (ride) {
+          await supabase.rpc("set_ride_payment_status", {
+            p_ride_id: ride.id,
+            p_status: "failed",
+            p_reference: reference,
+          });
+        } else if (longDistanceBooking) {
+          await supabase.rpc("settle_long_distance_booking", {
+            p_booking_id: longDistanceBooking.id,
+            p_status: "failed",
+            p_reference: reference,
+          });
+        }
       }
       return json({ received: true });
     }
@@ -92,25 +113,41 @@ serve(async (request: Request) => {
     const subaccount = typeof verifyResult?.data?.subaccount === "string"
       ? verifyResult.data.subaccount
       : verifyResult?.data?.subaccount?.subaccount_code;
+    const expectedAmount = ride
+      ? Math.round(Number(ride.fare) * 100)
+      : Math.round(Number(longDistanceBooking!.amount_paid) * 100);
     const verified =
       verifyResponse.ok &&
       verifyResult?.status === true &&
       verifyResult?.data?.status === "success" &&
-      Number(verifyResult?.data?.amount) === Math.round(Number(ride.fare) * 100) &&
+      Number(verifyResult?.data?.amount) === expectedAmount &&
       String(verifyResult?.data?.currency ?? "").toUpperCase() === PAYSTACK_CURRENCY &&
       (!PAYSTACK_SUBACCOUNT_CODE || String(subaccount ?? "") === PAYSTACK_SUBACCOUNT_CODE);
 
     if (!verified) {
-      console.error("[paystack-webhook] Verification mismatch", { rideId: ride.id, reference });
+      console.error("[paystack-webhook] Verification mismatch", {
+        rideId: ride?.id,
+        longDistanceBookingId: longDistanceBooking?.id,
+        reference,
+      });
       return json({ error: "Payment verification failed" }, 422);
     }
 
-    const { error: statusError } = await supabase.rpc("set_ride_payment_status", {
-      p_ride_id: ride.id,
-      p_status: "paid",
-      p_reference: reference,
-    });
-    if (statusError) throw statusError;
+    if (ride) {
+      const { error: statusError } = await supabase.rpc("set_ride_payment_status", {
+        p_ride_id: ride.id,
+        p_status: "paid",
+        p_reference: reference,
+      });
+      if (statusError) throw statusError;
+    } else {
+      const { error: statusError } = await supabase.rpc("settle_long_distance_booking", {
+        p_booking_id: longDistanceBooking!.id,
+        p_status: "paid",
+        p_reference: reference,
+      });
+      if (statusError) throw statusError;
+    }
 
     return json({ received: true, paid: true });
   } catch (error) {

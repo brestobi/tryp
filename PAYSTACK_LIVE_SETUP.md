@@ -45,6 +45,8 @@ Apply the migration and deploy the functions:
 supabase db push
 supabase functions deploy paystack-initialize
 supabase functions deploy paystack-verify
+supabase functions deploy paystack-long-distance-initialize
+supabase functions deploy paystack-long-distance-verify
 supabase functions deploy paystack-webhook --no-verify-jwt
 supabase functions deploy paystack-admin-verify
 ```
@@ -70,7 +72,8 @@ flutter build apk --release \
 4. Paystack sends `charge.success` to the webhook.
 5. The webhook verifies the transaction against Paystack's API, including amount, currency, and subaccount, then marks the ride `paid`.
 6. `paystack-verify` is called by the passenger app on resume to recover when a webhook is delayed or missed.
-7. Admin transaction lookups use `paystack-admin-verify`; the admin UI no longer displays synthetic/random Paystack results.
+7. Long-distance booking payments use the corresponding `paystack-long-distance-initialize` and `paystack-long-distance-verify` functions; the webhook settles both ride payments and seat bookings.
+8. Admin transaction lookups use `paystack-admin-verify`; the admin UI no longer displays synthetic/random Paystack results.
 
 The client callback/redirect is not trusted to mark payments as paid.
 
@@ -79,5 +82,6 @@ The client callback/redirect is not trusted to mark payments as paid.
 - Use Paystack **test mode** keys first with a separate test subaccount and test webhook URL.
 - Confirm the database payment reference is populated and unique.
 - Confirm a successful transaction reaches `paid` only after webhook/API verification.
-- Confirm an incorrect amount, currency, reference, or subaccount does not settle the ride.
+- Confirm an incorrect amount, currency, reference, or subaccount does not settle the ride or long-distance booking.
+- Confirm a pending long-distance booking is recovered after the passenger returns to the app and that its temporary seat reservation is released on failure.
 - After live verification, rotate any test credentials and never reuse test subaccount codes in production.

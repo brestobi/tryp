@@ -113,12 +113,12 @@ class _SplashScreenPageState extends State<SplashScreenPage>
                   width: 88,
                   height: 88,
                   decoration: BoxDecoration(
-                    color: TRYPColors.primary,
+                    color: TRYPColors.white,
                     borderRadius: BorderRadius.circular(26),
                   ),
                   child: Center(
                     child: Image.asset(
-                      'assets/images/tryp_logo_light.png',
+                      'assets/images/tryp-logo-red.png',
                       width: 60,
                       height: 60,
                     ),

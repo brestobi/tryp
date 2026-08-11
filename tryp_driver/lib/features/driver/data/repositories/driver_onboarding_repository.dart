@@ -12,6 +12,42 @@ class DriverOnboardingRepository {
 
   DriverOnboardingRepository(this._supabase, this._storageService);
 
+  /// Searchable vehicle makes seeded in the driver lookup catalog.
+  Future<List<String>> fetchVehicleMakes() async {
+    final response = await _supabase.rpc(
+      'search_driver_vehicle_makes',
+      params: {'p_query': '', 'p_limit': 500},
+    );
+    return (response as List<dynamic>)
+        .map((row) => (row as Map)['name']?.toString() ?? '')
+        .where((name) => name.isNotEmpty)
+        .toList();
+  }
+
+  /// Searchable vehicle colors seeded in the driver lookup catalog.
+  Future<List<String>> fetchVehicleColors() async {
+    final response = await _supabase.rpc(
+      'search_driver_vehicle_colors',
+      params: {'p_query': '', 'p_limit': 100},
+    );
+    return (response as List<dynamic>)
+        .map((row) => (row as Map)['name']?.toString() ?? '')
+        .where((name) => name.isNotEmpty)
+        .toList();
+  }
+
+  /// Operating areas seeded for the Tzaneen–The Oaks corridor.
+  Future<List<String>> fetchOperatingAreas() async {
+    final response = await _supabase.rpc(
+      'search_driver_operating_areas',
+      params: {'p_query': '', 'p_limit': 100},
+    );
+    return (response as List<dynamic>)
+        .map((row) => (row as Map)['name']?.toString() ?? '')
+        .where((name) => name.isNotEmpty)
+        .toList();
+  }
+
   /// Fetch full driver onboarding state from Supabase
   Future<DriverOnboardingData> fetchOnboardingData() async {
     final user = _supabase.auth.currentUser;

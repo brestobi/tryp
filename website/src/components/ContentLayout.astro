@@ -6,8 +6,10 @@ const { items } = Astro.props;
 ---
 <section class="container content-layout">
   <aside class="content-aside">
-    <strong>On this page</strong>
-    {items.map((item) => <a href={item.href}>{item.label}</a>)}
+    <nav aria-label="On this page">
+      <strong>On this page</strong>
+      {items.map((item) => <a href={item.href}>{item.label}</a>)}
+    </nav>
   </aside>
   <div class="prose"><slot /></div>
 </section>

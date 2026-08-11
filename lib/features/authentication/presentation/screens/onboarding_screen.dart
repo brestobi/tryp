@@ -23,11 +23,11 @@ class OnboardingScreenPage extends StatelessWidget {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: TRYPColors.primary,
+                      color: TRYPColors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Image.asset(
-                      'assets/images/tryp_logo_light.png',
+                      'assets/images/tryp-logo-red.png',
                       width: 28,
                       height: 28,
                       fit: BoxFit.contain,

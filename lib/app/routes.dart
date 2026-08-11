@@ -25,4 +25,5 @@ class Routes {
   static const String passengerActivity = '/passenger/activity';
   static const String rideCompletion = '/passenger/ride-completion';
   static const String tripHistory = '/passenger/trips';
+  static const String longDistanceRides = '/passenger/long-distance';
 }

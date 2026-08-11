@@ -24,7 +24,7 @@ class WelcomeScreenPage extends StatelessWidget {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    color: TRYPColors.primary,
+                    color: TRYPColors.white,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -35,7 +35,7 @@ class WelcomeScreenPage extends StatelessWidget {
                     ],
                   ),
                   child: Image.asset(
-                    'assets/images/tryp_logo_light.png',
+                    'assets/images/tryp-logo-red.png',
                     width: 34,
                     height: 34,
                     fit: BoxFit.contain,

@@ -32,7 +32,9 @@ class _DriverOnboardingScreenState
   late final TextEditingController _phoneController;
   late final TextEditingController _idNumberController;
   late final TextEditingController _licenseNumberController;
+  late final TextEditingController _operatingAreaController;
   String _selectedCity = DriverOnboardingConfig.operatingCities.first;
+  List<String> _operatingAreas = DriverOnboardingConfig.operatingCities;
 
   // Controllers for Step 2: Vehicle Details
   late final TextEditingController _vehicleMakeController;
@@ -42,6 +44,8 @@ class _DriverOnboardingScreenState
   late final TextEditingController _vehiclePlateController;
   String _selectedVehicleCategory =
       DriverOnboardingConfig.vehicleCategories.first.id;
+  List<String> _vehicleMakes = DriverOnboardingConfig.fallbackVehicleMakes;
+  List<String> _vehicleColors = DriverOnboardingConfig.vehicleColors;
 
   // Controllers for Step 3: Bank Payouts
   String _selectedBank = DriverOnboardingConfig.supportedBanks.first.name;
@@ -58,6 +62,7 @@ class _DriverOnboardingScreenState
     _phoneController = TextEditingController();
     _idNumberController = TextEditingController();
     _licenseNumberController = TextEditingController();
+    _operatingAreaController = TextEditingController(text: _selectedCity);
 
     _vehicleMakeController = TextEditingController();
     _vehicleModelController = TextEditingController();
@@ -70,6 +75,43 @@ class _DriverOnboardingScreenState
       text: DriverOnboardingConfig.supportedBanks.first.defaultBranchCode,
     );
     _accountHolderController = TextEditingController();
+    _loadLookupCatalogs();
+  }
+
+  Future<void> _loadLookupCatalogs() async {
+    final repository = ref.read(driverOnboardingRepositoryProvider);
+    try {
+      final results = await Future.wait([
+        repository.fetchVehicleMakes(),
+        repository.fetchVehicleColors(),
+        repository.fetchOperatingAreas(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        if ((results[0] as List<String>).isNotEmpty) {
+          _vehicleMakes = {
+            ...DriverOnboardingConfig.fallbackVehicleMakes,
+            ...(results[0] as List<String>),
+          }.toList();
+        }
+        if ((results[1] as List<String>).isNotEmpty) {
+          _vehicleColors = {
+            ...DriverOnboardingConfig.vehicleColors,
+            ...(results[1] as List<String>),
+          }.toList();
+        }
+        if ((results[2] as List<String>).isNotEmpty) {
+          _operatingAreas = {
+            ...DriverOnboardingConfig.operatingCities,
+            ...(results[2] as List<String>),
+          }.toList();
+        }
+      });
+    } catch (error) {
+      debugPrint(
+        'Driver lookup catalog unavailable; using fallback lists: $error',
+      );
+    }
   }
 
   void _populateFromData(DriverOnboardingData data) {
@@ -81,19 +123,24 @@ class _DriverOnboardingScreenState
     if (data.idNumber.isNotEmpty) _idNumberController.text = data.idNumber;
     if (data.licenseNumber.isNotEmpty)
       _licenseNumberController.text = data.licenseNumber;
-    if (data.operatingCity.isNotEmpty &&
-        DriverOnboardingConfig.operatingCities.contains(data.operatingCity)) {
+    if (data.operatingCity.isNotEmpty) {
       _selectedCity = data.operatingCity;
+      _operatingAreaController.text = data.operatingCity;
+      _operatingAreas = {..._operatingAreas, data.operatingCity}.toList();
     }
 
-    if (data.vehicleMake.isNotEmpty)
+    if (data.vehicleMake.isNotEmpty) {
       _vehicleMakeController.text = data.vehicleMake;
+      _vehicleMakes = {..._vehicleMakes, data.vehicleMake}.toList();
+    }
     if (data.vehicleModel.isNotEmpty)
       _vehicleModelController.text = data.vehicleModel;
     if (data.vehicleYear.isNotEmpty)
       _vehicleYearController.text = data.vehicleYear;
-    if (data.vehicleColor.isNotEmpty)
+    if (data.vehicleColor.isNotEmpty) {
       _vehicleColorController.text = data.vehicleColor;
+      _vehicleColors = {..._vehicleColors, data.vehicleColor}.toList();
+    }
     if (data.vehiclePlate.isNotEmpty)
       _vehiclePlateController.text = data.vehiclePlate;
     if (data.vehicleCategory.isNotEmpty &&
@@ -141,6 +188,7 @@ class _DriverOnboardingScreenState
     _phoneController.dispose();
     _idNumberController.dispose();
     _licenseNumberController.dispose();
+    _operatingAreaController.dispose();
     _vehicleMakeController.dispose();
     _vehicleModelController.dispose();
     _vehicleYearController.dispose();
@@ -160,7 +208,7 @@ class _DriverOnboardingScreenState
         phone: _phoneController.text.trim(),
         idNumber: _idNumberController.text.trim(),
         licenseNumber: _licenseNumberController.text.trim(),
-        operatingCity: _selectedCity,
+        operatingCity: _operatingAreaController.text.trim(),
       );
     } else if (_currentStep == 1) {
       await notifier.updateVehicleDetails(
@@ -735,33 +783,18 @@ class _DriverOnboardingScreenState
         ),
         const SizedBox(height: 16),
 
-        Text('Primary Operating City / Area', style: TRYPTypography.labelLarge),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: DriverOnboardingConfig.operatingCities.contains(_selectedCity)
-              ? _selectedCity
-              : DriverOnboardingConfig.operatingCities.first,
-          decoration: InputDecoration(
-            fillColor: TRYPColors.lightGrey,
-            filled: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
+        _buildSearchableLookupField(
+          label: 'Primary Operating City / Area',
+          hint: 'Search Tzaneen, Nkowankowa, The Oaks…',
+          controller: _operatingAreaController,
+          options: _operatingAreas,
+          prefixIcon: Icons.location_on_outlined,
+          onSelected: (value) => setState(() => _selectedCity = value),
+          validator: (value) => _validateLookup(
+            value,
+            _operatingAreas,
+            'Select an operating area from the suggestions',
           ),
-          validator: (value) => value == null || value.isEmpty
-              ? 'Select an operating area'
-              : null,
-          items: DriverOnboardingConfig.operatingCities
-              .map((city) => DropdownMenuItem(value: city, child: Text(city)))
-              .toList(),
-          onChanged: (val) {
-            if (val != null) setState(() => _selectedCity = val);
-          },
         ),
       ],
     );
@@ -787,18 +820,18 @@ class _DriverOnboardingScreenState
         Row(
           children: [
             Expanded(
-              child: CustomTextField(
+              child: _buildSearchableLookupField(
                 label: 'Make',
-                hint: 'e.g. Toyota',
+                hint: 'Search e.g. Toyota',
                 controller: _vehicleMakeController,
-                textCapitalization: TextCapitalization.words,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z0-9 &'-]")),
-                  LengthLimitingTextInputFormatter(30),
-                ],
-                validator: (v) => (v == null || v.trim().length < 2)
-                    ? 'Enter vehicle make'
-                    : null,
+                options: _vehicleMakes,
+                prefixIcon: Icons.directions_car_outlined,
+                onSelected: (_) {},
+                validator: (value) => _validateLookup(
+                  value,
+                  _vehicleMakes,
+                  'Select a vehicle make from the suggestions',
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -845,22 +878,18 @@ class _DriverOnboardingScreenState
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildDropdownField<String>(
+              child: _buildSearchableLookupField(
                 label: 'Color',
-                value:
-                    DriverOnboardingConfig.vehicleColors.contains(
-                      _vehicleColorController.text,
-                    )
-                    ? _vehicleColorController.text
-                    : null,
-                items: DriverOnboardingConfig.vehicleColors,
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _vehicleColorController.text = value);
-                  }
-                },
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Select color' : null,
+                hint: 'Search or choose color',
+                controller: _vehicleColorController,
+                options: _vehicleColors,
+                prefixIcon: Icons.palette_outlined,
+                onSelected: (_) {},
+                validator: (value) => _validateLookup(
+                  value,
+                  _vehicleColors,
+                  'Select a vehicle color from the suggestions',
+                ),
               ),
             ),
           ],
@@ -1095,6 +1124,111 @@ class _DriverOnboardingScreenState
           ],
         ),
       ],
+    );
+  }
+
+  String? _validateLookup(String? value, List<String> options, String message) {
+    final normalized = value?.trim().toLowerCase() ?? '';
+    if (normalized.isEmpty) return message;
+    return options.any((option) => option.toLowerCase() == normalized)
+        ? null
+        : message;
+  }
+
+  Widget _buildSearchableLookupField({
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    required List<String> options,
+    required IconData prefixIcon,
+    required ValueChanged<String> onSelected,
+    required String? Function(String?) validator,
+  }) {
+    return RawAutocomplete<String>(
+      textEditingController: controller,
+      displayStringForOption: (option) => option,
+      optionsBuilder: (value) {
+        final query = value.text.trim().toLowerCase();
+        if (query.isEmpty) return options.take(12);
+        return options
+            .where((option) => option.toLowerCase().contains(query))
+            .take(12);
+      },
+      onSelected: (option) {
+        controller.text = option;
+        onSelected(option);
+      },
+      optionsViewBuilder: (context, onOptionSelected, matchingOptions) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(14),
+            color: TRYPColors.white,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                shrinkWrap: true,
+                itemCount: matchingOptions.length,
+                itemBuilder: (context, index) {
+                  final option = matchingOptions.elementAt(index);
+                  return InkWell(
+                    onTap: () => onOptionSelected(option),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Text(
+                        option,
+                        style: TRYPTypography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: TRYPColors.secondary,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+      fieldViewBuilder:
+          (context, fieldController, focusNode, onFieldSubmitted) {
+            return TextFormField(
+              controller: fieldController,
+              focusNode: focusNode,
+              textCapitalization: TextCapitalization.words,
+              validator: validator,
+              onFieldSubmitted: (_) => onFieldSubmitted(),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(
+                  RegExp(r"[a-zA-Z0-9 &'.\-–]"),
+                ),
+                LengthLimitingTextInputFormatter(60),
+              ],
+              style: TRYPTypography.bodyLarge.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              decoration: InputDecoration(
+                labelText: label,
+                hintText: hint,
+                prefixIcon: Icon(prefixIcon, color: TRYPColors.grey, size: 20),
+                filled: true,
+                fillColor: TRYPColors.lightGrey,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+            );
+          },
     );
   }
 

@@ -638,6 +638,21 @@ class TripService {
     }
   }
 
+  /// Atomically cancel a passenger ride whose online payment is not settled.
+  /// The server locks the ride and refuses to cancel a paid transaction.
+  Future<String?> cancelUnpaidRidePayment(String rideId) async {
+    try {
+      final result = await _supabase.rpc(
+        'cancel_unpaid_ride_payment',
+        params: {'p_ride_id': rideId},
+      );
+      return result as String?;
+    } catch (e) {
+      debugPrint('Error cancelling unpaid ride payment: $e');
+      return null;
+    }
+  }
+
   /// Update a ride through the backend-enforced status transition rules.
   Future<TripModel?> updateTripStatus({
     required String rideId,

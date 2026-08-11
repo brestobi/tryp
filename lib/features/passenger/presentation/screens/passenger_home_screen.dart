@@ -223,10 +223,24 @@ class _PassengerHomeScreenPageState
       final result = paymentCheckoutResultForStatus(status);
       if (result == PaymentCheckoutResult.failed ||
           result == PaymentCheckoutResult.cancelled) {
-        await tripService.updateTripStatus(
-          rideId: rideId,
-          status: TripStatus.cancelled,
-        );
+        final cancellationResult = await ref
+            .read(tripServiceProvider)
+            .cancelUnpaidRidePayment(rideId);
+        if (cancellationResult == 'paid') {
+          final settledTrip = await ref
+              .read(tripServiceProvider)
+              .getTripById(rideId);
+          if (settledTrip != null && mounted) {
+            ref.read(activeTripStateProvider.notifier).stateTrip = settledTrip;
+            setState(() {
+              _mode = settledTrip.status == TripStatus.requested
+                  ? PassengerRideMode.dispatching
+                  : PassengerRideMode.activeTrip;
+            });
+          }
+          return;
+        }
+        if (cancellationResult != 'cancelled') return;
         ref.read(activeTripStateProvider.notifier).stateTrip = null;
         _watchedRideId = null;
         _rideStatusRefreshTimer?.cancel();
@@ -507,11 +521,10 @@ class _PassengerHomeScreenPageState
     final tripService = ref.read(tripServiceProvider);
     if (activeTrip.paymentMethod != 'Cash' &&
         activeTrip.paymentStatus != 'paid') {
-      final paymentStatusUpdated = await tripService.setPaymentStatus(
-        rideId: activeTrip.id,
-        status: 'cancelled',
+      final cancellationResult = await tripService.cancelUnpaidRidePayment(
+        activeTrip.id,
       );
-      if (!paymentStatusUpdated) {
+      if (cancellationResult == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -524,21 +537,34 @@ class _PassengerHomeScreenPageState
         }
         return;
       }
-    }
-    final updated = await tripService.updateTripStatus(
-      rideId: activeTrip.id,
-      status: TripStatus.cancelled,
-    );
-    if (!mounted) return;
-
-    if (updated == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not cancel the ride request.'),
-          backgroundColor: TRYPColors.error,
-        ),
+      if (cancellationResult == 'paid') {
+        final settledTrip = await tripService.getTripById(activeTrip.id);
+        if (settledTrip != null && mounted) {
+          ref.read(activeTripStateProvider.notifier).stateTrip = settledTrip;
+          setState(() {
+            _mode = settledTrip.status == TripStatus.requested
+                ? PassengerRideMode.dispatching
+                : PassengerRideMode.activeTrip;
+          });
+        }
+        return;
+      }
+    } else {
+      final updated = await tripService.updateTripStatus(
+        rideId: activeTrip.id,
+        status: TripStatus.cancelled,
       );
-      return;
+      if (!mounted) return;
+
+      if (updated == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not cancel the ride request.'),
+            backgroundColor: TRYPColors.error,
+          ),
+        );
+        return;
+      }
     }
 
     ref.read(activeTripStateProvider.notifier).stateTrip = null;
@@ -901,30 +927,39 @@ class _PassengerHomeScreenPageState
           if (!mounted) return;
           if (checkoutResult == PaymentCheckoutResult.cancelled ||
               checkoutResult == PaymentCheckoutResult.failed) {
-            final paymentStatusUpdated = await tripService.setPaymentStatus(
-              rideId: newTrip.id,
-              status: checkoutResult == PaymentCheckoutResult.failed
-                  ? 'failed'
-                  : 'cancelled',
-            );
-            if (!paymentStatusUpdated) {
+            final cancellationResult = await tripService
+                .cancelUnpaidRidePayment(newTrip.id);
+            if (cancellationResult == null) {
               throw StateError(
                 'The payment state could not be updated safely. Ride cancellation was not completed.',
               );
             }
-            final rideCancelled = await tripService.updateTripStatus(
-              rideId: newTrip.id,
-              status: TripStatus.cancelled,
-            );
-            if (rideCancelled == null) {
-              throw StateError(
-                'The payment was settled, but the ride could not be cancelled.',
-              );
+            if (cancellationResult == 'paid') {
+              // A webhook may have won the race. Keep the settled ride and
+              // reload it instead of presenting a cancellation message.
+              final settledTrip = await tripService.getTripById(newTrip.id);
+              if (settledTrip != null && mounted) {
+                ref.read(activeTripStateProvider.notifier).stateTrip =
+                    settledTrip;
+                setState(() {
+                  _mode = settledTrip.status == TripStatus.requested
+                      ? PassengerRideMode.dispatching
+                      : PassengerRideMode.activeTrip;
+                });
+              }
+              return;
+            }
+            if (cancellationResult != 'cancelled') {
+              // The transaction is unresolved; leave the ride available for
+              // webhook/app-resume reconciliation rather than releasing it.
+              return;
             }
             if (!mounted) return;
             ref.read(activeTripStateProvider.notifier).stateTrip = null;
             _watchedRideId = null;
             _rideStatusRefreshTimer?.cancel();
+            _rideSubscription?.unsubscribe();
+            _rideSubscription = null;
             if (!mounted) return;
             setState(() => _mode = PassengerRideMode.tierSelection);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -966,11 +1001,45 @@ class _PassengerHomeScreenPageState
                 );
           }
         } catch (error) {
-          await tripService.setPaymentStatus(
-            rideId: newTrip.id,
-            status: 'failed',
+          // Initialization failures must not leave a non-payable ride looking
+          // like an active request after the payment screen has gone away.
+          // The row-locking RPC refuses to cancel if a webhook settled it.
+          final cancellationResult = await tripService.cancelUnpaidRidePayment(
+            newTrip.id,
           );
-          rethrow;
+          if (cancellationResult == 'cancelled') {
+            ref.read(activeTripStateProvider.notifier).stateTrip = null;
+            _watchedRideId = null;
+            _rideStatusRefreshTimer?.cancel();
+            _rideSubscription?.unsubscribe();
+            _rideSubscription = null;
+          } else if (cancellationResult == 'paid') {
+            final settledTrip = await tripService.getTripById(newTrip.id);
+            if (settledTrip != null && mounted) {
+              ref.read(activeTripStateProvider.notifier).stateTrip =
+                  settledTrip;
+              _watchedRideId = settledTrip.id;
+              setState(() {
+                _mode = settledTrip.status == TripStatus.requested
+                    ? PassengerRideMode.dispatching
+                    : PassengerRideMode.activeTrip;
+              });
+            }
+          } else {
+            // Keep the ride active while Paystack/webhook reconciliation is
+            // unresolved. Do not convert an unknown payment into cancellation.
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Payment status is still being confirmed. We will keep checking.',
+                  ),
+                  backgroundColor: TRYPColors.secondary,
+                ),
+              );
+            }
+          }
+          return;
         }
       }
 
@@ -1298,7 +1367,7 @@ class _PassengerHomeScreenPageState
               ],
             ),
             child: Image.asset(
-              'assets/images/tryp_icon.png',
+              'assets/images/tryp-logo-red.png',
               fit: BoxFit.contain,
             ),
           ),
@@ -1507,7 +1576,96 @@ class _PassengerHomeScreenPageState
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
+
+          // Long Distance Option
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: GestureDetector(
+              onTap: () => context.push(Routes.longDistanceRides),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1C2B3A), Color(0xFF253547)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: TRYPColors.primary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.directions_bus_rounded,
+                        color: TRYPColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Long Distance',
+                            style: TRYPTypography.titleMedium.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'Intercity trips with available seats',
+                            style: TRYPTypography.bodySmall.copyWith(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: TRYPColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.event_seat_rounded,
+                            size: 12,
+                            color: TRYPColors.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Book',
+                            style: TRYPTypography.labelSmall.copyWith(
+                              color: TRYPColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           const TRYPBottomNavBar(currentIndex: 0),
         ],
       ),
@@ -1688,6 +1846,7 @@ class _PassengerHomeScreenPageState
                         _calculatedDurationMins = null;
                         _polylines = {};
                       });
+                      if (!context.mounted) return;
                       FocusScope.of(context).unfocus();
                       await _recalculateRoute();
                     },

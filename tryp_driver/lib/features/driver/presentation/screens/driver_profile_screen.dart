@@ -112,6 +112,26 @@ class DriverProfileScreen extends StatelessWidget {
               subtitle: 'Get help with rides or your account',
               onTap: () {},
             ),
+            const SizedBox(height: 4),
+            const Divider(),
+            const SizedBox(height: 4),
+            Text(
+              'Verification',
+              style: TRYPTypography.headingSmall.copyWith(fontSize: 18),
+            ),
+            const SizedBox(height: 10),
+            _ProfileActionTile(
+              icon: Icons.verified_user_rounded,
+              title: 'My Documents',
+              subtitle: 'View and manage your PrDP & vehicle documents',
+              onTap: () => context.go(Routes.driverDocuments),
+            ),
+            _ProfileActionTile(
+              icon: Icons.directions_bus_rounded,
+              title: 'Long Distance Trips',
+              subtitle: 'Post and manage intercity trip listings',
+              onTap: () => context.go(Routes.driverLongDistance),
+            ),
             const SizedBox(height: 24),
             Center(
               child: Column(

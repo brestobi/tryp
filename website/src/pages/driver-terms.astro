@@ -1,0 +1,217 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import ContentLayout from '../components/ContentLayout.astro';
+
+interface DriverSection { number: number; title: string; body: string; }
+
+const sections: DriverSection[] = [
+  [1, 'Parties', 'These Driver Terms form an agreement between [INSERT FULL LEGAL ENTITY NAME], trading as TRYP, and the individual or legal entity registered as a Driver on the TRYP platform. Legal entity, registration number, address and email must be confirmed before publication.'],
+  [2, 'Definitions', 'App means the TRYP Driver application. Driver means the individual approved to provide transportation through TRYP. Driver Account, Passenger, Platform, Trip, Fare, Driver Earnings, Vehicle and Documents have the meanings set out in the final legal version.'],
+  [3, 'Nature of the TRYP platform', 'TRYP facilitates connections between Passengers seeking transportation and Drivers offering transportation services. The Platform may provide Trip requests, matching, navigation, fare calculations, payments, communications, ratings, safety features, earnings information and account management. You remain responsible for lawful, safe Vehicle operation.'],
+  [4, 'Driver eligibility', 'You must satisfy TRYP onboarding requirements, which may include identity verification, age requirements, a valid driver licence, professional driving authorisation, operating licence or permit, Vehicle registration, inspection, insurance, lawful screening, proof of address and payout information.'],
+  [5, 'Accurate information', 'You must provide complete and accurate information. False, altered, expired, borrowed or misleading identity, Vehicle or other Documents may result in immediate suspension or termination.'],
+  [6, 'Identity verification', 'TRYP may verify your identity during onboarding and periodically thereafter using identity Documents, selfies, facial verification, driver-document checks and other lawful methods. You must complete verification personally.'],
+  [7, 'Driver Account', 'You must maintain your own Driver Account. You must not sell, rent, transfer or share it, allow another person to drive under your account, or allow another person to accept Trips under your identity.'],
+  [8, 'Driver Account security', 'Protect passwords, OTPs, authentication codes, devices and credentials. Notify TRYP immediately of suspected unauthorised access. TRYP may temporarily restrict the account while investigating.'],
+  [9, 'Driver Documents', 'Keep all required Documents valid and immediately report expiry, cancellation, suspension, revocation, loss, invalidity or legal restriction. Upload updated Documents when requested.'],
+  [10, 'Operating licence', 'Where legally required, you must maintain a valid operating licence or permit for the Vehicle and service. TRYP may require evidence and may deactivate a Vehicle when documentation expires or becomes invalid. The National Land Transport Amendment Act 23 of 2023 should be confirmed by counsel and is available from the <a href="https://www.gov.za/sites/default/files/gcis_document/202406/50800nationallandtransportamendmentact232023.pdf" target="_blank" rel="noreferrer">South African Government ↗</a>.'],
+  [11, 'Vehicle registration', 'You may provide Trips only using a Vehicle approved and registered on your Driver Account. Vehicle information must correspond with the Vehicle being used; substitutions require TRYP approval.'],
+  [12, 'Vehicle ownership', 'You must have lawful authority to operate the Vehicle. If it belongs to another person or company, you must be authorised to use it for the relevant transportation service and provide proof when requested.'],
+  [13, 'Vehicle standards', 'The Vehicle must be mechanically safe, roadworthy, legally registered, compliant with regulatory and TRYP requirements, equipped with functioning seatbelts, doors and lights, suitable tyres, reasonably clean and suitable for passenger transportation.'],
+  [14, 'Vehicle inspections', 'TRYP may require an inspection before approval and periodically thereafter. An inspection does not replace your legal responsibility to keep the Vehicle roadworthy.'],
+  [15, 'Vehicle maintenance', 'You are responsible for servicing, tyres, brakes, lights, seatbelts, fluids, air conditioning where applicable, interior and exterior condition, and safety equipment. Never knowingly operate an unsafe Vehicle.'],
+  [16, 'Cleanliness', 'Keep the Vehicle reasonably clean and suitable for carrying members of the public, free from excessive dirt, offensive odours, dangerous objects, unreasonable rubbish and unreasonable stains.'],
+  [17, 'Vehicle identification', 'Display required e-hailing markings, permits, registration information, TRYP identifiers or other signage. Do not use unauthorised TRYP branding.'],
+  [18, 'Ride categories', 'TRYP may offer GO, COMFORT, XL and other categories. Do not activate a category unless the Vehicle satisfies its capacity and category requirements.'],
+  [19, 'Passenger capacity', 'Never carry more passengers than legally permitted. Passengers may not ride in the boot or unsafe areas, beyond seat capacity or without required seatbelts.'],
+  [20, 'Safety first', 'Passenger safety takes priority over completing a Trip. Do not speed unlawfully, drive recklessly or aggressively, use a phone unlawfully, drive impaired, ignore road conditions or drive when excessively tired.'],
+  [21, 'Driving under the influence', 'Never provide TRYP transportation while intoxicated, under the influence of alcohol or illegal drugs, impaired by medication, or otherwise unable to drive safely. Serious incidents may be referred to authorities.'],
+  [22, 'Fatigue', 'Do not drive when excessively tired or unable to operate safely. TRYP may encourage or require appropriate rest interventions where permitted by its systems and applicable law.'],
+  [23, 'Distracted driving', 'Do not use a mobile phone in a manner prohibited by law while driving. Configure navigation before the Trip and use lawful hands-free methods.'],
+  [24, 'Traffic laws', 'Comply with road-traffic laws. Do not ask or encourage anyone to help bypass them, including by speeding, running lights, stopping unlawfully or using illegal routes.'],
+  [25, 'Accepting Trips', 'The App may display pickup, destination where available, estimated distance, category and estimated earnings. You may accept or decline requests subject to law and TRYP policy.'],
+  [26, 'Accepted Trips', 'After accepting, proceed toward pickup unless safety circumstances, unlawful requests, an unsafe Vehicle, materially incorrect information, an emergency or another legitimate circumstance prevents it.'],
+  [27, 'Driver cancellations', 'Cancel only where reasonably necessary, including when a Passenger cannot be located, pickup is unsafe, behaviour creates risk, the Vehicle fails, an emergency occurs, information is materially wrong or capacity is exceeded. Do not systematically cancel for discriminatory or fraudulent reasons.'],
+  [28, 'Discriminatory cancellations', 'Do not cancel or refuse Trips because of protected characteristics or other unlawful discriminatory reasons.'],
+  [29, 'Passenger pickup', 'Stop safely, confirm the Passenger where reasonably possible, match Vehicle and Driver details to the App, avoid unsafe stopping areas and wait the applicable period where required.'],
+  [30, 'Passenger verification', 'Take reasonable steps to confirm that the person entering is associated with the Trip, while disclosing no unnecessary Passenger information.'],
+  [31, 'Destination information', 'Use destination information only for legitimate Trip purposes. Never use it to follow, contact after the Trip, visit, track, harass or sell information about Passengers.'],
+  [32, 'Passenger privacy', 'Passenger information may include name, phone number, pickup, destination, photograph, Trip history, payment information and communications. Use it only for legitimate Trip-related purposes.'],
+  [33, 'Off-platform contact', 'Do not use Passenger information to solicit unrelated services or pressure Passengers to share personal numbers, follow social media, use private transportation or book outside TRYP.'],
+  [34, 'Off-platform Trips', 'Do not deliberately bypass TRYP by soliciting a Passenger introduced through TRYP to cancel and travel privately, or to contact you directly next time.'],
+  [35, 'Direct payment solicitation', 'Do not pressure a Passenger to pay privately instead of using the applicable TRYP payment method. Accept cash only where TRYP permits cash.'],
+  [36, 'Cash Trips', 'Where cash is supported, report the Trip accurately, do not inflate the Fare, falsely claim non-payment or retain excess cash belonging to TRYP.'],
+  [37, 'Cash fraud', 'Claiming non-payment when paid, false Fare reporting, fake cash Trips, collusion, manipulating Trip records or keeping TRYP money may constitute serious misconduct.'],
+  [38, 'Digital payments', 'When a Passenger pays electronically, do not demand a second payment unless the App expressly requires one. Follow TRYP process when a payment appears to fail.'],
+  [39, 'Fare collection', 'Do not independently alter Fares, demand extra money, invent charges, manipulate the App, take intentionally long routes, misrepresent tolls or charge privately.'],
+  [40, 'Route manipulation', 'Do not intentionally manipulate distance, time, Fare or waiting charges. Traffic, closures, safety, Passenger requests and navigation errors are not automatically misconduct.'],
+  [41, 'GPS manipulation', 'Do not use fake GPS, spoofing, simulated locations, device manipulation or technical methods designed to misrepresent where you are.'],
+  [42, 'Trip manipulation', 'Do not create fake Trips, accept without transporting, end prematurely, keep Trips open unnecessarily, collude or manipulate Trip locations.'],
+  [43, 'Collusion', 'TRYP may investigate suspected collusion between Drivers, Passengers, accounts or other parties, including artificial Trips, rating manipulation or fraudulent earnings.'],
+  [44, 'Driver Earnings', 'Driver Earnings may be based on Fare, platform fees, promotions, tolls, adjustments, refunds, cancellation fees and other disclosed items. Where required by applicable South African transport law, TRYP will provide the Passenger with a fare estimate before the Trip and a final Fare after the Trip, together with prescribed Driver and Vehicle details where required. You must not alter, conceal or misrepresent the Fare shown through the App. The final fare and disclosure flow must be confirmed against the live Platform and regulatory requirements before publication. The applicable earnings structure will be communicated through TRYP.'],
+  [45, 'TRYP service fee', 'TRYP may charge a service fee, commission or other platform fee, with different structures for cities, categories, promotions, Driver programs or special services.'],
+  [46, 'Earnings statements', 'TRYP may provide electronic statements showing Trips, gross Fares, platform fees, adjustments, refunds, promotions and net earnings. Review and report suspected errors promptly.'],
+  [47, 'Tax responsibilities', 'You are responsible for understanding and complying with tax obligations arising from Driver activities. TRYP may provide transaction information where legally required and does not provide personal tax advice.'],
+  [48, 'Payouts', 'TRYP may pay Earnings by bank transfer, digital wallet or other supported method. Provide accurate payout information; TRYP is not responsible for delays caused solely by incorrect banking details.'],
+  [49, 'Payout errors', 'If TRYP pays an amount you were not entitled to receive, it may correct accounting, offset future earnings where lawful, request repayment or take another lawful recovery measure.'],
+  [50, 'Negative balances', 'Refunds, chargebacks, fraud adjustments, payment reversals, damage claims or other legitimate adjustments may create a negative balance. TRYP may recover valid amounts through future earnings where lawful and disclosed.'],
+  [51, 'Promotions', 'TRYP may offer Trip bonuses, completion bonuses, referrals, peak incentives and guaranteed-earnings programs. Promotions may have separate eligibility conditions.'],
+  [52, 'Promotional fraud', 'Do not manipulate promotions through fake accounts or Trips, Passenger collusion, self-referrals, multiple identities or GPS manipulation.'],
+  [53, 'Ratings', 'Passenger ratings are part of the Platform and may help improve service, identify safety concerns and training needs, investigate complaints and determine program eligibility.'],
+  [54, 'Rating manipulation', 'Do not pressure Passengers for five-star ratings, threaten them, offer money, create fake Passenger accounts or coordinate fake ratings.'],
+  [55, 'Passenger complaints', 'Passengers may complain about driving, conduct, Fare, Vehicle, safety, discrimination, harassment, lost property or other matters. Cooperate reasonably with legitimate investigations.'],
+  [56, 'False complaints', 'A complaint is not automatically true merely because submitted, and is not automatically false because difficult to prove. TRYP may assess available evidence before acting.'],
+  [57, 'Driver response', 'Where appropriate, TRYP may give you an opportunity to respond. It may restrict access before completing an investigation where necessary to protect people or the Platform.'],
+  [58, 'Serious safety incidents', 'TRYP may immediately suspend access following allegations involving assault, sexual misconduct, serious threats, dangerous or impaired driving, robbery, kidnapping, serious harassment, weapons or other serious safety concerns, and may cooperate with law enforcement.'],
+  [59, 'Sexual harassment', 'Never make unwanted sexual comments, touch a Passenger sexually, make propositions, expose yourself, request sexual services, make threats or use Passenger information for sexual purposes.'],
+  [60, 'Violence', 'Do not assault, threaten or intimidate a Passenger, use unnecessary force or lock a Passenger in the Vehicle without lawful justification. Prioritise safety and contact authorities when necessary.'],
+  [61, 'Harassment', 'Do not contact Passengers after a Trip without a legitimate Trip-related reason. Never visit residences, follow, monitor, send unwanted messages or threaten Passengers.'],
+  [62, 'Discrimination', 'Treat Passengers fairly and lawfully. TRYP does not permit unlawful discrimination.'],
+  [63, 'Service animals', 'Where law requires accommodation of recognised service animals, comply. Do not refuse solely because a Passenger has a lawful service animal where refusal is prohibited.'],
+  [64, 'Ordinary pets', 'Apply reasonable TRYP rules for ordinary pets and refuse only where the category does not permit them, a genuine safety risk exists or requirements are not met. Do not use this rule to discriminate against service animals.'],
+  [65, 'Children', 'Comply with laws concerning children and do not knowingly transport children unsafely or unlawfully. Dedicated minor services may have additional rules.'],
+  [66, 'Prohibited Passenger requests', 'You may refuse a request requiring lawbreaking, dangerous driving, prohibited goods, entry into a clearly unsafe place, excessive passengers or another unsafe task.'],
+  [67, 'Prohibited goods', 'Do not knowingly use the Vehicle through TRYP to transport illegal or dangerous goods. Refuse and contact authorities where necessary if you reasonably suspect unlawful material.'],
+  [68, 'Weapons', 'Comply with South African weapons law. Do not knowingly facilitate unlawful transportation and do not take personal enforcement action beyond immediate safety needs.'],
+  [69, 'Drugs', 'Do not knowingly transport illegal drugs, participate in trafficking or use illegal drugs while providing TRYP Services.'],
+  [70, 'Alcohol', 'Do not provide transportation while impaired by alcohol. Passengers may not consume alcohol where prohibited by law, TRYP policy or Driver safety requirements.'],
+  [71, 'Smoking and vaping', 'Do not smoke or vape while transporting Passengers where prohibited by law or policy. You may establish reasonable Passenger restrictions.'],
+  [72, 'Vehicle cameras', 'If you install a dashcam or recording equipment, comply with privacy and data-protection law. Do not secretly collect or distribute Passenger information for unrelated purposes.'],
+  [73, 'Recording Passengers', 'Do not record Passengers for entertainment, harassment, publication or unrelated purposes. Safety recording must follow legal requirements.'],
+  [74, 'Social media', 'Do not publish Passenger names, images, videos, addresses, destinations, phone numbers or personal stories without lawful authority or appropriate permission.'],
+  [75, 'Confidentiality', 'Keep information obtained through TRYP confidential. This obligation continues after you stop driving for TRYP.'],
+  [76, 'Personal data', 'TRYP may process your information for identity verification, onboarding, safety, payments, compliance, fraud prevention and operations. TRYP’s Privacy Policy governs its processing. POPIA establishes requirements for lawful processing of personal information. Review the <a href="https://inforegulator.org.za/about/" target="_blank" rel="noreferrer">Information Regulator guidance ↗</a> and confirm the final Driver Privacy Notice before publication.'],
+  [77, 'Driver access to Passenger information', 'Access only information necessary to complete or manage a Trip. Do not unnecessarily screenshot, sell, export, database or market Passenger information.'],
+  [78, 'Data security', 'Take reasonable precautions against unauthorised access to Passenger information and notify TRYP immediately if it is lost, stolen or exposed.'],
+  [79, 'Lost property', 'Report property left in your Vehicle through TRYP’s process. Do not keep, sell, destroy, use or threaten a Passenger with it.'],
+  [80, 'Return of property', 'TRYP may facilitate communication about lost property and reasonable arrangements may be made for its return.'],
+  [81, 'Accidents', 'After an accident, stop safely, check danger, contact emergency services where required, provide reasonable safe assistance, notify TRYP and cooperate with investigations.'],
+  [82, 'Hit-and-run', 'Do not leave an accident scene unlawfully. Comply with road-traffic accident laws. A serious allegation may result in immediate suspension.'],
+  [83, 'Vehicle breakdown', 'Prioritise Passenger safety, move to safety where possible, notify TRYP, follow incident processes and do not unnecessarily leave a Passenger in danger.'],
+  [84, 'Medical emergencies', 'If a Passenger has a medical emergency, stop safely where possible, contact emergency services, assist within lawful ability and notify TRYP. You are not expected to provide treatment beyond training and legal ability.'],
+  [85, 'Emergency button', 'Use an emergency or safety button only when reasonably necessary. Genuine good-faith use is not misconduct merely because an incident is later found not to be an emergency.'],
+  [86, 'Law enforcement', 'Comply with lawful requests from police or authorised authorities. TRYP may cooperate with law enforcement where legally required or permitted.'],
+  [87, 'Driver insurance', 'Maintain insurance required by law and any additional coverage required by TRYP onboarding. Provide proof and report relevant changes.'],
+  [88, 'Vehicle insurance claims', 'TRYP does not automatically guarantee payment for Vehicle damage. Claims are generally governed by the applicable policy; TRYP may assist with documentation where appropriate.'],
+  [89, 'Driver expenses', 'Unless expressly agreed otherwise, you are responsible for fuel, maintenance, tyres, insurance, licensing, parking, cleaning, financing, taxes, mobile data and operating costs.'],
+  [90, 'No guarantee of earnings', 'TRYP does not guarantee a minimum number of Trips, income, hourly earning, Passenger count or amount of work. Demand varies by location and time.'],
+  [91, 'TRYP communication', 'TRYP may communicate through App notifications, email, SMS, telephone, in-app messages or other electronic means. Keep contact details current.'],
+  [92, 'Driver support', 'TRYP may support account, payment, Passenger dispute, safety, technical and Document issues. Support does not guarantee a particular outcome.'],
+  [93, 'Technical requirements', 'Use a compatible device with sufficient battery, connectivity, GPS where required, necessary permissions and updated software where required.'],
+  [94, 'Device security', 'Do not root or compromise your device, install malicious software, use unauthorised modified TRYP applications or share a Driver device in a way that creates security risks.'],
+  [95, 'Platform security', 'Do not hack TRYP, circumvent security, manipulate APIs, reverse engineer security, interfere with dispatch, scrape private information, introduce malware or conduct denial-of-service attacks.'],
+  [96, 'Automation and bots', 'Do not use bots or automated systems to accept Trips, generate fake activity, manipulate rankings or incentives, or gain an unfair advantage.'],
+  [97, 'Account manipulation', 'Do not create multiple Driver identities to evade suspensions, earnings limits, Vehicle restrictions, checks, safety controls or other requirements.'],
+  [98, 'Fraud investigations', 'TRYP may investigate payment, identity, GPS, fake Trip, account-sharing, promotional, collusion and rating fraud.'],
+  [99, 'Temporary suspension', 'TRYP may temporarily suspend your Account to protect people, investigate allegations or fraud, verify Documents, protect payments or address regulatory requirements.'],
+  [100, 'Immediate suspension', 'TRYP may immediately suspend credible serious concerns involving violence, sexual misconduct, threats, dangerous or impaired driving, fraud, identity theft, unlawful transportation, harassment or invalid operating Documents.'],
+  [101, 'Investigation process', 'Where reasonably practicable, TRYP may receive a complaint, preserve information, assess seriousness, restrict access, request information, review evidence, invite a response, decide and communicate an outcome. Urgent safety cases may differ.'],
+  [102, 'Evidence', 'TRYP may consider GPS, Trip and payment records, App activity, reports, ratings, communications, Vehicle information, photographs, videos, technical logs and other lawfully obtained information.'],
+  [103, 'Good-faith reporting', 'A genuine safety complaint should not trigger retaliation merely because it cannot be proven. Deliberate fabrication or malicious abuse may result in action.'],
+  [104, 'Appeals', 'Where an appeal process exists, request review with Account details, Trip information, an explanation and supporting evidence. Procedures may vary by decision type.'],
+  [105, 'Account termination', 'TRYP may terminate your Driver Account for serious or repeated breaches, fraud, violence, sexual misconduct, serious safety violations, identity fraud, sharing, missing legal Documents, persistent abuse or Platform manipulation.'],
+  [106, 'Document expiry', 'If a required Document expires, TRYP may automatically deactivate the relevant Vehicle or Driver Account until updated documentation is provided.'],
+  [107, 'Regulatory compliance', 'Comply with transport, road traffic, licensing, Vehicle, insurance, tax, privacy, consumer-protection and all other applicable laws.'],
+  [108, 'Changes in law', 'If law changes, TRYP may modify Driver requirements, Documents, Vehicle standards, safety measures, procedures or data requirements to maintain compliance.'],
+  [109, 'Consumer protection', 'Do not engage in conduct that causes TRYP to violate consumer-protection requirements. The Consumer Protection Act reference should be reviewed from the <a href="https://www.gov.za/documents/consumer-protection-act" target="_blank" rel="noreferrer">South African Government ↗</a>.'],
+  [110, 'Driver rights', 'TRYP recognises that Drivers may have rights under South African law. Nothing unlawfully removes a right that cannot legally be excluded.'],
+  [111, 'Relationship between TRYP and Driver', 'The legal relationship depends on the actual operating model and law. These Terms do not automatically create employment, partnership, joint venture or agency unless established by law or separate agreement. The final clause requires South African employment and transport legal review.'],
+  [112, 'Driver independence', 'To the extent permitted by law, Drivers may determine when they make themselves available. Once online or accepting Trips, they must follow safety, regulatory and Platform requirements.'],
+  [113, 'No guarantee of access', 'Registration does not guarantee permanent access. TRYP may restrict or terminate access according to these Terms and applicable law.'],
+  [114, 'Intellectual property', 'TRYP owns or has rights to its trademarks, logos, software, interface, technology, graphics, content and branding. You receive only the limited right necessary to use TRYP as a Driver.'],
+  [115, 'Use of TRYP branding', 'Use approved TRYP branding only as instructed. Do not create unofficial advertising, modify logos, sell materials, imply ownership or register confusingly similar brands.'],
+  [116, 'Driver marketing', 'Do not represent yourself as a TRYP employee, representative or spokesperson unless expressly authorised.'],
+  [117, 'Confidential information', 'Do not disclose internal algorithms, pricing or security systems, non-public business information, investigations or other confidential TRYP information.'],
+  [118, 'Competitor services', 'Unless restricted by separate agreement or law, you may use other platforms. Do not use TRYP confidential or Passenger information for another platform, manipulate TRYP, misrepresent platforms or solicit off-platform business.'],
+  [119, 'Data retention', 'TRYP may retain Driver information for legal, tax, safety, fraud, dispute, regulatory and legitimate business purposes.'],
+  [120, 'Driver data rights', 'You may have rights concerning your personal information. TRYP’s Privacy Policy explains how information is processed and how to contact the privacy team.'],
+  [121, 'Third-party services', 'TRYP may use providers for payments, maps, identity verification, background checks, cloud infrastructure, messaging, analytics and safety systems. Additional provider terms may apply.'],
+  [122, 'Service interruptions', 'TRYP does not guarantee uninterrupted availability. Internet, power, cloud, cyber, telecommunications, maintenance, government restrictions and other events may affect service.'],
+  [123, 'Force majeure', 'TRYP will not be responsible for failure or delay from extraordinary circumstances beyond reasonable control, subject to rights that cannot legally be excluded.'],
+  [124, 'Limitation of liability', 'To the maximum lawful extent, TRYP is not responsible for losses arising solely from circumstances outside its reasonable control or your unlawful, negligent or intentional conduct. Nothing excludes liability that cannot legally be excluded.'],
+  [125, 'Driver responsibility', 'You remain responsible for your Vehicle, driving, conduct, legal compliance, licences, insurance, taxes, Account security and treatment of Passengers.'],
+  [126, 'Indemnity', 'To the extent permitted by law, you may be required to compensate TRYP for losses, claims, penalties or expenses arising from fraud, deliberate or unlawful conduct, material breach, Platform misuse, deliberate TRYP property damage or unauthorised Passenger-data use. This does not cover unlawful indemnification of TRYP’s own conduct.'],
+  [127, 'No unlawful waiver', 'Nothing removes mandatory rights, excludes prohibited liability, prevents regulatory powers or prevents a Driver exercising lawful rights.'],
+  [128, 'Changes to Driver Terms', 'TRYP may update these Terms where reasonably necessary and communicate material changes through the App, email, push notification or another appropriate method, with legally required notice.'],
+  [129, 'Changes to fees', 'TRYP may change platform fees, commissions or Driver programs. Where applicable, Drivers receive notice before changes take effect.'],
+  [130, 'Changes to Driver requirements', 'TRYP may change Vehicle, Document, safety, verification and ride-category requirements. Drivers may need to comply before continuing.'],
+  [131, 'Driver notices', 'Electronic notices may be delivered through the App or other electronic communication methods.'],
+  [132, 'Electronic acceptance', 'Electronic acceptance may constitute agreement to the extent permitted by law. TRYP may retain acceptance records.'],
+  [133, 'Dispute resolution', 'First contact TRYP regarding Earnings, Account status, Passenger complaints, fees, Platform decisions or other TRYP matters. TRYP will provide an appropriate review process.'],
+  [134, 'Legal rights', 'Nothing in the dispute process prevents a Driver exercising rights available under applicable law.'],
+  [135, 'Governing law', 'These Terms are governed by the laws of the Republic of South Africa, subject to mandatory legal requirements.'],
+  [136, 'Jurisdiction', 'Subject to applicable law, disputes may be brought before a court with lawful jurisdiction in South Africa.'],
+  [137, 'Severability', 'If a provision is invalid or unenforceable, remaining provisions remain effective to the extent permitted by law.'],
+  [138, 'No waiver', 'Failure to enforce a provision immediately does not permanently waive it.'],
+  [139, 'Assignment', 'You may not transfer your Driver Account or this agreement without permission. TRYP may assign rights for legitimate corporate or business purposes subject to law.'],
+  [140, 'Survival', 'Payment, confidentiality, intellectual property, data protection, fraud, liability, indemnity, dispute-resolution and legal-compliance provisions may survive termination.'],
+  [141, 'Entire agreement', 'These Driver Terms, Driver Code of Conduct, Safety Policy, Privacy Policy, Earnings and Fees Schedule, Vehicle Requirements, Promotional Terms and feature-specific terms form the relevant Driver agreement.'],
+  [142, 'Driver acknowledgement', 'By selecting “Agree & Continue”, activating Driver Mode, accepting a Trip or providing transportation, you acknowledge that you have read and understand these Terms, will comply with law, maintain Documents, drive safely, respect Passengers, protect data, avoid manipulation and fraud, cooperate with safety investigations, and understand that serious misconduct may lead to suspension or termination.'],
+].map(([number, title, body]) => ({ number, title, body }));
+
+const sectionLink = (number: number) => `#driver-term-${number}`;
+---
+<SiteLayout title="Driver Terms & Conditions — TRYP" description="Read the TRYP Driver Terms & Conditions covering onboarding, licensing, vehicles, earnings, safety, passenger privacy and platform responsibilities." path="/driver-terms/">
+  <PageHero eyebrow="Driver app · Legal" title={'The standard for<br /><em>driving with TRYP.</em>'} description="The requirements, responsibilities and protections that govern your use of the TRYP Driver platform." />
+  <ContentLayout items={[
+    { href: '#overview', label: 'Overview' },
+    { href: '#driver-term-1', label: 'The agreement' },
+    { href: '#driver-term-4', label: 'Eligibility & Documents' },
+    { href: '#driver-term-20', label: 'Safety' },
+    { href: '#driver-term-44', label: 'Earnings' },
+    { href: '#driver-term-76', label: 'Data & privacy' },
+    { href: '#driver-term-99', label: 'Enforcement' },
+    { href: '#driver-term-142', label: 'Acceptance' },
+  ]}>
+    <div class="policy-draft-banner driver-draft-banner" role="note">
+      <div class="policy-draft-icon" aria-hidden="true">!</div>
+      <div>
+        <strong>Working draft · South African legal review required before publication</strong>
+        <p>This Driver Terms document is a structured draft for TRYP, not legal advice. Confirm the operating entity, Driver relationship, permits, insurance, earnings schedule, safety policy, privacy notice and enforcement process before onboarding Drivers.</p>
+      </div>
+    </div>
+
+    <div class="policy-meta" id="overview">
+      <div><span>Effective date</span><strong>[INSERT DATE]</strong></div>
+      <div><span>Last updated</span><strong>[INSERT DATE]</strong></div>
+      <div><span>Applies to</span><strong>TRYP Driver Services</strong></div>
+    </div>
+
+    <div class="driver-intro">
+      <p class="lead">These Driver Terms & Conditions govern your application to, registration with and use of the TRYP platform as a Driver.</p>
+      <p>By registering as a Driver, submitting Driver Documents, activating Driver Mode, accepting a Trip, transporting a Passenger or otherwise using the TRYP Driver Services, you agree to these Driver Terms.</p>
+      <p>If you do not agree to these Terms, you must not register or operate as a TRYP Driver.</p>
+    </div>
+
+    <nav class="driver-topic-strip" aria-label="Driver terms highlights">
+      <a href="#driver-term-4"><span>01</span><strong>Get approved</strong><small>Identity, licences & Documents</small></a>
+      <a href="#driver-term-13"><span>02</span><strong>Keep it roadworthy</strong><small>Vehicle and operating standards</small></a>
+      <a href="#driver-term-20"><span>03</span><strong>Put safety first</strong><small>Driving and Passenger conduct</small></a>
+      <a href="#driver-term-44"><span>04</span><strong>Understand Earnings</strong><small>Fees, payouts and tax</small></a>
+    </nav>
+
+    <nav class="terms-section-nav driver-section-nav" aria-label="Driver terms sections">
+      <strong>Jump to a section</strong>
+      <div><a href={sectionLink(1)}>1–12 · Agreement & Documents</a><a href={sectionLink(13)}>13–24 · Vehicle & safety</a><a href={sectionLink(25)}>25–43 · Trips & Passenger data</a><a href={sectionLink(44)}>44–54 · Earnings & ratings</a><a href={sectionLink(55)}>55–78 · Conduct & privacy</a><a href={sectionLink(79)}>79–98 · Incidents & security</a><a href={sectionLink(99)}>99–113 · Enforcement & compliance</a><a href={sectionLink(114)}>114–142 · Rights & acceptance</a></div>
+    </nav>
+
+    <div class="driver-sections">
+      {sections.map((section) => (
+        <section class:list={['policy-section', { 'driver-regulatory-section': [10, 80, 107, 109].includes(section.number), 'driver-final-section': section.number === 142 }]} id={`driver-term-${section.number}`}>
+          <h2>{section.number}. {section.title}</h2>
+          <div set:html={section.body}></div>
+          {section.number === 10 && <div class="driver-callout"><strong>Licence status matters.</strong><p>TRYP may disconnect a Vehicle or Driver from the App until required operating documentation is valid again.</p></div>}
+          {section.number === 76 && <div class="driver-callout"><strong>Protect Passenger information.</strong><p>Use only the information needed to complete the Trip. Report a suspected exposure immediately.</p><a href="/privacy/">Read the TRYP Privacy Policy ↗</a></div>}
+          {section.number === 142 && <div class="driver-acceptance-card"><span class="driver-acceptance-label">Driver sign-up acceptance</span><strong>I confirm that I have read and agree to the TRYP Driver Terms & Conditions, Driver Code of Conduct, Privacy Policy and applicable Driver requirements.</strong><div class="driver-signature-grid"><span>Driver name: ____________________</span><span>Driver ID: ____________________</span><span>Date: __________________________</span><span>Electronic acceptance: ☑</span></div></div>}
+        </section>
+      ))}
+    </div>
+
+    <div class="driver-publication-note">
+      <strong>TRYP’s driver legal stack</strong>
+      <p>These Terms should be read together with the <a href="/driver-agreement/">Driver Agreement</a>, Driver Code of Conduct, <a href="/safety-policy/">Safety & Emergency Response Policy</a>, Driver Privacy Notice, Vehicle Requirements, Earnings & Commission Schedule, Complaints & Dispute Resolution Policy, and any feature-specific terms.</p>
+      <div class="actions"><a class="button button-red" href="/driver-code/">Read Driver Code <span>→</span></a><a class="button button-outline" href="/safety-policy/">Read Safety Policy <span>↗</span></a><a class="button button-outline" href="/driver-agreement/">Read Driver Agreement <span>↗</span></a><a class="button button-outline" href="/drive/">Return to driver page <span>↗</span></a><a class="button button-outline" href="mailto:legal@tryp.co.za">Contact legal <span>↗</span></a></div>
+    </div>
+  </ContentLayout>
+</SiteLayout>

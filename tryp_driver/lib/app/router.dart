@@ -19,6 +19,7 @@ import 'package:tryp_driver/features/driver/presentation/screens/driver_wallet_s
 import 'package:tryp_driver/features/driver/presentation/screens/driver_onboarding_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_documents_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/active_trip_screen.dart';
+import 'package:tryp_driver/features/driver/presentation/screens/driver_long_distance_screen.dart';
 import 'package:tryp_driver/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:tryp_driver/app/routes.dart';
 
@@ -108,6 +109,10 @@ GoRouter buildRouter(AppVariant variant, {DriverRouteGuard? routeGuard}) {
     GoRoute(
       path: Routes.activeTrip,
       builder: (context, state) => const ActiveTripScreen(),
+    ),
+    GoRoute(
+      path: Routes.driverLongDistance,
+      builder: (context, state) => const DriverLongDistanceScreen(),
     ),
   ];
 

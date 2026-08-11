@@ -20,9 +20,9 @@ class DriverBottomNavBar extends StatelessWidget {
       route: Routes.driverHome,
     ),
     _DriverNavItemData(
-      icon: Icons.verified_user_rounded,
-      label: 'Documents',
-      route: Routes.driverDocuments,
+      icon: Icons.directions_bus_rounded,
+      label: 'Long Dist.',
+      route: Routes.driverLongDistance,
     ),
     _DriverNavItemData(
       icon: Icons.account_balance_wallet_rounded,
