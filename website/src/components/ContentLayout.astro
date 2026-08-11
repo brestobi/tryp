@@ -1,0 +1,13 @@
+---
+interface Props {
+  items: { href: string; label: string }[];
+}
+const { items } = Astro.props;
+---
+<section class="container content-layout">
+  <aside class="content-aside">
+    <strong>On this page</strong>
+    {items.map((item) => <a href={item.href}>{item.label}</a>)}
+  </aside>
+  <div class="prose"><slot /></div>
+</section>

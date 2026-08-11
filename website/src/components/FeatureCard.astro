@@ -1,0 +1,16 @@
+---
+interface Props {
+  icon: string;
+  title: string;
+  text: string;
+  href?: string;
+  tone?: 'red' | 'blue' | 'gold' | 'green';
+}
+const { icon, title, text, href, tone = 'red' } = Astro.props;
+---
+<article class:list={['feature-card', `tone-${tone}`]}>
+  <span class="feature-icon" aria-hidden="true">{icon}</span>
+  <h3>{title}</h3>
+  <p>{text}</p>
+  {href && <a class="card-arrow" href={href} aria-label={`Learn more about ${title}`}>↗</a>}
+</article>

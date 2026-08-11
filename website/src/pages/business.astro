@@ -1,0 +1,24 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import ContentLayout from '../components/ContentLayout.astro';
+import FeatureCard from '../components/FeatureCard.astro';
+---
+<SiteLayout title="TRYP for Business" description="Explore business transport and partnership opportunities with TRYP." path="/business/">
+  <PageHero eyebrow="For businesses" title={'Move your team.<br /><em>Move business forward.</em>'} description="TRYP Business is being shaped for organisations that need dependable local transport, scheduled movement, and a trusted partner on the road." />
+  <ContentLayout items={[{ href: '#opportunities', label: 'Opportunities' }, { href: '#built', label: 'What we are building' }, { href: '#contact', label: 'Talk to TRYP' }]}>
+    <h2 id="opportunities">Practical transport for real work</h2>
+    <p class="lead">From staff movement to business travel and partner fleets, TRYP is exploring tools that make organised transport easier to coordinate.</p>
+    <div class="feature-grid">
+      <FeatureCard icon="▦" title="Team movement" text="Help people get to work, meetings, and important places with clearer scheduled transport." tone="red" />
+      <FeatureCard icon="◷" title="Planned journeys" text="Build transport around the working day instead of leaving every trip to chance." tone="blue" />
+      <FeatureCard icon="♢" title="Local partnerships" text="Work with a growing mobility platform that understands the communities it serves." tone="gold" />
+    </div>
+    <h2 id="built">What we are building</h2>
+    <p>TRYP Business will grow as our local operations, fleet partnerships, and support model mature. We are taking a careful approach so every new capability is useful, understandable, and supported properly.</p>
+    <div class="notice"><strong>Business partnerships are opening gradually.</strong><br />Tell us about your transport needs and the TRYP team can record your interest for the next rollout phase.</div>
+    <h2 id="contact">Talk to TRYP</h2>
+    <p>For staff transport, fleet partnerships, or local business enquiries, contact the team directly.</p>
+    <div class="actions"><a class="button button-red" href="mailto:hello@tryp.co.za?subject=TRYP%20Business%20enquiry">Start a conversation ↗</a><a class="button button-outline" href="/about/">About TRYP →</a></div>
+  </ContentLayout>
+</SiteLayout>

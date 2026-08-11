@@ -1,0 +1,27 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import ContentLayout from '../components/ContentLayout.astro';
+---
+<SiteLayout title="Terms — TRYP" description="TRYP terms of service working draft." path="/terms/">
+  <PageHero eyebrow="Legal" title={'Terms of<br /><em>service.</em>'} description="The rules and responsibilities that will govern use of TRYP services." />
+  <ContentLayout items={[{ href: '#status', label: 'Document status' }, { href: '#service', label: 'The service' }, { href: '#accounts', label: 'Accounts' }, { href: '#conduct', label: 'Responsibilities' }, { href: '#contact', label: 'Contact' }]}>
+    <div class="notice"><strong>Review required before publication.</strong><br />This is a structured working draft for the TRYP website, not final terms of service or legal advice. Have the responsible legal owner confirm the company, jurisdiction, fees, cancellations, liability, dispute process, and driver-partner terms before launch.</div>
+    <h2 id="status">Document status</h2>
+    <p><strong>Last updated:</strong> [Confirm effective date]<br /><strong>Service provider:</strong> [Confirm registered TRYP entity]<br /><strong>Legal contact:</strong> [Confirm legal email address]</p>
+    <h2 id="service">The TRYP service</h2>
+    <p>TRYP provides technology that helps passengers request or schedule rides and helps drivers manage availability and respond to ride requests. The final terms must clearly describe the relationship between TRYP, passengers, drivers, and any transport operators.</p>
+    <h2 id="accounts">Accounts and eligibility</h2>
+    <p>People must provide accurate information, protect their login credentials, and use the service only when eligible under applicable law. Driver accounts may require identity, vehicle, licensing, and other verification before access to ride requests is enabled.</p>
+    <h2 id="conduct">Responsibilities during a trip</h2>
+    <p>Passengers and drivers should treat one another respectfully, follow applicable law, confirm the correct ride details, and use the app honestly. The final terms should include prohibited conduct, safety expectations, account suspension rules, and reporting procedures.</p>
+    <h2>Bookings, fares, and cancellations</h2>
+    <p>The final terms must explain how ride requests and scheduled bookings are confirmed, how fares and payment authorization work, what happens when a ride is cancelled, and how disputes or refunds are handled.</p>
+    <h2>Availability and changes</h2>
+    <p>TRYP may improve, pause, or change parts of the service. The final terms should explain service availability, planned maintenance, updates, and how users will be notified of material changes.</p>
+    <h2>Liability and disputes</h2>
+    <p>The responsible legal owner must add the appropriate liability limitations, consumer protections, governing law, dispute-resolution process, and any required notices for the launch jurisdiction.</p>
+    <h2 id="contact">Questions about these terms</h2>
+    <p>For questions about this working draft, contact <a class="text-link" href="mailto:hello@tryp.co.za">hello@tryp.co.za</a> until the official legal address is confirmed.</p>
+  </ContentLayout>
+</SiteLayout>

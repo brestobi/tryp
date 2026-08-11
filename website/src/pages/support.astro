@@ -1,0 +1,27 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import ContentLayout from '../components/ContentLayout.astro';
+---
+<SiteLayout title="Support — TRYP" description="Find answers and contact TRYP support." path="/support/">
+  <PageHero eyebrow="We are here to help" title={'Questions,<br /><em>answered.</em>'} description="Find a quick answer below or contact the TRYP team about a passenger, driver, account, or trip issue." />
+  <ContentLayout items={[{ href: '#passengers', label: 'Passengers' }, { href: '#drivers', label: 'Drivers' }, { href: '#contact', label: 'Contact us' }]}>
+    <h2 id="passengers">Passenger questions</h2>
+    <div class="faq-list">
+      <details><summary>Can I schedule a ride?</summary><p>Yes. The passenger app supports booking a pickup for a future date and time, in addition to requesting a ride now.</p></details>
+      <details><summary>What if my pickup location is not precise?</summary><p>Review the suggested location and refine the pickup details in the app. More advanced map pin features may be added as the product develops.</p></details>
+      <details><summary>Where can I see my scheduled ride?</summary><p>Scheduled and completed rides appear in the Activity area of the passenger app.</p></details>
+    </div>
+    <h2 id="drivers">Driver questions</h2>
+    <div class="faq-list">
+      <details><summary>How do I join TRYP as a driver?</summary><p>Use the driver app onboarding flow to register, add your vehicle and submit the required documents for review.</p></details>
+      <details><summary>Where do I see ride requests?</summary><p>Approved drivers can see available ride requests in the driver app, including relevant pickup and destination information.</p></details>
+    </div>
+    <h2 id="contact">Contact TRYP</h2>
+    <div class="contact-grid">
+      <article class="contact-card"><h3>General support</h3><p>For non-emergency passenger and driver questions.</p><a href="mailto:hello@tryp.co.za">hello@tryp.co.za ↗</a></article>
+      <article class="contact-card"><h3>Safety concern</h3><p>If there is immediate danger, contact local emergency services first. For follow-up, contact TRYP support.</p><a href="/safety/">Read safety guidance →</a></article>
+    </div>
+    <div class="notice">Support contact details are temporary placeholders until the official TRYP support address and hours are confirmed.</div>
+  </ContentLayout>
+</SiteLayout>

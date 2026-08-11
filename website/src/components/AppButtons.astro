@@ -1,0 +1,16 @@
+---
+interface Props {
+  compact?: boolean;
+}
+const { compact = false } = Astro.props;
+---
+<div class:list={['store-actions', { compact }]}>
+  <a class="store-button" href="mailto:hello@tryp.co.za?subject=TRYP%20app%20download" aria-label="Contact TRYP for the passenger app">
+    <span class="store-icon" aria-hidden="true">▰</span>
+    <span><small>Passenger app</small><strong>Get started with TRYP</strong></span>
+  </a>
+  <a class="store-button store-button-dark" href="/drive/" aria-label="Learn about the TRYP driver app">
+    <span class="store-icon" aria-hidden="true">◉</span>
+    <span><small>Driver app</small><strong>Drive with TRYP</strong></span>
+  </a>
+</div>
