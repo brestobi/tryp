@@ -15,6 +15,9 @@ class FareSchema {
   /// Minimum fare for any ride (R20)
   final double minFare;
 
+  /// Additional fee for each companion beyond the booking passenger.
+  final double extraPersonRate;
+
   /// Currency symbol/code
   final String currencySymbol;
 
@@ -24,16 +27,20 @@ class FareSchema {
     this.baseFare = 15.0,
     this.perKmRate = 5.0,
     this.minFare = 20.0,
+    this.extraPersonRate = 0.0,
     this.currencySymbol = 'R',
   });
 
   /// Calculate exact fare in Rands given distance in km and vehicle multiplier
   double calculateFare({
     required double distanceKm,
+    int additionalPassengers = 0,
     double multiplier = 1.0,
   }) {
     final calculated = (baseFare + (distanceKm * perKmRate)) * multiplier;
-    return calculated < minFare ? minFare : calculated;
+    final baseTripFare = calculated < minFare ? minFare : calculated;
+    final companions = additionalPassengers < 0 ? 0 : additionalPassengers;
+    return baseTripFare + (companions * extraPersonRate);
   }
 
   /// Create schema from JSON map (e.g. from Supabase `fare_schemas` table)
@@ -44,6 +51,7 @@ class FareSchema {
       baseFare: (json['base_fare'] as num?)?.toDouble() ?? 15.0,
       perKmRate: (json['per_km_rate'] as num?)?.toDouble() ?? 5.0,
       minFare: (json['min_fare'] as num?)?.toDouble() ?? 20.0,
+      extraPersonRate: (json['extra_person_rate'] as num?)?.toDouble() ?? 0.0,
       currencySymbol: json['currency_symbol'] as String? ?? 'R',
     );
   }
@@ -53,6 +61,7 @@ class FareSchema {
       'base_fare': baseFare,
       'per_km_rate': perKmRate,
       'min_fare': minFare,
+      'extra_person_rate': extraPersonRate,
       'currency_symbol': currencySymbol,
     };
   }

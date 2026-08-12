@@ -166,6 +166,7 @@ class _PassengerHomeScreenPageState
   // Selection & Pricing
   String _selectedRideType = 'TRYP Go';
   String _paymentMethod = 'Cash';
+  int _additionalPassengers = 0;
   bool _isScheduledRide = false;
   DateTime? _scheduledFor;
   double? _calculatedDistanceKm;
@@ -516,7 +517,7 @@ class _PassengerHomeScreenPageState
 
   Future<void> _cancelActiveRide() async {
     final activeTrip = ref.read(activeTripStateProvider);
-    if (activeTrip == null) return;
+    if (activeTrip == null || !activeTrip.canPassengerCancel) return;
 
     final tripService = ref.read(tripServiceProvider);
     if (activeTrip.paymentMethod != 'Cash' &&
@@ -546,6 +547,19 @@ class _PassengerHomeScreenPageState
                 ? PassengerRideMode.dispatching
                 : PassengerRideMode.activeTrip;
           });
+        }
+        return;
+      }
+      if (cancellationResult != 'cancelled') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Payment is still being verified. The ride was not cancelled.',
+              ),
+              backgroundColor: TRYPColors.secondary,
+            ),
+          );
         }
         return;
       }
@@ -864,11 +878,29 @@ class _PassengerHomeScreenPageState
       return;
     }
 
+    final selectedCapacity = FareCalculatorService.capacityForRideType(
+      _selectedRideType,
+    );
+    if (_additionalPassengers + 1 > selectedCapacity) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$_selectedRideType allows up to $selectedCapacity people. Choose fewer companions or TRYP XL.',
+            ),
+            backgroundColor: TRYPColors.error,
+          ),
+        );
+      }
+      return;
+    }
+
     final fare = FareCalculatorService.calculateFare(
       distanceKm: _calculatedDistanceKm!,
       durationMins: _calculatedDurationMins!.toDouble(),
       rideTypeId: _selectedRideType,
       schema: fareSchema,
+      additionalPassengers: _additionalPassengers,
     );
 
     setState(() {
@@ -893,6 +925,7 @@ class _PassengerHomeScreenPageState
         destLat: _destination!.lat,
         destLng: _destination!.lng,
         scheduledFor: _isScheduledRide ? _scheduledFor : null,
+        additionalPassengers: _additionalPassengers,
       );
 
       ref.read(activeTripStateProvider.notifier).stateTrip = newTrip;
@@ -1865,13 +1898,22 @@ class _PassengerHomeScreenPageState
     final dist = _calculatedDistanceKm;
     final duration = _calculatedDurationMins;
     final activeSchema = fareSchemas[_selectedRideType];
-    final activeFare = dist == null || duration == null || activeSchema == null
+    final selectedCapacity = FareCalculatorService.capacityForRideType(
+      _selectedRideType,
+    );
+    final selectedTierFits = _additionalPassengers + 1 <= selectedCapacity;
+    final activeFare =
+        dist == null ||
+            duration == null ||
+            activeSchema == null ||
+            !selectedTierFits
         ? null
         : FareCalculatorService.calculateFare(
             distanceKm: dist,
             durationMins: duration.toDouble(),
             rideTypeId: _selectedRideType,
             schema: activeSchema,
+            additionalPassengers: _additionalPassengers,
           );
 
     final tiers = [
@@ -1979,23 +2021,96 @@ class _PassengerHomeScreenPageState
           ),
           const SizedBox(height: 12),
 
+          // Passenger count is selected before the fare cards are calculated.
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: TRYPColors.inputFill,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.groups_rounded, color: TRYPColors.secondary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'People joining you',
+                        style: TRYPTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'You + $_additionalPassengers companion${_additionalPassengers == 1 ? '' : 's'}',
+                        style: TRYPTypography.bodySmall.copyWith(
+                          color: TRYPColors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: _additionalPassengers == 0
+                      ? null
+                      : () => setState(() => _additionalPassengers--),
+                  icon: const Icon(Icons.remove_circle_outline_rounded),
+                  tooltip: 'Remove companion',
+                ),
+                Text(
+                  '$_additionalPassengers',
+                  style: TRYPTypography.titleLarge.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                IconButton(
+                  onPressed: _additionalPassengers >= 5
+                      ? null
+                      : () => setState(() => _additionalPassengers++),
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                  tooltip: 'Add companion',
+                ),
+              ],
+            ),
+          ),
+          if (!selectedTierFits) ...[
+            const SizedBox(height: 8),
+            Text(
+              'This group is too large for $_selectedRideType. Select TRYP XL to continue.',
+              style: TRYPTypography.bodySmall.copyWith(
+                color: TRYPColors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+
           // Tier Cards List
           ...tiers.map((tier) {
             final tierId = tier['id'] as String;
             final isSelected = _selectedRideType == tierId;
+            final tierCapacity = tier['cap'] as int;
+            final tierFits = _additionalPassengers + 1 <= tierCapacity;
             final tierSchema = fareSchemas[tierId];
             final fareAmt =
-                tierSchema == null || dist == null || duration == null
+                tierSchema == null ||
+                    dist == null ||
+                    duration == null ||
+                    !tierFits
                 ? null
                 : FareCalculatorService.calculateFare(
                     distanceKm: dist,
                     durationMins: duration.toDouble(),
                     rideTypeId: tierId,
                     schema: tierSchema,
+                    additionalPassengers: _additionalPassengers,
                   );
 
             return GestureDetector(
-              onTap: () => setState(() => _selectedRideType = tierId),
+              onTap: tierFits
+                  ? () => setState(() => _selectedRideType = tierId)
+                  : null,
               child: Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
@@ -2060,10 +2175,16 @@ class _PassengerHomeScreenPageState
                       ),
                     ),
                     Text(
-                      fareAmt == null ? '—' : 'R${fareAmt.toStringAsFixed(2)}',
+                      !tierFits
+                          ? 'Too many'
+                          : fareAmt == null
+                          ? '—'
+                          : 'R${fareAmt.toStringAsFixed(2)}',
                       style: TRYPTypography.titleLarge.copyWith(
                         fontWeight: FontWeight.w800,
-                        color: fareAmt == null
+                        color: !tierFits
+                            ? TRYPColors.error
+                            : fareAmt == null
                             ? TRYPColors.grey
                             : TRYPColors.secondary,
                       ),
@@ -2128,11 +2249,13 @@ class _PassengerHomeScreenPageState
                 ? 'Loading current fares…'
                 : 'Request $_selectedRideType • R${activeFare.toStringAsFixed(2)}',
             isLoading: _isLoading,
-            enabled: canRequestTrip(
-              mapCalculationComplete: _isRouteCalculationComplete,
-              fare: activeFare,
-              isLoading: _isLoading,
-            ),
+            enabled:
+                selectedTierFits &&
+                canRequestTrip(
+                  mapCalculationComplete: _isRouteCalculationComplete,
+                  fare: activeFare,
+                  isLoading: _isLoading,
+                ),
             onPressed: _requestRide,
           ),
         ],
@@ -2387,6 +2510,23 @@ class _PassengerHomeScreenPageState
             label: 'Track Live Trip Progress',
             onPressed: () => context.push(Routes.rideTracking),
           ),
+          if (activeTrip?.canPassengerCancel == true) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _cancelActiveRide,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: TRYPColors.error,
+                minimumSize: const Size(double.infinity, 48),
+                side: BorderSide(
+                  color: TRYPColors.error.withValues(alpha: 0.65),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(100),
+                ),
+              ),
+              child: const Text('Cancel Ride Request'),
+            ),
+          ],
         ],
       ),
     );

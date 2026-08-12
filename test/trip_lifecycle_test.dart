@@ -29,6 +29,8 @@ void main() {
       expect(trip.driverName, 'Driver One');
       expect(trip.vehicleDescription, 'Blue Toyota Corolla (ABC 123)');
       expect(trip.pinCode, '4821');
+      expect(trip.additionalPassengers, 2);
+      expect(trip.totalPassengers, 3);
       expect(trip.status, TripStatus.inTrip);
       expect(trip.driverCompleted, isFalse);
       expect(trip.passengerCompleted, isFalse);
@@ -62,6 +64,18 @@ void main() {
       expect(updated.completedAt, isNotNull);
     });
 
+    test('allows passenger cancellation only before driver arrival', () {
+      final requested = TripModel.fromJson(_rideJson(status: 'requested'));
+      final accepted = TripModel.fromJson(_rideJson(status: 'accepted'));
+      final arrived = TripModel.fromJson(_rideJson(status: 'arrived'));
+      final inTrip = TripModel.fromJson(_rideJson(status: 'in_trip'));
+
+      expect(requested.canPassengerCancel, isTrue);
+      expect(accepted.canPassengerCancel, isTrue);
+      expect(arrived.canPassengerCancel, isFalse);
+      expect(inTrip.canPassengerCancel, isFalse);
+    });
+
     test('parses a cancelled ride as terminal and keeps its identity', () {
       final cancelled = TripModel.fromJson(_rideJson(status: 'cancelled'));
 
@@ -90,6 +104,7 @@ Map<String, dynamic> _rideJson({
     'ride_type': 'TRYP Go',
     'payment_method': 'Cash',
     'payment_status': 'pending',
+    'additional_passengers': 2,
     'distance_km': 12.5,
     'pickup_lat': -26.1,
     'pickup_lng': 28.0,

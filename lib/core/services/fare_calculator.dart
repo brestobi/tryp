@@ -12,6 +12,7 @@ class FareSchema {
   final double perKmRate;
   final double minFare;
   final double perMinuteRate;
+  final double extraPersonRate;
   final double surgeMultiplier;
   final String currencySymbol;
 
@@ -22,6 +23,7 @@ class FareSchema {
     this.perKmRate = 5.0,
     this.minFare = 20.0,
     this.perMinuteRate = 0.0,
+    this.extraPersonRate = 0.0,
     this.surgeMultiplier = 1.0,
     this.currencySymbol = 'R',
   });
@@ -30,16 +32,19 @@ class FareSchema {
   double calculateFare({
     required double distanceKm,
     double durationMins = 0,
+    int additionalPassengers = 0,
     double multiplier = 1.0,
   }) {
     final distance = distanceKm < 0 ? 0.0 : distanceKm;
     final duration = durationMins < 0 ? 0.0 : durationMins;
+    final companions = additionalPassengers < 0 ? 0 : additionalPassengers;
     final surge = surgeMultiplier < 0 ? 0.0 : surgeMultiplier;
-    final calculated =
+    final tripFare =
         (baseFare + (distance * perKmRate) + (duration * perMinuteRate)) *
         surge *
         multiplier;
-    return calculated < minFare ? minFare : calculated;
+    final baseTripFare = tripFare < minFare ? minFare : tripFare;
+    return baseTripFare + (companions * extraPersonRate);
   }
 
   factory FareSchema.fromJson(Map<String, dynamic> json) {
@@ -50,6 +55,7 @@ class FareSchema {
       perKmRate: (json['per_km_rate'] as num?)?.toDouble() ?? 5.0,
       minFare: (json['min_fare'] as num?)?.toDouble() ?? 20.0,
       perMinuteRate: (json['per_minute_rate'] as num?)?.toDouble() ?? 0.0,
+      extraPersonRate: (json['extra_person_rate'] as num?)?.toDouble() ?? 0.0,
       surgeMultiplier: (json['surge_multiplier'] as num?)?.toDouble() ?? 1.0,
       currencySymbol: json['currency_symbol'] as String? ?? 'R',
     );
@@ -63,6 +69,7 @@ class FareSchema {
       'per_km_rate': perKmRate,
       'min_fare': minFare,
       'per_minute_rate': perMinuteRate,
+      'extra_person_rate': extraPersonRate,
       'surge_multiplier': surgeMultiplier,
       'currency_symbol': currencySymbol,
     };
@@ -153,6 +160,7 @@ class FareCalculatorService {
     required String rideTypeId,
     FareSchema? schema,
     double durationMins = 0,
+    int additionalPassengers = 0,
   }) {
     final option = availableRideTypes.firstWhere(
       (opt) => opt.id == rideTypeId,
@@ -162,8 +170,18 @@ class FareCalculatorService {
     return selectedSchema.calculateFare(
       distanceKm: distanceKm,
       durationMins: durationMins,
+      additionalPassengers: additionalPassengers,
       multiplier: schema == null ? option.multiplier : 1.0,
     );
+  }
+
+  static int capacityForRideType(String rideTypeId) {
+    return availableRideTypes
+        .firstWhere(
+          (option) => option.id == rideTypeId,
+          orElse: () => availableRideTypes.first,
+        )
+        .capacity;
   }
 
   static int estimateDurationMinutes(double distanceKm) {

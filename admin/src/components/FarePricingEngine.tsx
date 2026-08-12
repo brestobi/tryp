@@ -21,6 +21,7 @@ export const FarePricingEngine: React.FC = () => {
   const [perKmRate, setPerKmRate] = useState<number>(activeSchema?.perKmRate || 6.5);
   const [minFare, setMinFare] = useState<number>(activeSchema?.minFare || 25.0);
   const [perMinuteRate, setPerMinuteRate] = useState<number>(activeSchema?.perMinuteRate || 1.2);
+  const [extraPersonRate, setExtraPersonRate] = useState<number>(activeSchema?.extraPersonRate || 0);
   const [commissionPercentage, setCommissionPercentage] = useState<number>(activeSchema?.commissionPercentage || 15.0);
   const [surgeMultiplier, setSurgeMultiplier] = useState<number>(activeSchema?.surgeMultiplier || 1.0);
 
@@ -30,6 +31,7 @@ export const FarePricingEngine: React.FC = () => {
     setPerKmRate(activeSchema.perKmRate);
     setMinFare(activeSchema.minFare);
     setPerMinuteRate(activeSchema.perMinuteRate);
+    setExtraPersonRate(activeSchema.extraPersonRate);
     setCommissionPercentage(activeSchema.commissionPercentage);
     setSurgeMultiplier(activeSchema.surgeMultiplier);
   }, [activeSchema]);
@@ -41,6 +43,7 @@ export const FarePricingEngine: React.FC = () => {
     setPerKmRate(schema.perKmRate);
     setMinFare(schema.minFare);
     setPerMinuteRate(schema.perMinuteRate);
+    setExtraPersonRate(schema.extraPersonRate);
     setCommissionPercentage(schema.commissionPercentage);
     setSurgeMultiplier(schema.surgeMultiplier);
   };
@@ -48,11 +51,12 @@ export const FarePricingEngine: React.FC = () => {
   // Sandbox simulation state
   const [simDistance, setSimDistance] = useState<number>(12.5);
   const [simDuration, setSimDuration] = useState<number>(18);
+  const [simCompanions, setSimCompanions] = useState<number>(0);
 
   const calculatedFare = Math.max(
     minFare,
     (baseFare + simDistance * perKmRate + simDuration * perMinuteRate) * surgeMultiplier
-  );
+  ) + simCompanions * extraPersonRate;
   const platformFee = calculatedFare * (commissionPercentage / 100);
   const driverEarnings = calculatedFare - platformFee;
 
@@ -68,6 +72,7 @@ export const FarePricingEngine: React.FC = () => {
         perKmRate,
         minFare,
         perMinuteRate,
+        extraPersonRate,
         commissionPercentage,
         surgeMultiplier
       });
@@ -125,6 +130,7 @@ export const FarePricingEngine: React.FC = () => {
                 <div>Base: R{schema.baseFare.toFixed(2)}</div>
                 <div>Per KM: R{schema.perKmRate.toFixed(2)}/km</div>
                 <div>Min Fare: R{schema.minFare.toFixed(2)}</div>
+                <div>Extra Person: R{schema.extraPersonRate.toFixed(2)}</div>
               </div>
             </div>
           );
@@ -193,6 +199,20 @@ export const FarePricingEngine: React.FC = () => {
                   onChange={e => setPerMinuteRate(parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 font-mono font-bold text-sm focus:border-purple-500 focus:outline-none"
                 />
+              </div>
+
+              {/* Extra Person Rate */}
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+                <label className="block text-slate-300 font-semibold">Per Extra Companion (R/person)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.50"
+                  value={extraPersonRate}
+                  onChange={e => setExtraPersonRate(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 font-mono font-bold text-sm focus:border-purple-500 focus:outline-none"
+                />
+                <p className="text-[10px] text-slate-500">Added once per companion; it does not change the base, start, or kilometre rates.</p>
               </div>
 
               {/* Commission Percentage */}
@@ -277,6 +297,18 @@ export const FarePricingEngine: React.FC = () => {
                   step="1"
                   value={simDuration}
                   onChange={e => setSimDuration(parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Additional Companions</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={simCompanions}
+                  onChange={e => setSimCompanions(Math.max(0, parseInt(e.target.value) || 0))}
                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-mono font-bold focus:outline-none focus:border-emerald-500"
                 />
               </div>

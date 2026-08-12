@@ -324,6 +324,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       per_km_rate: updates.perKmRate,
       min_fare: updates.minFare,
       per_minute_rate: updates.perMinuteRate,
+      extra_person_rate: updates.extraPersonRate,
       commission_percentage: updates.commissionPercentage,
       surge_multiplier: updates.surgeMultiplier,
     });

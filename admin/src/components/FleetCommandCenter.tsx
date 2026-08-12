@@ -274,6 +274,15 @@ export const FleetCommandCenter: React.FC = () => {
                       <span className="text-slate-100 font-semibold">{selectedRide.passengerName}</span>
                     </div>
                     <div className="flex items-center justify-between">
+                      <span className="text-slate-400 font-medium">Party Size</span>
+                      <span className="text-amber-400 font-semibold">
+                        {selectedRide.totalPassengers} people
+                        {selectedRide.additionalPassengers > 0
+                          ? ` (${selectedRide.additionalPassengers} companions)`
+                          : ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
                       <span className="text-slate-400 font-medium">Driver</span>
                       <span className="text-emerald-400 font-semibold font-mono">
                         {selectedRide.driverName || 'Unassigned (Searching...)'}
@@ -371,6 +380,7 @@ export const FleetCommandCenter: React.FC = () => {
               <tr className="border-b border-slate-800 text-slate-400 font-mono uppercase text-[10px]">
                 <th className="py-3 px-4">Trip ID</th>
                 <th className="py-3 px-4">Passenger</th>
+                <th className="py-3 px-4">Party</th>
                 <th className="py-3 px-4">Driver</th>
                 <th className="py-3 px-4">Tier</th>
                 <th className="py-3 px-4">Fare (ZAR)</th>
@@ -394,6 +404,9 @@ export const FleetCommandCenter: React.FC = () => {
                       {ride.rideReference || `#${ride.id.replace('ride-', '')}`}
                     </td>
                     <td className="py-3 px-4 font-semibold text-slate-100">{ride.passengerName}</td>
+                    <td className="py-3 px-4 text-amber-400 font-semibold">
+                      {ride.totalPassengers}
+                    </td>
                     <td className="py-3 px-4">
                       {ride.driverName ? (
                         <div>

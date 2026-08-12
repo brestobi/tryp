@@ -128,6 +128,8 @@ function mapRide(row: any): Ride {
     surgeMultiplier: parseFloat(row.surge_multiplier ?? '1') || 1,
     distanceKm: parseFloat(row.distance_km ?? '0') || 0,
     durationMins: row.duration_mins ?? 0,
+    additionalPassengers: Number(row.additional_passengers ?? 0),
+    totalPassengers: Number(row.additional_passengers ?? 0) + 1,
   };
 }
 
@@ -140,6 +142,7 @@ function mapFareSchema(row: any): FareSchema {
     perKmRate: parseFloat(row.per_km_rate ?? '0') || 0,
     minFare: parseFloat(row.min_fare ?? '0') || 0,
     perMinuteRate: parseFloat(row.per_minute_rate ?? '0') || 0,
+    extraPersonRate: parseFloat(row.extra_person_rate ?? '0') || 0,
     commissionPercentage: parseFloat(row.commission_percentage ?? '15') || 15,
     surgeMultiplier: parseFloat(row.surge_multiplier ?? '1') || 1,
     updatedAt: row.updated_at,
@@ -418,6 +421,7 @@ export async function dbUpdateFareSchema(schemaId: string, updates: {
   per_km_rate?: number;
   min_fare?: number;
   per_minute_rate?: number;
+  extra_person_rate?: number;
   commission_percentage?: number;
   surge_multiplier?: number;
 }) {

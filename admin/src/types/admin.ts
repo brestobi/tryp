@@ -114,6 +114,8 @@ export interface Ride {
   surgeMultiplier: number;
   distanceKm: number;
   durationMins: number;
+  additionalPassengers: number;
+  totalPassengers: number;
 }
 
 export interface FareSchema {
@@ -123,6 +125,7 @@ export interface FareSchema {
   perKmRate: number;
   minFare: number;
   perMinuteRate: number;
+  extraPersonRate: number;
   commissionPercentage: number;
   surgeMultiplier: number;
   updatedAt: string;

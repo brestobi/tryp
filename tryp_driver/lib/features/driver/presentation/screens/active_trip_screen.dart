@@ -726,7 +726,32 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.groups_rounded,
+                        size: 18,
+                        color: TRYPColors.secondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${trip.totalPassengers} passenger${trip.totalPassengers == 1 ? '' : 's'} expected',
+                        style: TRYPTypography.bodySmall.copyWith(
+                          color: TRYPColors.secondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (trip.additionalPassengers > 0)
+                        Text(
+                          ' (${trip.additionalPassengers} companion${trip.additionalPassengers == 1 ? '' : 's'})',
+                          style: TRYPTypography.bodySmall.copyWith(
+                            color: TRYPColors.grey,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   const Divider(),
                   const SizedBox(height: 8),
 

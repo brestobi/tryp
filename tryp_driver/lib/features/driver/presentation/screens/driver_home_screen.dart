@@ -331,6 +331,43 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                 ],
               ),
 
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: TRYPColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.groups_rounded,
+                      size: 18,
+                      color: TRYPColors.secondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${request.totalPassengers} passenger${request.totalPassengers == 1 ? '' : 's'} expected',
+                      style: TRYPTypography.bodySmall.copyWith(
+                        color: TRYPColors.secondary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (request.additionalPassengers > 0)
+                      Text(
+                        ' (${request.additionalPassengers} companion${request.additionalPassengers == 1 ? '' : 's'})',
+                        style: TRYPTypography.bodySmall.copyWith(
+                          color: TRYPColors.grey,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
               if (request.scheduledFor != null) ...[
                 Container(
                   width: double.infinity,

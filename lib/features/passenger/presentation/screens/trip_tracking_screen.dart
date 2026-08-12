@@ -264,15 +264,32 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
   }
 
   Future<void> _cancelRide() async {
-    if (_currentTrip == null) return;
+    final currentTrip = _currentTrip;
+    if (currentTrip == null || !currentTrip.canPassengerCancel) return;
+
     try {
       final tripService = ref.read(tripServiceProvider);
-      final updated = await tripService.updateTripStatus(
-        rideId: _currentTrip!.id,
-        status: TripStatus.cancelled,
-      );
-      if (updated == null)
-        throw StateError('Cancellation was rejected by the server.');
+      if (currentTrip.paymentMethod != 'Cash' &&
+          currentTrip.paymentStatus != 'paid') {
+        final cancellationResult = await tripService.cancelUnpaidRidePayment(
+          currentTrip.id,
+        );
+        if (cancellationResult != 'cancelled') {
+          throw StateError(
+            cancellationResult == 'paid'
+                ? 'Payment has already been settled. Please try again.'
+                : 'Payment is still being verified. Please try again shortly.',
+          );
+        }
+      } else {
+        final updated = await tripService.updateTripStatus(
+          rideId: currentTrip.id,
+          status: TripStatus.cancelled,
+        );
+        if (updated == null) {
+          throw StateError('Cancellation was rejected by the server.');
+        }
+      }
       ref.read(activeTripStateProvider.notifier).stateTrip = null;
       if (!mounted) return;
       context.go(Routes.passengerHome);
@@ -758,6 +775,24 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                         ),
                       ],
                     ),
+                    if (status == TripStatus.accepted) ...[
+                      const SizedBox(height: 16),
+                      OutlinedButton(
+                        onPressed: _cancelRide,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: TRYPColors.accent,
+                          side: const BorderSide(
+                            color: TRYPColors.accent,
+                            width: 1.4,
+                          ),
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text('Cancel Ride Request'),
+                      ),
+                    ],
                   ],
                 ],
               ),

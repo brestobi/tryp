@@ -129,6 +129,7 @@ class TripModel {
   final String paymentMethod;
   final String paymentStatus;
   final String pinCode;
+  final int additionalPassengers;
   final double distanceKm;
   final double pickupLat;
   final double pickupLng;
@@ -167,6 +168,7 @@ class TripModel {
     required this.paymentMethod,
     required this.paymentStatus,
     required this.pinCode,
+    this.additionalPassengers = 0,
     required this.distanceKm,
     required this.pickupLat,
     required this.pickupLng,
@@ -255,6 +257,8 @@ class TripModel {
       paymentMethod: json['payment_method'] as String? ?? 'Cash',
       paymentStatus: json['payment_status'] as String? ?? 'pending',
       pinCode: metadata is Map ? metadata['pin_code']?.toString() ?? '' : '',
+      additionalPassengers:
+          (json['additional_passengers'] as num?)?.toInt() ?? 0,
       distanceKm: (json['distance_km'] as num?)?.toDouble() ?? 0.0,
       pickupLat: pickupLat,
       pickupLng: pickupLng,
@@ -293,6 +297,11 @@ class TripModel {
     return parts;
   }
 
+  bool get canPassengerCancel =>
+      status == TripStatus.requested || status == TripStatus.accepted;
+
+  int get totalPassengers => additionalPassengers + 1;
+
   TripModel copyWith({
     String? id,
     String? rideReference,
@@ -318,6 +327,7 @@ class TripModel {
     String? paymentMethod,
     String? paymentStatus,
     String? pinCode,
+    int? additionalPassengers,
     double? distanceKm,
     double? pickupLat,
     double? pickupLng,
@@ -356,6 +366,7 @@ class TripModel {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       pinCode: pinCode ?? this.pinCode,
+      additionalPassengers: additionalPassengers ?? this.additionalPassengers,
       distanceKm: distanceKm ?? this.distanceKm,
       pickupLat: pickupLat ?? this.pickupLat,
       pickupLng: pickupLng ?? this.pickupLng,
@@ -434,6 +445,7 @@ class TripService {
     required double destLat,
     required double destLng,
     DateTime? scheduledFor,
+    int additionalPassengers = 0,
   }) async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
@@ -457,6 +469,7 @@ class TripService {
         'p_duration_mins': durationMins,
         'p_metadata': {'pin_code': pinCode},
         'p_scheduled_for': scheduledFor?.toUtc().toIso8601String(),
+        'p_additional_passengers': additionalPassengers,
       },
     );
 
