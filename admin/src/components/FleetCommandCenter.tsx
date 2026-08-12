@@ -31,7 +31,8 @@ const pickupIcon = L.icon({
 });
 
 export const FleetCommandCenter: React.FC = () => {
-  const { rides, drivers, assignDriverToRide, cancelRide } = useAdmin();
+  const { rides, drivers, assignDriverToRide, cancelRide, can } = useAdmin();
+  const canWriteFleet = can('fleet:write');
 
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedRideId, setSelectedRideId] = useState<string | null>(rides[0]?.id || null);
@@ -345,7 +346,8 @@ export const FleetCommandCenter: React.FC = () => {
                       setAssignRideModalId(selectedRide.id);
                       setSelectedAssignDriverId(availableDrivers[0]?.id || '');
                     }}
-                    className="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all flex items-center justify-center space-x-2"
+                    disabled={!canWriteFleet}
+                    className="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <UserCheck className="w-4 h-4" />
                     <span>Manually Assign Driver</span>
@@ -355,7 +357,8 @@ export const FleetCommandCenter: React.FC = () => {
                 {selectedRide.status !== 'completed' && selectedRide.status !== 'cancelled' && (
                   <button
                     onClick={() => setCancelRideModalId(selectedRide.id)}
-                    className="w-full py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-xs font-semibold transition-all flex items-center justify-center space-x-1.5"
+                    disabled={!canWriteFleet}
+                    className="w-full py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <XCircle className="w-4 h-4" />
                     <span>Emergency Cancel Ride</span>

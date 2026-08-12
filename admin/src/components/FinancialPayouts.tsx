@@ -10,7 +10,8 @@ import {
 import { verifyPaystackTransaction } from '../lib/queries';
 
 export const FinancialPayouts: React.FC = () => {
-  const { payouts, verifyPayout, addNotification } = useAdmin();
+  const { payouts, verifyPayout, addNotification, can } = useAdmin();
+  const canWriteFinance = can('finance:write');
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
@@ -214,7 +215,7 @@ export const FinancialPayouts: React.FC = () => {
                         {pay.status === 'pending' ? (
                           <button
                             onClick={() => handleVerifyPayout(pay.id)}
-                            disabled={verifyingId === pay.id}
+                            disabled={!canWriteFinance || verifyingId === pay.id}
                             className="px-3 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/40 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1.5"
                           >
                             {verifyingId === pay.id ? (

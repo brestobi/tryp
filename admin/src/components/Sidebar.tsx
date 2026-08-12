@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAdmin } from '../context/AdminContext';
 import type { ActiveTab } from '../context/AdminContext';
+import type { Permission } from '../lib/rbac';
 import {
   LayoutDashboard,
   UserCheck,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
-  const { activeTab, setActiveTab, drivers, rides, payouts } = useAdmin();
+  const { activeTab, setActiveTab, drivers, rides, payouts, can } = useAdmin();
 
   const pendingKycCount = drivers.filter(
     (d) => d.driverStatus === 'pending' || d.driverStatus === 'under_review'
@@ -34,18 +35,19 @@ export const Sidebar: React.FC = () => {
     icon: React.FC<{ className?: string }>;
     badge?: number;
     badgeColor?: string;
+    permission: Permission;
   }[] = [
-    { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
-    { id: 'kyc',       label: 'Driver KYC Inspector',  icon: UserCheck, badge: pendingKycCount,    badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
-    { id: 'passenger-verification', label: 'Passenger Verification', icon: UserRoundCheck },
-    { id: 'fleet',     label: 'Fleet Command Center',  icon: MapPin,    badge: activeRidesCount,   badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-    { id: 'fares',     label: 'Dynamic Fare Engine',   icon: BadgePercent },
-    { id: 'payouts',   label: 'Payouts & Banking',     icon: CreditCard, badge: pendingPayoutsCount, badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
-    { id: 'wallets',   label: 'Driver Wallets',         icon: Wallet },
-    { id: 'users',     label: 'User Directory',        icon: Users },
-    { id: 'audit',     label: 'Admin Audit Logs',      icon: FileText },
-    { id: 'broadcast', label: 'Broadcast Center',      icon: Megaphone },
-    { id: 'statements', label: 'Driver Statements',    icon: FileSpreadsheet },
+    { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard, permission: 'dashboard:read' },
+    { id: 'kyc',       label: 'Driver KYC Inspector',  icon: UserCheck, badge: pendingKycCount,    badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30', permission: 'kyc:read' },
+    { id: 'passenger-verification', label: 'Passenger Verification', icon: UserRoundCheck, permission: 'kyc:read' },
+    { id: 'fleet',     label: 'Fleet Command Center',  icon: MapPin,    badge: activeRidesCount,   badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', permission: 'fleet:read' },
+    { id: 'fares',     label: 'Dynamic Fare Engine',   icon: BadgePercent, permission: 'fares:read' },
+    { id: 'payouts',   label: 'Payouts & Banking',     icon: CreditCard, badge: pendingPayoutsCount, badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30', permission: 'finance:read' },
+    { id: 'wallets',   label: 'Driver Wallets',         icon: Wallet, permission: 'finance:read' },
+    { id: 'users',     label: 'User Directory',        icon: Users, permission: 'users:read' },
+    { id: 'audit',     label: 'Admin Audit Logs',      icon: FileText, permission: 'audit:read' },
+    { id: 'broadcast', label: 'Broadcast Center',      icon: Megaphone, permission: 'broadcast:write' },
+    { id: 'statements', label: 'Driver Statements',    icon: FileSpreadsheet, permission: 'statements:read' },
   ];
 
   return (
@@ -56,7 +58,7 @@ export const Sidebar: React.FC = () => {
             Operations Portal
           </div>
           <nav className="space-y-1">
-            {navItems.map((item) => {
+            {navItems.filter((item) => can(item.permission)).map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (

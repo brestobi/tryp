@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 
 export const FarePricingEngine: React.FC = () => {
-  const { fareSchemas, updateFareSchema, addNotification } = useAdmin();
+  const { fareSchemas, updateFareSchema, addNotification, can } = useAdmin();
+  const canWriteFares = can('fares:write');
 
   const [selectedSchemaId, setSelectedSchemaId] = useState<string>(fareSchemas[0]?.id || 'schema-go');
   const activeSchema = fareSchemas.find(s => s.id === selectedSchemaId) || fareSchemas[0];
@@ -257,7 +258,7 @@ export const FarePricingEngine: React.FC = () => {
             <div className="flex justify-end pt-2">
               <button
                 type="submit"
-                disabled={saving}
+                disabled={!canWriteFares || saving}
                 className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

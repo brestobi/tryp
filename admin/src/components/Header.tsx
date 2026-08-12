@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import type { AdminRole } from '../types/admin';
+import { roleLabel } from '../lib/rbac';
 import {
   ShieldCheck,
   Bell,
@@ -10,7 +10,6 @@ import {
   AlertTriangle,
   Info,
   Radio,
-  ChevronDown,
   LogOut,
   RefreshCw,
   Sun,
@@ -20,7 +19,6 @@ import {
 export const Header: React.FC = () => {
   const {
     currentRole,
-    setCurrentRole,
     notifications,
     markNotificationsRead,
     isRealtimeLive,
@@ -35,7 +33,6 @@ export const Header: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
 
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const pendingKycCount = drivers.filter(
@@ -44,13 +41,6 @@ export const Header: React.FC = () => {
   const activeRidesCount = rides.filter(
     (r) => r.status === 'in_trip' || r.status === 'accepted' || r.status === 'arrived'
   ).length;
-
-  const roleLabels: Record<AdminRole, { label: string; classes: string }> = {
-    super_admin:     { label: 'Super Admin',      classes: 'bg-slate-100 text-slate-950 border-slate-100' },
-    kyc_officer:     { label: 'KYC Officer',       classes: 'bg-slate-800 text-slate-200 border-slate-700' },
-    fleet_dispatcher:{ label: 'Fleet Dispatcher',  classes: 'bg-slate-800 text-slate-200 border-slate-700' },
-    finance_manager: { label: 'Finance Manager',   classes: 'bg-slate-800 text-slate-200 border-slate-700' },
-  };
 
   return (
     <header className="min-h-16 border-b border-slate-800 glass-panel sticky top-0 z-40 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2">
@@ -130,36 +120,13 @@ export const Header: React.FC = () => {
           </span>
         </button>
 
-        {/* Role selector */}
-        <div className="relative">
-          <button
-            onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-            className={`flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${roleLabels[currentRole].classes}`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span className="hidden sm:inline">{roleLabels[currentRole].label}</span>
-            <ChevronDown className="w-3.5 h-3.5 opacity-70" />
-          </button>
-
-          {showRoleDropdown && (
-            <div className="absolute right-0 mt-2 w-52 glass-panel rounded-xl shadow-2xl border border-slate-800 py-1 z-50 animate-in fade-in zoom-in-95">
-              <div className="px-3 py-2 border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                Switch View Role
-              </div>
-              {(Object.keys(roleLabels) as AdminRole[]).map((role) => (
-                <button
-                  key={role}
-                  onClick={() => { setCurrentRole(role); setShowRoleDropdown(false); }}
-                  className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800/60 ${
-                    currentRole === role ? 'text-white font-semibold bg-slate-800' : 'text-slate-300'
-                  }`}
-                >
-                  <span>{roleLabels[role].label}</span>
-                  {currentRole === role && <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />}
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Authenticated role — derived from the profile, never client-switchable */}
+        <div
+          className="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg border font-medium bg-slate-900 text-slate-200 border-slate-700"
+          title="Role is assigned to your authenticated admin profile"
+        >
+          <ShieldCheck className="w-4 h-4 text-purple-400" />
+          <span className="hidden sm:inline">{roleLabel(currentRole)}</span>
         </div>
 
         {/* Notifications */}

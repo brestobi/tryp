@@ -39,8 +39,23 @@ import {
 } from '../lib/queries';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { hasPermission, type Permission } from '../lib/rbac';
 
 export type ActiveTab = 'dashboard' | 'kyc' | 'passenger-verification' | 'fleet' | 'fares' | 'payouts' | 'wallets' | 'users' | 'audit' | 'broadcast' | 'statements';
+
+const TAB_PERMISSIONS: Record<ActiveTab, Permission> = {
+  dashboard: 'dashboard:read',
+  kyc: 'kyc:read',
+  'passenger-verification': 'kyc:read',
+  fleet: 'fleet:read',
+  fares: 'fares:read',
+  payouts: 'finance:read',
+  wallets: 'finance:read',
+  users: 'users:read',
+  audit: 'audit:read',
+  broadcast: 'broadcast:write',
+  statements: 'statements:read',
+};
 
 export interface AdminNotification {
   id: string;
@@ -55,7 +70,7 @@ interface AdminContextType {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   currentRole: AdminRole;
-  setCurrentRole: (role: AdminRole) => void;
+  can: (permission: Permission) => boolean;
 
   // Loading & error states
   loading: boolean;
@@ -107,8 +122,28 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [currentRole, setCurrentRole] = useState<AdminRole>('super_admin');
+  const [activeTabState, setActiveTabState] = useState<ActiveTab>('dashboard');
+  const currentRole = user?.adminRole ?? 'super_admin';
+  const can = useCallback(
+    (permission: Permission) => hasPermission(currentRole, permission),
+    [currentRole],
+  );
+
+  const setActiveTab = useCallback((tab: ActiveTab) => {
+    if (hasPermission(currentRole, TAB_PERMISSIONS[tab])) {
+      setActiveTabState(tab);
+    }
+  }, [currentRole]);
+
+  const activeTab = hasPermission(currentRole, TAB_PERMISSIONS[activeTabState])
+    ? activeTabState
+    : 'dashboard';
+
+  const requirePermission = useCallback((permission: Permission) => {
+    if (!hasPermission(currentRole, permission)) {
+      throw new Error('You do not have permission to perform this action.');
+    }
+  }, [currentRole]);
   const [isRealtimeLive, setIsRealtimeLive] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,15 +163,19 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setLoading(true);
     setError(null);
     try {
+      // Do not let a restricted role fail the whole console because it cannot
+      // read another department's sensitive tables.
       const [d, wallets, p, pv, r, f, pay, logs] = await Promise.all([
-        fetchDrivers(),
-        fetchDriverWallets(),
-        fetchPassengers(),
-        fetchPassengerVerifications(),
-        fetchRides(),
-        fetchFareSchemas(),
-        fetchPayouts(),
-        fetchAuditLogs(),
+        can('users:read') || can('kyc:read') || can('fleet:read')
+          ? fetchDrivers()
+          : Promise.resolve([]),
+        can('finance:read') ? fetchDriverWallets() : Promise.resolve([]),
+        can('users:read') ? fetchPassengers() : Promise.resolve([]),
+        can('kyc:read') ? fetchPassengerVerifications() : Promise.resolve([]),
+        can('dashboard:read') || can('fleet:read') ? fetchRides() : Promise.resolve([]),
+        can('fares:read') ? fetchFareSchemas() : Promise.resolve([]),
+        can('finance:read') ? fetchPayouts() : Promise.resolve([]),
+        can('audit:read') ? fetchAuditLogs() : Promise.resolve([]),
       ]);
       setDrivers(d);
       setDriverWallets(wallets);
@@ -151,7 +190,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [can]);
 
   useEffect(() => {
     loadAll();
@@ -240,6 +279,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     status: 'approved' | 'rejected',
     notes?: string,
   ) => {
+    requirePermission('kyc:write');
     await dbReviewPassengerVerification(verificationId, status, notes);
     setPassengerVerifications((prev) =>
       prev.map((v) => (v.id === verificationId ? { ...v, status, reviewNotes: notes } : v)),
@@ -263,6 +303,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const approveDriver = async (driverId: string) => {
+    requirePermission('kyc:write');
     await dbUpdateDriverStatus(driverId, 'approved');
     setDrivers((prev) =>
       prev.map((d) => (d.id === driverId ? { ...d, driverStatus: 'approved' as DriverStatus } : d))
@@ -273,6 +314,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const rejectDriver = async (driverId: string, reason: string) => {
+    requirePermission('kyc:write');
     await dbUpdateDriverStatus(driverId, 'rejected');
     setDrivers((prev) =>
       prev.map((d) => (d.id === driverId ? { ...d, driverStatus: 'rejected' as DriverStatus } : d))
@@ -283,6 +325,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const flagDriverDocument = async (driverId: string, docId: string, issueNotes: string) => {
+    requirePermission('kyc:write');
     await dbUpdateDocumentStatus(docId, 'flagged', issueNotes);
     setDrivers((prev) =>
       prev.map((d) => {
@@ -302,6 +345,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const approveDriverDocument = async (driverId: string, docId: string) => {
+    requirePermission('kyc:write');
     await dbUpdateDocumentStatus(docId, 'approved');
     setDrivers((prev) =>
       prev.map((d) => {
@@ -319,6 +363,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateFareSchema = async (schemaId: string, updates: Partial<FareSchema>) => {
+    requirePermission('fares:write');
     await dbUpdateFareSchema(schemaId, {
       base_fare: updates.baseFare,
       per_km_rate: updates.perKmRate,
@@ -336,6 +381,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const assignDriverToRide = async (rideId: string, driverId: string) => {
+    requirePermission('fleet:write');
     await dbAssignDriverToRide(rideId, driverId);
     const drv = drivers.find((d) => d.id === driverId);
     setRides((prev) =>
@@ -349,6 +395,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const cancelRide = async (rideId: string, reason: string) => {
+    requirePermission('fleet:write');
     await dbCancelRide(rideId);
     setRides((prev) => prev.map((r) => (r.id === rideId ? { ...r, status: 'cancelled' } : r)));
     await writeAuditLog('EMERGENCY_RIDE_CANCEL', rideId, 'ride', `Cancelled trip ${rideId}. Reason: ${reason}`);
@@ -356,6 +403,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const verifyPayout = async (payoutId: string) => {
+    requirePermission('finance:write');
     if (!user) return;
     await dbVerifyPayout(payoutId, user.id);
     setPayouts((prev) =>
@@ -367,6 +415,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const adjustUserWallet = async (userId: string, amount: number, isDriver: boolean, reason: string) => {
+    requirePermission('finance:write');
     await dbAdjustWallet(userId, amount);
     if (isDriver) {
       setDrivers((prev) => prev.map((d) => (d.id === userId ? { ...d, walletBalance: d.walletBalance + amount } : d)));
@@ -377,6 +426,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const toggleUserStatus = async (userId: string, isDriver: boolean) => {
+    requirePermission('users:write');
     if (isDriver) {
       const drv = drivers.find((d) => d.id === userId);
       await dbToggleUserStatus(userId, true, drv?.driverStatus ?? 'approved');
@@ -406,6 +456,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     isDriver: boolean,
     updates: Parameters<typeof dbUpdateUserProfile>[1]
   ) => {
+    requirePermission(updates.role !== undefined ? 'admin:manage' : 'users:write');
     await dbUpdateUserProfile(userId, updates);
     if (isDriver) {
       setDrivers((prev) =>
@@ -421,6 +472,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteUser = async (userId: string, isDriver: boolean) => {
+    requirePermission('users:write');
     await dbDeleteUser(userId);
     if (isDriver) {
       setDrivers((prev) => prev.filter((d) => d.id !== userId));
@@ -432,6 +484,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const promoteUserToAdmin = async (userId: string) => {
+    requirePermission('admin:manage');
     await dbUpdateUserProfile(userId, { role: 'admin' });
     await writeAuditLog('PROMOTE_TO_ADMIN', userId, 'user', `Promoted user to admin role.`);
     addNotification({ type: 'success', title: 'User Promoted', message: `User promoted to admin successfully.`, timestamp: new Date().toISOString() });
@@ -450,6 +503,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     payload?: Record<string, unknown> | null;
     targetRole?: BroadcastTarget;
   }): Promise<number> => {
+    requirePermission('broadcast:write');
     const recipientCount = await dbBroadcastNotification(params);
     const audience =
       params.targetRole === 'passenger'
@@ -478,7 +532,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         activeTab,
         setActiveTab,
         currentRole,
-        setCurrentRole,
+        can,
         loading,
         error,
         refresh: loadAll,

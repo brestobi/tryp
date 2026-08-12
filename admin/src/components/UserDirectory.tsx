@@ -24,7 +24,12 @@ export const UserDirectory: React.FC = () => {
     deleteUser,
     promoteUserToAdmin,
     addNotification,
+    can,
   } = useAdmin();
+
+  const canWriteUsers = can('users:write');
+  const canManageAdmins = can('admin:manage');
+  const canAdjustFinance = can('finance:write');
 
   const [activeTab, setActiveTab] = useState<'drivers' | 'passengers'>('drivers');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -319,7 +324,7 @@ export const UserDirectory: React.FC = () => {
                     <td className="py-3 px-4 text-right space-x-1.5">
                     <button
                       onClick={() => handlePromote(drv.id)}
-                      disabled={pendingIds.has(drv.id)}
+                      disabled={!canManageAdmins || pendingIds.has(drv.id)}
                       title="Promote to Admin"
                       className="px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/40 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                     >
@@ -348,7 +353,8 @@ export const UserDirectory: React.FC = () => {
                           });
                         }}
                         title="Edit Driver Profile"
-                        className="px-2 py-1 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/40 text-[11px] font-semibold"
+                        disabled={!canWriteUsers}
+                        className="px-2 py-1 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/40 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Edit className="w-3.5 h-3.5 inline mr-1" />
                         Edit
@@ -363,13 +369,14 @@ export const UserDirectory: React.FC = () => {
                             currentBalance: drv.walletBalance,
                           });
                         }}
-                        className="px-2 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/40 text-[11px] font-semibold"
+                        disabled={!canAdjustFinance}
+                        className="px-2 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/40 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Legacy Credit
                       </button>
                       <button
                         onClick={() => handleToggleStatus(drv.id, true)}
-                        disabled={pendingIds.has(drv.id)}
+                        disabled={!canWriteUsers || pendingIds.has(drv.id)}
                         className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors border flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                           drv.driverStatus === 'approved'
                             ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
@@ -391,6 +398,7 @@ export const UserDirectory: React.FC = () => {
                           });
                         }}
                         title="Delete User Account"
+                        disabled={!canWriteUsers}
                         className="p-1 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -467,7 +475,7 @@ export const UserDirectory: React.FC = () => {
                     <td className="py-3 px-4 text-right space-x-1.5">
                       <button
                         onClick={() => handlePromote(pas.id)}
-                        disabled={pendingIds.has(pas.id)}
+                        disabled={!canManageAdmins || pendingIds.has(pas.id)}
                         title="Promote to Admin"
                         className="px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/40 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                       >
@@ -489,7 +497,8 @@ export const UserDirectory: React.FC = () => {
                           });
                         }}
                         title="Edit Passenger Profile"
-                        className="px-2 py-1 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/40 text-[11px] font-semibold"
+                        disabled={!canWriteUsers}
+                        className="px-2 py-1 rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/40 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Edit className="w-3.5 h-3.5 inline mr-1" />
                         Edit
@@ -504,13 +513,14 @@ export const UserDirectory: React.FC = () => {
                             currentBalance: pas.walletBalance,
                           });
                         }}
-                        className="px-2 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/40 text-[11px] font-semibold"
+                        disabled={!canAdjustFinance}
+                        className="px-2 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-600/40 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Legacy Credit
                       </button>
                       <button
                         onClick={() => handleToggleStatus(pas.id, false)}
-                        disabled={pendingIds.has(pas.id)}
+                        disabled={!canWriteUsers || pendingIds.has(pas.id)}
                         className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors border flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
                           pas.status === 'active'
                             ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
@@ -532,6 +542,7 @@ export const UserDirectory: React.FC = () => {
                           });
                         }}
                         title="Delete User Account"
+                        disabled={!canWriteUsers}
                         className="p-1 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
