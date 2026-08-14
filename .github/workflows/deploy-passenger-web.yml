@@ -76,6 +76,17 @@ jobs:
             fi
           done
 
+          # Never bundle server-side secrets. PAYSTACK_SECRET_KEY and similar
+          # values must stay out of the web artifact even if they exist as
+          # GitHub Actions secrets.
+          blocked_keys="PAYSTACK_SECRET_KEY"
+          for blocked in $blocked_keys; do
+            if [ -n "${!blocked:-}" ]; then
+              echo "Refusing to bundle forbidden secret: $blocked"
+              exit 1
+            fi
+          done
+
           printf '%s\n' \
             "SUPABASE_URL=$SUPABASE_URL" \
             "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" \
