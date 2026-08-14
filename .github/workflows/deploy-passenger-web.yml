@@ -1,0 +1,180 @@
+name: Deploy passenger web
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: passenger-web-production
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: 3.38.5
+
+jobs:
+  test-build-deploy:
+    name: Test, build, and deploy passenger web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Run static analysis
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Create production environment asset
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
+          FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_WEB_AUTH_DOMAIN: ${{ secrets.FIREBASE_WEB_AUTH_DOMAIN }}
+          FIREBASE_WEB_PROJECT_ID: ${{ secrets.FIREBASE_WEB_PROJECT_ID }}
+          FIREBASE_WEB_STORAGE_BUCKET: ${{ secrets.FIREBASE_WEB_STORAGE_BUCKET }}
+          FIREBASE_WEB_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_WEB_MESSAGING_SENDER_ID }}
+          FIREBASE_WEB_APP_ID: ${{ secrets.FIREBASE_WEB_APP_ID }}
+          FIREBASE_WEB_MEASUREMENT_ID: ${{ secrets.FIREBASE_WEB_MEASUREMENT_ID }}
+          FIREBASE_WEB_VAPID_KEY: ${{ secrets.FIREBASE_WEB_VAPID_KEY }}
+        run: |
+          set -eu
+          required_vars=(
+            SUPABASE_URL
+            SUPABASE_ANON_KEY
+            MAPBOX_ACCESS_TOKEN
+            FIREBASE_WEB_API_KEY
+            FIREBASE_WEB_AUTH_DOMAIN
+            FIREBASE_WEB_PROJECT_ID
+            FIREBASE_WEB_STORAGE_BUCKET
+            FIREBASE_WEB_MESSAGING_SENDER_ID
+            FIREBASE_WEB_APP_ID
+            FIREBASE_WEB_VAPID_KEY
+          )
+          for variable in "${required_vars[@]}"; do
+            if [ -z "${!variable:-}" ]; then
+              echo "Missing required GitHub Actions secret: $variable"
+              exit 1
+            fi
+          done
+
+          printf '%s\n' \
+            "SUPABASE_URL=$SUPABASE_URL" \
+            "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" \
+            "MAPBOX_ACCESS_TOKEN=$MAPBOX_ACCESS_TOKEN" \
+            "FIREBASE_WEB_API_KEY=$FIREBASE_WEB_API_KEY" \
+            "FIREBASE_WEB_AUTH_DOMAIN=$FIREBASE_WEB_AUTH_DOMAIN" \
+            "FIREBASE_WEB_PROJECT_ID=$FIREBASE_WEB_PROJECT_ID" \
+            "FIREBASE_WEB_STORAGE_BUCKET=$FIREBASE_WEB_STORAGE_BUCKET" \
+            "FIREBASE_WEB_MESSAGING_SENDER_ID=$FIREBASE_WEB_MESSAGING_SENDER_ID" \
+            "FIREBASE_WEB_APP_ID=$FIREBASE_WEB_APP_ID" \
+            "FIREBASE_WEB_MEASUREMENT_ID=$FIREBASE_WEB_MEASUREMENT_ID" \
+            "FIREBASE_WEB_VAPID_KEY=$FIREBASE_WEB_VAPID_KEY" \
+            "IS_PRODUCTION=true" > .env
+
+      - name: Build Flutter Web release
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
+          FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_WEB_AUTH_DOMAIN: ${{ secrets.FIREBASE_WEB_AUTH_DOMAIN }}
+          FIREBASE_WEB_PROJECT_ID: ${{ secrets.FIREBASE_WEB_PROJECT_ID }}
+          FIREBASE_WEB_STORAGE_BUCKET: ${{ secrets.FIREBASE_WEB_STORAGE_BUCKET }}
+          FIREBASE_WEB_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_WEB_MESSAGING_SENDER_ID }}
+          FIREBASE_WEB_APP_ID: ${{ secrets.FIREBASE_WEB_APP_ID }}
+          FIREBASE_WEB_MEASUREMENT_ID: ${{ secrets.FIREBASE_WEB_MEASUREMENT_ID }}
+          FIREBASE_WEB_VAPID_KEY: ${{ secrets.FIREBASE_WEB_VAPID_KEY }}
+        run: |
+          flutter build web --release --no-wasm-dry-run \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+            --dart-define=MAPBOX_ACCESS_TOKEN="$MAPBOX_ACCESS_TOKEN" \
+            --dart-define=FIREBASE_WEB_API_KEY="$FIREBASE_WEB_API_KEY" \
+            --dart-define=FIREBASE_WEB_AUTH_DOMAIN="$FIREBASE_WEB_AUTH_DOMAIN" \
+            --dart-define=FIREBASE_WEB_PROJECT_ID="$FIREBASE_WEB_PROJECT_ID" \
+            --dart-define=FIREBASE_WEB_STORAGE_BUCKET="$FIREBASE_WEB_STORAGE_BUCKET" \
+            --dart-define=FIREBASE_WEB_MESSAGING_SENDER_ID="$FIREBASE_WEB_MESSAGING_SENDER_ID" \
+            --dart-define=FIREBASE_WEB_APP_ID="$FIREBASE_WEB_APP_ID" \
+            --dart-define=FIREBASE_WEB_MEASUREMENT_ID="$FIREBASE_WEB_MEASUREMENT_ID" \
+            --dart-define=FIREBASE_WEB_VAPID_KEY="$FIREBASE_WEB_VAPID_KEY" \
+            --dart-define=IS_PRODUCTION=true
+
+      - name: Configure Firebase messaging service worker
+        env:
+          FIREBASE_WEB_API_KEY: ${{ secrets.FIREBASE_WEB_API_KEY }}
+          FIREBASE_WEB_AUTH_DOMAIN: ${{ secrets.FIREBASE_WEB_AUTH_DOMAIN }}
+          FIREBASE_WEB_PROJECT_ID: ${{ secrets.FIREBASE_WEB_PROJECT_ID }}
+          FIREBASE_WEB_STORAGE_BUCKET: ${{ secrets.FIREBASE_WEB_STORAGE_BUCKET }}
+          FIREBASE_WEB_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_WEB_MESSAGING_SENDER_ID }}
+          FIREBASE_WEB_APP_ID: ${{ secrets.FIREBASE_WEB_APP_ID }}
+          FIREBASE_WEB_MEASUREMENT_ID: ${{ secrets.FIREBASE_WEB_MEASUREMENT_ID }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path('build/web/firebase-messaging-sw.js')
+          content = path.read_text()
+          values = {
+              'FIREBASE_WEB_API_KEY': os.environ['FIREBASE_WEB_API_KEY'],
+              'FIREBASE_WEB_AUTH_DOMAIN': os.environ['FIREBASE_WEB_AUTH_DOMAIN'],
+              'FIREBASE_WEB_PROJECT_ID': os.environ['FIREBASE_WEB_PROJECT_ID'],
+              'FIREBASE_WEB_STORAGE_BUCKET': os.environ['FIREBASE_WEB_STORAGE_BUCKET'],
+              'FIREBASE_WEB_MESSAGING_SENDER_ID': os.environ['FIREBASE_WEB_MESSAGING_SENDER_ID'],
+              'FIREBASE_WEB_APP_ID': os.environ['FIREBASE_WEB_APP_ID'],
+              'FIREBASE_WEB_MEASUREMENT_ID': os.environ.get('FIREBASE_WEB_MEASUREMENT_ID', ''),
+          }
+          for placeholder, value in values.items():
+              content = content.replace(f"'{placeholder}'", json.dumps(value))
+          path.write_text(content)
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Link Vercel project
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          set -eu
+          test -n "$VERCEL_ORG_ID"
+          test -n "$VERCEL_PROJECT_ID"
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' \
+            "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
+      - name: Build Vercel deployment artifact
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy to Vercel production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

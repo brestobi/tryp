@@ -35,12 +35,23 @@ Create `.env` file in project root:
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
-GOOGLE_MAPS_API_KEY=your-google-maps-key
+MAPBOX_ACCESS_TOKEN=your-public-mapbox-token
 # Optional client-safe Paystack public key for legacy checkout flows.
 # Never place PAYSTACK_SECRET_KEY here.
 PAYSTACK_PUBLIC_KEY=pk_live_your-live-public-key
 IS_PRODUCTION=false
 IS_STAGING=false
+
+# Optional Firebase Web push configuration. Required for browser push.
+# Get these values from Firebase Console > Project settings > Your web app.
+FIREBASE_WEB_API_KEY=your-firebase-web-api-key
+FIREBASE_WEB_AUTH_DOMAIN=your-project.firebaseapp.com
+FIREBASE_WEB_PROJECT_ID=your-project-id
+FIREBASE_WEB_STORAGE_BUCKET=your-project.firebasestorage.app
+FIREBASE_WEB_MESSAGING_SENDER_ID=your-messaging-sender-id
+FIREBASE_WEB_APP_ID=your-firebase-web-app-id
+FIREBASE_WEB_MEASUREMENT_ID=G-your-measurement-id
+FIREBASE_WEB_VAPID_KEY=your-web-push-vapid-public-key
 
 # Paystack live Edge Function setup is documented in PAYSTACK_LIVE_SETUP.md.
 ```
@@ -57,6 +68,45 @@ flutter run --dart-define-from-file=.env
 # Specific device
 flutter run -d <device-id>
 ```
+
+## Production Passenger Web Deployment
+
+The passenger web app uses GitHub Actions to test and build Flutter Web, then
+uploads the prebuilt `build/web` artifact to Vercel. The deployment workflow is:
+
+```text
+Push to main → flutter test → flutter analyze → flutter build web → Vercel
+```
+
+Required GitHub Actions secrets:
+
+```text
+SUPABASE_URL
+SUPABASE_ANON_KEY
+MAPBOX_ACCESS_TOKEN
+FIREBASE_WEB_API_KEY
+FIREBASE_WEB_AUTH_DOMAIN
+FIREBASE_WEB_PROJECT_ID
+FIREBASE_WEB_STORAGE_BUCKET
+FIREBASE_WEB_MESSAGING_SENDER_ID
+FIREBASE_WEB_APP_ID
+FIREBASE_WEB_MEASUREMENT_ID
+FIREBASE_WEB_VAPID_KEY
+VERCEL_TOKEN
+VERCEL_ORG_ID
+VERCEL_PROJECT_ID
+```
+
+`SUPABASE_ANON_KEY`, Mapbox, and Firebase Web values are client-side values;
+never add a Supabase service-role key or Firebase server credential to these
+secrets or to the Flutter web build. Configure the production custom domain in
+Vercel, then add that domain to Supabase redirect URLs and Firebase authorized
+domains. Mapbox URL restrictions should include both production and staging
+domains.
+
+The Vercel project reads `vercel.json` for Flutter SPA fallback and cache
+headers. `index.html`, `flutter_bootstrap.js`, and the Firebase messaging
+service worker are not cached, while Flutter assets are cached immutably.
 
 ## Project Structure
 
@@ -255,8 +305,8 @@ Then visit `http://localhost:9101` in browser.
 ### Issue: "Supabase not initialized"
 **Solution:** Ensure `Supabase.initialize()` is called in `main()` before `runApp()`
 
-### Issue: "Google Maps doesn't show"
-**Solution:** Add API key to `android/app/build.gradle` and `ios/Runner/Info.plist`
+### Issue: "Mapbox doesn't show"
+**Solution:** Run with `--dart-define=MAPBOX_ACCESS_TOKEN=your-public-token` or add `MAPBOX_ACCESS_TOKEN` to the local `.env` file. Mapbox also requires iOS 14+ and Android API 21+.
 
 ### Issue: "Location permission denied"
 **Solution:** Check `AndroidManifest.xml` and `Info.plist` for required permissions
