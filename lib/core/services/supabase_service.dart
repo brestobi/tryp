@@ -57,7 +57,7 @@ class AuthService {
       _logger.i('Starting Google OAuth redirect flow (web)');
       await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: '${Uri.base.origin}/auth/callback',
+        redirectTo: '${Uri.base.origin}/',
       );
       return true;
     } catch (e) {
