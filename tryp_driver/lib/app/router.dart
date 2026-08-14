@@ -14,7 +14,9 @@ import 'package:tryp_driver/features/authentication/presentation/screens/email_v
 import 'package:tryp_driver/features/authentication/presentation/screens/forgot_password_screen.dart';
 import 'package:tryp_driver/features/authentication/presentation/screens/reset_password_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_home_screen.dart';
+import 'package:tryp_driver/features/driver/presentation/screens/driver_trip_history_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_profile_screen.dart';
+import 'package:tryp_driver/features/driver/presentation/screens/driver_account_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_wallet_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_onboarding_screen.dart';
 import 'package:tryp_driver/features/driver/presentation/screens/driver_documents_screen.dart';
@@ -91,8 +93,16 @@ GoRouter buildRouter(AppVariant variant, {DriverRouteGuard? routeGuard}) {
       builder: (context, state) => const DriverHomeScreenPage(),
     ),
     GoRoute(
+      path: Routes.driverTripHistory,
+      builder: (context, state) => const DriverTripHistoryScreen(),
+    ),
+    GoRoute(
       path: Routes.driverProfile,
       builder: (context, state) => const DriverProfileScreen(),
+    ),
+    GoRoute(
+      path: Routes.driverAccount,
+      builder: (context, state) => const DriverAccountScreen(),
     ),
     GoRoute(
       path: Routes.driverWallet,

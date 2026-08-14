@@ -206,7 +206,7 @@ class _DriverWalletScreenState extends ConsumerState<DriverWalletScreen> {
           : _unlocked
           ? _buildWallet()
           : _buildLockScreen(),
-      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 2),
+      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 3),
     );
   }
 

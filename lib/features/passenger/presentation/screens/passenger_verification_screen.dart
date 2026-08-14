@@ -235,7 +235,7 @@ class _StatusBanner extends StatelessWidget {
     final rejected = status == 'rejected';
     final pending = status == 'pending' || status == 'under_review';
     final color = approved
-        ? TRYPColors.success
+        ? TRYPColors.secondary
         : rejected
         ? TRYPColors.error
         : pending
@@ -335,14 +335,12 @@ class _CaptureCard extends StatelessWidget {
             width: 58,
             height: 58,
             decoration: BoxDecoration(
-              color: file == null
-                  ? TRYPColors.inputFill
-                  : TRYPColors.success.withValues(alpha: 0.12),
+              color: file == null ? TRYPColors.inputFill : TRYPColors.lightGrey,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
               file == null ? icon : Icons.check_rounded,
-              color: file == null ? TRYPColors.secondary : TRYPColors.success,
+              color: file == null ? TRYPColors.secondary : TRYPColors.primary,
               size: 28,
             ),
           ),

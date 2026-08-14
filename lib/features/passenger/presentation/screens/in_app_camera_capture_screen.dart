@@ -258,7 +258,7 @@ class _InAppCameraCaptureScreenState extends State<InAppCameraCaptureScreen>
                         onPressed: () => Navigator.of(context).pop(image),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: TRYPColors.primary,
-                          foregroundColor: TRYPColors.secondary,
+                          foregroundColor: TRYPColors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         child: const Text('Use photo'),
@@ -277,13 +277,18 @@ class _InAppCameraCaptureScreenState extends State<InAppCameraCaptureScreen>
                         ? const SizedBox(
                             height: 18,
                             width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                TRYPColors.white,
+                              ),
+                            ),
                           )
                         : const Icon(Icons.camera_alt_rounded),
                     label: Text(_isCapturing ? 'Capturing…' : 'Capture photo'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: TRYPColors.primary,
-                      foregroundColor: TRYPColors.secondary,
+                      foregroundColor: TRYPColors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),

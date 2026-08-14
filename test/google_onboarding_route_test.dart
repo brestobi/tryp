@@ -21,13 +21,27 @@ void main() {
       );
     });
 
-    test('completed passenger profile goes to passenger home', () {
+    test(
+      'completed passenger profile with service area goes to passenger home',
+      () {
+        expect(
+          passengerRouteForGoogleProfile({
+            'role': 'passenger',
+            'onboarding_completed': true,
+            'service_area': 'phalaborwa',
+          }),
+          Routes.passengerHome,
+        );
+      },
+    );
+
+    test('completed passenger without service area returns to setup', () {
       expect(
         passengerRouteForGoogleProfile({
           'role': 'passenger',
           'onboarding_completed': true,
         }),
-        Routes.passengerHome,
+        Routes.profileSetup,
       );
     });
 

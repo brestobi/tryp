@@ -117,13 +117,7 @@ class _LiveSelfieScreenState extends State<LiveSelfieScreen>
       await controller.dispose();
       _controller = null;
     } on CameraException {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Photo capture failed. Please try again.'),
-          ),
-        );
-      }
+      // Keep capture failures in the screen state instead of showing a bottom toast.
     } finally {
       if (mounted) setState(() => _isCapturing = false);
     }

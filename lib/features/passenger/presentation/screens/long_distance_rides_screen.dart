@@ -6,10 +6,9 @@ import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/payment_service.dart';
 import 'package:tryp/core/services/payment_checkout_result.dart';
 
-const _passengerHero = Color(0xFF18212F);
-const _passengerOrange = Color(0xFFFF7043);
-const _passengerBlue = Color(0xFF3B82F6);
-const _passengerMint = Color(0xFF0FAF8F);
+const _passengerHero = TRYPColors.secondary;
+const _passengerRed = TRYPColors.primary;
+const _passengerBorder = TRYPColors.accentSoft;
 
 class LongDistanceRidesScreen extends StatefulWidget {
   const LongDistanceRidesScreen({super.key});
@@ -351,7 +350,7 @@ class _LongDistanceRidesScreenState extends State<LongDistanceRidesScreen>
                         controller: _fromCtrl,
                         hint: 'Leaving from',
                         icon: Icons.trip_origin_rounded,
-                        iconColor: _passengerOrange,
+                        iconColor: _passengerRed,
                       ),
                       Padding(
                         padding: const EdgeInsets.only(left: 18),
@@ -368,7 +367,7 @@ class _LongDistanceRidesScreenState extends State<LongDistanceRidesScreen>
                         controller: _toCtrl,
                         hint: 'Going to',
                         icon: Icons.location_on_rounded,
-                        iconColor: _passengerMint,
+                        iconColor: TRYPColors.white,
                       ),
                       const SizedBox(height: 10),
                       SizedBox(
@@ -378,7 +377,7 @@ class _LongDistanceRidesScreenState extends State<LongDistanceRidesScreen>
                           icon: const Icon(Icons.search_rounded, size: 19),
                           label: const Text('Find available rides'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _passengerOrange,
+                            backgroundColor: _passengerRed,
                             foregroundColor: Colors.white,
                             minimumSize: const Size.fromHeight(46),
                             shape: RoundedRectangleBorder(
@@ -402,7 +401,7 @@ class _LongDistanceRidesScreenState extends State<LongDistanceRidesScreen>
                 : _trips.isEmpty
                 ? const _EmptyState()
                 : RefreshIndicator(
-                    color: _passengerOrange,
+                    color: _passengerRed,
                     onRefresh: _fetchTrips,
                     child: ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
@@ -476,10 +475,10 @@ class _PassengerLoadingState extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: _passengerOrange.withValues(alpha: 0.12),
+            color: _passengerRed.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
-          child: const CircularProgressIndicator(color: _passengerOrange),
+          child: const CircularProgressIndicator(color: _passengerRed),
         ),
         const SizedBox(height: 16),
         Text(
@@ -508,13 +507,13 @@ class _EmptyState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: _passengerBlue.withValues(alpha: 0.12),
+                color: _passengerHero.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.explore_rounded,
                 size: 52,
-                color: _passengerBlue,
+                color: _passengerHero,
               ),
             ),
             const SizedBox(height: 20),
@@ -571,7 +570,7 @@ class _TripListCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: TRYPColors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _passengerBlue.withValues(alpha: 0.12)),
+        border: Border.all(color: _passengerBorder),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -587,7 +586,7 @@ class _TripListCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [_passengerHero, Color(0xFF273B55)],
+                colors: [_passengerHero, TRYPColors.primaryAlt],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -606,7 +605,7 @@ class _TripListCard extends StatelessWidget {
                         const Icon(
                           Icons.trip_origin_rounded,
                           size: 14,
-                          color: _passengerOrange,
+                          color: _passengerRed,
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -628,7 +627,7 @@ class _TripListCard extends StatelessWidget {
                         const Icon(
                           Icons.location_on_rounded,
                           size: 14,
-                          color: _passengerMint,
+                          color: TRYPColors.white,
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -653,7 +652,7 @@ class _TripListCard extends StatelessWidget {
                     Text(
                       'R${price.toStringAsFixed(0)}',
                       style: const TextStyle(
-                        color: _passengerOrange,
+                        color: _passengerRed,
                         fontWeight: FontWeight.w900,
                         fontSize: 22,
                       ),
@@ -682,9 +681,7 @@ class _TripListCard extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: TRYPColors.primary.withValues(
-                        alpha: 0.2,
-                      ),
+                      backgroundColor: TRYPColors.inputFill,
                       child: Text(
                         driverName.isNotEmpty
                             ? driverName[0].toUpperCase()
@@ -723,7 +720,7 @@ class _TripListCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.amber.withValues(alpha: 0.15),
+                          color: TRYPColors.accentSoft,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
@@ -731,7 +728,7 @@ class _TripListCard extends StatelessWidget {
                             const Icon(
                               Icons.star_rounded,
                               size: 14,
-                              color: Colors.amber,
+                              color: TRYPColors.primary,
                             ),
                             const SizedBox(width: 3),
                             Text(
@@ -760,20 +757,20 @@ class _TripListCard extends StatelessWidget {
                       label: depAt != null
                           ? fmtDate(depAt)
                           : 'Date to be confirmed',
-                      color: _passengerBlue,
+                      color: _passengerHero,
                     ),
                     _Chip(
                       icon: Icons.access_time_rounded,
                       label: depAt != null
                           ? fmtTime(depAt)
                           : 'Time to be confirmed',
-                      color: _passengerMint,
+                      color: TRYPColors.white,
                     ),
                     _Chip(
                       icon: Icons.event_seat_rounded,
                       label: '$seatsLeft seat${seatsLeft == 1 ? '' : 's'} left',
                       highlight: seatsLeft > 0,
-                      color: _passengerOrange,
+                      color: _passengerRed,
                     ),
                   ],
                 ),
@@ -809,9 +806,7 @@ class _TripListCard extends StatelessWidget {
                       isFull ? 'Fully Booked' : 'Book Seat — Card Only',
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isFull
-                          ? TRYPColors.grey
-                          : _passengerOrange,
+                      backgroundColor: isFull ? TRYPColors.grey : _passengerRed,
                       foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(48),
                       shape: RoundedRectangleBorder(
@@ -842,7 +837,7 @@ class _Chip extends StatelessWidget {
     required this.icon,
     required this.label,
     this.highlight = false,
-    this.color = _passengerBlue,
+    this.color = _passengerHero,
   });
 
   @override
@@ -863,7 +858,7 @@ class _Chip extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: highlight ? color : color.withValues(alpha: 0.9),
+              color: TRYPColors.secondary,
             ),
           ),
         ],

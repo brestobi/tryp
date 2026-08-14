@@ -61,11 +61,7 @@ class _ResetPasswordScreenPageState
     } catch (error) {
       if (!mounted) return;
       _logger.e('Password update error: $error');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to update your password. Please try again.'),
-        ),
-      );
+      _logger.e('Unable to update your password.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

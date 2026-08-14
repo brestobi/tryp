@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// TRYP Driver Color Palette — green driver branding with neutral surfaces.
+/// TRYP Driver palette — dark green, black, and white with neutral shades.
 class TRYPColors {
   // Brand and action colors.
-  static const Color primary = Color(0xFF1B8F3A);
-  static const Color primaryAlt = Color(0xFF116B2A);
-  static const Color secondary = Color(0xFF111111);
-  static const Color accent = Color(0xFF1B8F3A);
-  static const Color accentSoft = Color(0xFFE5F5E9);
+  static const Color primary = Color(0xFF0B5D2A);
+  static const Color primaryAlt = Color(0xFF063D1B);
+  static const Color secondary = Color(0xFF0B0B0B);
+  static const Color accent = Color(0xFF0F6B32);
+  static const Color accentSoft = Color(0xFFE3F2E8);
 
   // Surfaces.
   static const Color surface = Color(0xFFF7F7F7);
@@ -25,10 +25,10 @@ class TRYPColors {
   static const Color secondaryLight = Color(0xFFBDBDBD);
   static const Color greyLight = Color(0xFFE5E5E5);
   static const Color lightGrey = Color(0xFFF1F1F1);
-  static const Color success = Color(0xFF1B8F3A);
-  static const Color liveTracking = Color(0xFF2563EB);
+  static const Color success = Color(0xFF0B5D2A);
+  static const Color liveTracking = Color(0xFF0F6B32);
   static const Color error = Color(0xFFD92D20);
-  static const Color warning = Color(0xFFB54708);
+  static const Color warning = Color(0xFF0F6B32);
 
   // Backward-compatible alias used by existing screens.
   static const Color amber = accent;
@@ -119,7 +119,7 @@ class TRYPTypography {
   );
 }
 
-/// TRYP Driver Theme — white canvas with green actions and highlights.
+/// TRYP Driver Theme — white canvas with dark-green actions and highlights.
 class TRYPTheme {
   static const ColorScheme lightColorScheme = ColorScheme.light(
     primary: TRYPColors.primary,

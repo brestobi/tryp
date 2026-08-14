@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
+import 'package:tryp_driver/core/constants/service_areas.dart';
 import 'package:tryp_driver/core/services/document_storage_service.dart';
 import 'package:tryp_driver/core/widgets/common_widgets.dart';
 import 'package:tryp_driver/features/driver/data/repositories/driver_onboarding_repository.dart';
@@ -34,6 +35,7 @@ class _DriverOnboardingScreenState
   late final TextEditingController _licenseNumberController;
   late final TextEditingController _operatingAreaController;
   String _selectedCity = DriverOnboardingConfig.operatingCities.first;
+  String? _selectedServiceArea;
   List<String> _operatingAreas = DriverOnboardingConfig.operatingCities;
 
   // Controllers for Step 2: Vehicle Details
@@ -128,6 +130,9 @@ class _DriverOnboardingScreenState
       _operatingAreaController.text = data.operatingCity;
       _operatingAreas = {..._operatingAreas, data.operatingCity}.toList();
     }
+    if (TRYPServiceAreas.byId(data.serviceArea) != null) {
+      _selectedServiceArea = data.serviceArea;
+    }
 
     if (data.vehicleMake.isNotEmpty) {
       _vehicleMakeController.text = data.vehicleMake;
@@ -209,6 +214,7 @@ class _DriverOnboardingScreenState
         idNumber: _idNumberController.text.trim(),
         licenseNumber: _licenseNumberController.text.trim(),
         operatingCity: _operatingAreaController.text.trim(),
+        serviceArea: _selectedServiceArea ?? '',
       );
     } else if (_currentStep == 1) {
       await notifier.updateVehicleDetails(
@@ -233,17 +239,7 @@ class _DriverOnboardingScreenState
     final state = ref.read(driverOnboardingStateProvider).value;
     if (state == null) return;
 
-    if (!state.areAllDocumentsUploaded) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            '⚠️ Please upload all required driver verification documents before submitting.',
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
+    if (!state.areAllDocumentsUploaded) return;
 
     setState(() => _isSubmitting = true);
     try {
@@ -257,23 +253,6 @@ class _DriverOnboardingScreenState
         setState(() {
           _currentStep = 4; // Move to Status Dashboard
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              '🎉 Application submitted successfully for admin review!',
-            ),
-            backgroundColor: TRYPColors.primary,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              '❌ Submission failed. Please check network connection and try again.',
-            ),
-            backgroundColor: TRYPColors.error,
-          ),
-        );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -397,22 +376,11 @@ class _DriverOnboardingScreenState
     setState(() => _uploadingDocKey = doc.key);
 
     try {
-      final success = await ref
+      await ref
           .read(driverOnboardingStateProvider.notifier)
           .uploadDocument(doc.key, image);
 
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? '${doc.title} uploaded successfully.'
-                : 'Failed to upload ${doc.title}. Please try again.',
-          ),
-          backgroundColor: success ? TRYPColors.primary : TRYPColors.error,
-        ),
-      );
     } finally {
       if (mounted) setState(() => _uploadingDocKey = null);
     }
@@ -701,6 +669,91 @@ class _DriverOnboardingScreenState
     }
   }
 
+  Widget _buildServiceAreaSelector() {
+    return FormField<String>(
+      initialValue: _selectedServiceArea,
+      validator: (_) => _selectedServiceArea == null
+          ? 'Select the service area where you will drive'
+          : null,
+      builder: (field) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('TRYP Service Area', style: TRYPTypography.labelLarge),
+            const SizedBox(height: 8),
+            Text(
+              'You will receive nearby requests only from passengers in this area.',
+              style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
+            ),
+            const SizedBox(height: 12),
+            ...TRYPServiceAreas.all.map((area) {
+              final selected = _selectedServiceArea == area.id;
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _selectedServiceArea = area.id);
+                  field.didChange(area.id);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? TRYPColors.primary.withValues(alpha: 0.08)
+                        : TRYPColors.lightGrey,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: selected ? TRYPColors.primary : TRYPColors.divider,
+                      width: selected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        selected
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: selected ? TRYPColors.primary : TRYPColors.grey,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              area.label,
+                              style: TRYPTypography.titleMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              area.description,
+                              style: TRYPTypography.bodySmall.copyWith(
+                                color: TRYPColors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            if (field.hasError)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, top: 2),
+                child: Text(
+                  field.errorText!,
+                  style: TextStyle(color: TRYPColors.error, fontSize: 12),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   // ── STEP 1: Personal & License Details ────────────────────────────
   Widget _buildPersonalStep() {
     return Column(
@@ -782,6 +835,9 @@ class _DriverOnboardingScreenState
               : null,
         ),
         const SizedBox(height: 16),
+
+        _buildServiceAreaSelector(),
+        const SizedBox(height: 20),
 
         _buildSearchableLookupField(
           label: 'Primary Operating City / Area',
@@ -1318,9 +1374,9 @@ class _DriverOnboardingScreenState
             statusLabel = 'Action Needed';
             statusIcon = Icons.error_rounded;
           } else if (status == 'pending' || hasFile) {
-            borderCol = Colors.orange.withValues(alpha: 0.4);
-            statusBg = Colors.orange.withValues(alpha: 0.12);
-            statusFg = Colors.orange;
+            borderCol = TRYPColors.primary.withValues(alpha: 0.4);
+            statusBg = TRYPColors.accentSoft;
+            statusFg = TRYPColors.primary;
             statusLabel = 'Under Review';
             statusIcon = Icons.hourglass_empty_rounded;
           }
@@ -1498,7 +1554,7 @@ class _DriverOnboardingScreenState
 
     Color badgeBg = isApproved
         ? TRYPColors.primary
-        : (isRejected ? TRYPColors.error : Colors.orange);
+        : (isRejected ? TRYPColors.error : TRYPColors.primary);
     String statusTitle = isApproved
         ? 'Verification Approved! 🎉'
         : (isRejected
@@ -1523,7 +1579,7 @@ class _DriverOnboardingScreenState
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
+                color: TRYPColors.secondary.withValues(alpha: 0.15),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -1545,7 +1601,7 @@ class _DriverOnboardingScreenState
                             : Icons.hourglass_empty_rounded),
                   color: isApproved
                       ? TRYPColors.primary
-                      : (isRejected ? Colors.red : TRYPColors.white),
+                      : (isRejected ? TRYPColors.error : TRYPColors.white),
                   size: 40,
                 ),
               ),

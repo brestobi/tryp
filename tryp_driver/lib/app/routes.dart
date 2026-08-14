@@ -29,7 +29,9 @@ class Routes {
 
   // Driver
   static const String driverHome = '/driver/home';
+  static const String driverTripHistory = '/driver/trip-history';
   static const String driverProfile = '/driver/profile';
+  static const String driverAccount = '/driver/account';
   static const String driverWallet = '/driver/wallet';
   static const String driverOnboarding = '/driver/onboarding';
   static const String driverDocuments = '/driver/documents';

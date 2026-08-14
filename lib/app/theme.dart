@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// TRYP Color Palette — simple monochrome ride-hailing UI.
+/// TRYP passenger palette — black, TRYP red, and white with neutral shades.
 class TRYPColors {
   // Brand and action colors.
-  static const Color primary = Color(0xFF000000);
-  static const Color primaryAlt = Color(0xFF1A1A1A);
-  static const Color secondary = Color(0xFF111111);
-  // Neutral emphasis color for legacy highlighted UI elements.
-  static const Color accent = Color(0xFF555555);
-  static const Color accentSoft = Color(0xFFF1F1F1);
+  static const Color primary = Color(0xFFE31B23);
+  static const Color primaryAlt = Color(0xFFB5121B);
+  static const Color secondary = Color(0xFF0B0B0B);
+  static const Color accent = Color(0xFFC9151E);
+  static const Color accentSoft = Color(0xFFFCEBED);
 
   // Surfaces.
   static const Color surface = Color(0xFFF7F7F7);
@@ -26,10 +25,11 @@ class TRYPColors {
   static const Color secondaryLight = Color(0xFFBDBDBD);
   static const Color greyLight = Color(0xFFE5E5E5);
   static const Color lightGrey = Color(0xFFF1F1F1);
-  static const Color success = Color(0xFF218739);
-  static const Color liveTracking = Color(0xFF2563EB);
-  static const Color error = Color(0xFFD92D20);
-  static const Color warning = Color(0xFFB54708);
+  // Status colors stay within the TRYP brand palette.
+  static const Color success = Color(0xFF0B0B0B);
+  static const Color liveTracking = Color(0xFFE31B23);
+  static const Color error = Color(0xFFC9151E);
+  static const Color warning = Color(0xFFC9151E);
 
   // Backward-compatible alias used by existing screens.
   static const Color amber = accent;
@@ -120,13 +120,15 @@ class TRYPTypography {
   );
 }
 
-/// TRYP Theme — white canvas, black actions, and quiet gray controls.
+/// TRYP Theme — white canvas, black actions, and red brand highlights.
 class TRYPTheme {
   static const ColorScheme lightColorScheme = ColorScheme.light(
     primary: TRYPColors.primary,
     onPrimary: TRYPColors.white,
     secondary: TRYPColors.secondary,
     onSecondary: TRYPColors.white,
+    tertiary: TRYPColors.primaryAlt,
+    onTertiary: TRYPColors.white,
     surface: TRYPColors.white,
     onSurface: TRYPColors.dark,
     error: TRYPColors.error,
@@ -138,6 +140,8 @@ class TRYPTheme {
     onPrimary: TRYPColors.dark,
     secondary: TRYPColors.white,
     onSecondary: TRYPColors.dark,
+    tertiary: TRYPColors.primaryAlt,
+    onTertiary: TRYPColors.white,
     surface: Color(0xFF111111),
     onSurface: TRYPColors.white,
     error: TRYPColors.error,

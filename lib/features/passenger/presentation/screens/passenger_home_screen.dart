@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
@@ -140,7 +140,9 @@ class PassengerHomeScreenPage extends ConsumerStatefulWidget {
 class _PassengerHomeScreenPageState
     extends ConsumerState<PassengerHomeScreenPage>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  GoogleMapController? _mapController;
+  MapboxMap? _mapController;
+  CircleAnnotationManager? _circleAnnotationManager;
+  PolylineAnnotationManager? _lineAnnotationManager;
   PassengerRideMode _mode = PassengerRideMode.idle;
 
   // Locations
@@ -175,9 +177,7 @@ class _PassengerHomeScreenPageState
   int _routeCalculationId = 0;
   bool _isLoading = false;
 
-  // Map markers & polylines
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
+  // Map annotations are managed by Mapbox after the map is created.
 
   // Dispatch radar animation
   late AnimationController _radarAnimController;
@@ -659,60 +659,89 @@ class _PassengerHomeScreenPageState
     }
   }
 
-  Future<void> _updateMapMarkers() async {
-    final markers = <Marker>{};
+  Point _mapPoint(double latitude, double longitude) =>
+      Point(coordinates: Position(longitude, latitude));
 
-    // Pickup Marker (Green)
-    markers.add(
-      Marker(
-        markerId: const MarkerId('pickup'),
-        position: LatLng(_pickup.lat, _pickup.lng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: InfoWindow(title: 'Pickup Location', snippet: _pickup.name),
+  Future<void> _clearMapRoute() async {
+    if (_lineAnnotationManager != null) {
+      await _lineAnnotationManager!.deleteAll();
+    }
+  }
+
+  Future<void> _drawMapRoute(List<MapCoordinate> points) async {
+    final map = _mapController;
+    if (map == null || points.isEmpty) return;
+
+    _lineAnnotationManager ??= await map.annotations
+        .createPolylineAnnotationManager();
+    await _lineAnnotationManager!.deleteAll();
+    await _lineAnnotationManager!.create(
+      PolylineAnnotationOptions(
+        geometry: LineString(
+          coordinates: points
+              .map((point) => Position(point.longitude, point.latitude))
+              .toList(),
+        ),
+        lineColor: TRYPColors.primary.toARGB32(),
+        lineWidth: 5,
+        lineJoin: LineJoin.ROUND,
       ),
     );
+  }
 
-    // Destination Marker if selected (Red)
+  Future<void> _updateMapMarkers() async {
+    final map = _mapController;
+    if (map == null) return;
+
+    _circleAnnotationManager ??= await map.annotations
+        .createCircleAnnotationManager();
+    await _circleAnnotationManager!.deleteAll();
+
+    final annotations = <CircleAnnotationOptions>[
+      CircleAnnotationOptions(
+        geometry: _mapPoint(_pickup.lat, _pickup.lng),
+        circleColor: TRYPColors.secondary.toARGB32(),
+        circleRadius: 8,
+        circleStrokeColor: Colors.white.toARGB32(),
+        circleStrokeWidth: 2,
+      ),
+    ];
+
     if (_destination != null) {
-      markers.add(
-        Marker(
-          markerId: const MarkerId('destination'),
-          position: LatLng(_destination!.lat, _destination!.lng),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          infoWindow: InfoWindow(
-            title: 'Destination',
-            snippet: _destination!.name,
-          ),
+      annotations.add(
+        CircleAnnotationOptions(
+          geometry: _mapPoint(_destination!.lat, _destination!.lng),
+          circleColor: Colors.red.toARGB32(),
+          circleRadius: 8,
+          circleStrokeColor: Colors.white.toARGB32(),
+          circleStrokeWidth: 2,
         ),
       );
     }
 
-    // Fetch and render real online drivers from database
+    // Fetch and render real online drivers from database.
     try {
       final tripService = ref.read(tripServiceProvider);
-      final onlineDrivers = await tripService.getOnlineDrivers();
+      final onlineDrivers = await tripService.getOnlineDrivers(
+        pickupLat: _pickup.lat,
+        pickupLng: _pickup.lng,
+      );
       for (final driver in onlineDrivers) {
         if (driver.currentLat != null && driver.currentLng != null) {
-          markers.add(
-            Marker(
-              markerId: MarkerId('driver_${driver.id}'),
-              position: LatLng(driver.currentLat!, driver.currentLng!),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueYellow,
-              ),
-              infoWindow: InfoWindow(
-                title: driver.fullName,
-                snippet: driver.vehicleDescription,
-              ),
+          annotations.add(
+            CircleAnnotationOptions(
+              geometry: _mapPoint(driver.currentLat!, driver.currentLng!),
+              circleColor: TRYPColors.white.toARGB32(),
+              circleRadius: 7,
+              circleStrokeColor: TRYPColors.secondary.toARGB32(),
+              circleStrokeWidth: 2,
             ),
           );
         }
       }
     } catch (_) {}
 
-    setState(() {
-      _markers = markers;
-    });
+    await _circleAnnotationManager!.createMulti(annotations);
   }
 
   Future<LocationItem?> _resolveLocationItem(LocationItem item) async {
@@ -721,8 +750,8 @@ class _PassengerHomeScreenPageState
     final selectionId = ++_locationSelectionId;
 
     // Curated villages and the current GPS location already contain a
-    // deliberate coordinate. OpenStreetMap results carry an encoded result ID
-    // and are resolved locally before map use.
+    // deliberate coordinate. Mapbox results carry an encoded result ID and
+    // are resolved locally before map use.
     if (item.placeId == null) return item;
 
     final details = await ref
@@ -733,7 +762,7 @@ class _PassengerHomeScreenPageState
     }
 
     return LocationItem(
-      // Keep the display text returned by Nominatim while using the exact
+      // Keep the display text returned by Mapbox while using the exact
       // coordinates resolved from its encoded result ID.
       name: item.name,
       address: item.address,
@@ -751,9 +780,9 @@ class _PassengerHomeScreenPageState
       _isRouteCalculationComplete = false;
       _calculatedDistanceKm = null;
       _calculatedDurationMins = null;
-      _polylines = {};
     });
 
+    await _clearMapRoute();
     final resolved = await _resolveLocationItem(item);
     if (!mounted || resolved == null) return;
 
@@ -763,7 +792,7 @@ class _PassengerHomeScreenPageState
       _isRouteCalculationComplete = false;
       _calculatedDistanceKm = null;
       _calculatedDurationMins = null;
-      _polylines = {};
+
       _mode = PassengerRideMode.tierSelection;
     });
 
@@ -779,7 +808,6 @@ class _PassengerHomeScreenPageState
           _isRouteCalculationComplete = false;
           _calculatedDistanceKm = null;
           _calculatedDurationMins = null;
-          _polylines = {};
         });
       }
       return;
@@ -803,46 +831,22 @@ class _PassengerHomeScreenPageState
       _calculatedDistanceKm = routeResult.distanceKm;
       _calculatedDurationMins = routeResult.durationMins;
       _isRouteCalculationComplete = true;
-
-      _polylines = {
-        Polyline(
-          polylineId: const PolylineId('ride_route'),
-          points: routeResult.polylinePoints,
-          color: TRYPColors.secondary,
-          width: 5,
-          jointType: JointType.round,
-          startCap: Cap.roundCap,
-          endCap: Cap.roundCap,
-        ),
-      };
     });
 
-    _updateMapMarkers();
+    await _drawMapRoute(routeResult.polylinePoints);
+    await _updateMapMarkers();
     _animateMapBounds();
   }
 
   void _animateMapBounds() {
     if (_mapController == null || _destination == null) return;
 
-    final swLat = _pickup.lat < _destination!.lat
-        ? _pickup.lat
-        : _destination!.lat;
-    final swLng = _pickup.lng < _destination!.lng
-        ? _pickup.lng
-        : _destination!.lng;
-    final neLat = _pickup.lat > _destination!.lat
-        ? _pickup.lat
-        : _destination!.lat;
-    final neLng = _pickup.lng > _destination!.lng
-        ? _pickup.lng
-        : _destination!.lng;
-
-    final bounds = LatLngBounds(
-      southwest: LatLng(swLat - 0.01, swLng - 0.01),
-      northeast: LatLng(neLat + 0.01, neLng + 0.01),
+    final centerLat = (_pickup.lat + _destination!.lat) / 2;
+    final centerLng = (_pickup.lng + _destination!.lng) / 2;
+    _mapController!.easeTo(
+      CameraOptions(center: _mapPoint(centerLat, centerLng), zoom: 11.5),
+      MapAnimationOptions(duration: 800),
     );
-
-    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 70));
   }
 
   Future<void> _requestRide() async {
@@ -1097,7 +1101,7 @@ class _PassengerHomeScreenPageState
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('$driverName accepted your ride request!'),
-                  backgroundColor: Colors.green,
+                  backgroundColor: TRYPColors.primary,
                 ),
               );
             }
@@ -1158,33 +1162,33 @@ class _PassengerHomeScreenPageState
 
     if (trimmed.length < 2) return;
 
-    // Nominatim's public service is rate-limited. Debounce typing and ignore
-    // late responses so old results cannot overwrite a newer query.
+    // Debounce typing and ignore late responses so old results cannot overwrite
+    // a newer Mapbox query.
     _searchDebounceTimer = Timer(const Duration(milliseconds: 700), () {
-      unawaited(_searchOpenStreetMap(trimmed, requestId));
+      unawaited(_searchMapbox(trimmed, requestId));
     });
   }
 
-  Future<void> _searchOpenStreetMap(String query, int requestId) async {
+  Future<void> _searchMapbox(String query, int requestId) async {
     final suggestions = await ref
         .read(locationServiceProvider)
-        .searchPlaces(query, near: LatLng(_pickup.lat, _pickup.lng));
+        .searchPlaces(query, near: MapCoordinate(_pickup.lat, _pickup.lng));
     if (!mounted || requestId != _searchRequestId) return;
 
-    final osmResults = suggestions.map((suggestion) {
+    final mapboxResults = suggestions.map((suggestion) {
       return LocationItem(
         name: suggestion.name,
         address: suggestion.address,
         lat: 0,
         lng: 0,
         icon: Icons.location_on_rounded,
-        city: 'OpenStreetMap',
+        city: 'Mapbox',
         placeId: suggestion.placeId,
       );
     }).toList();
 
     setState(() {
-      _searchResults = osmResults.isEmpty ? _searchResults : osmResults;
+      _searchResults = mapboxResults.isEmpty ? _searchResults : mapboxResults;
     });
   }
 
@@ -1210,7 +1214,7 @@ class _PassengerHomeScreenPageState
               tileColor: TRYPColors.inputFill,
               leading: const Icon(
                 Icons.payments_rounded,
-                color: Colors.green,
+                color: TRYPColors.primary,
                 size: 28,
               ),
               title: Text(
@@ -1279,20 +1283,21 @@ class _PassengerHomeScreenPageState
       body: Stack(
         children: [
           // ── 1. Full-screen Interactive Map ─────────────────────────────
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: LatLng(_pickup.lat, _pickup.lng),
+          MapWidget(
+            key: const ValueKey('passenger-home-map'),
+            viewport: CameraViewportState(
+              center: _mapPoint(_pickup.lat, _pickup.lng),
               zoom: 14,
             ),
-            markers: _markers,
-            polylines: _polylines,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            mapToolbarEnabled: false,
-            style: TRYPMapStyles.dark,
+            styleUri: TRYPMapStyles.light,
             onMapCreated: (controller) {
               _mapController = controller;
+              unawaited(
+                controller.location.updateSettings(
+                  LocationComponentSettings(enabled: true),
+                ),
+              );
+              unawaited(_updateMapMarkers());
             },
           ),
 
@@ -1308,11 +1313,15 @@ class _PassengerHomeScreenPageState
                 foregroundColor: TRYPColors.secondary,
                 onPressed: () {
                   if (_currentLocation != null && _mapController != null) {
-                    _mapController!.animateCamera(
-                      CameraUpdate.newLatLngZoom(
-                        LatLng(_currentLocation!.lat, _currentLocation!.lng),
-                        15,
+                    _mapController!.easeTo(
+                      CameraOptions(
+                        center: _mapPoint(
+                          _currentLocation!.lat,
+                          _currentLocation!.lng,
+                        ),
+                        zoom: 15,
                       ),
+                      MapAnimationOptions(duration: 500),
                     );
                   } else {
                     _fetchUserLocation();
@@ -1419,7 +1428,7 @@ class _PassengerHomeScreenPageState
                   const Icon(
                     Icons.location_on_rounded,
                     size: 14,
-                    color: Colors.green,
+                    color: TRYPColors.primary,
                   ),
                   const SizedBox(width: 4),
                   Expanded(
@@ -1563,7 +1572,7 @@ class _PassengerHomeScreenPageState
                       ),
                       child: const Icon(
                         Icons.search_rounded,
-                        color: TRYPColors.primary,
+                        color: TRYPColors.white,
                         size: 20,
                       ),
                     ),
@@ -1572,7 +1581,7 @@ class _PassengerHomeScreenPageState
                       child: Text(
                         'Where to?',
                         style: TRYPTypography.headingSmall.copyWith(
-                          color: TRYPColors.secondary.withValues(alpha: 0.6),
+                          color: TRYPColors.secondary,
                           fontSize: 18,
                         ),
                       ),
@@ -1623,7 +1632,7 @@ class _PassengerHomeScreenPageState
                 ),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF1C2B3A), Color(0xFF253547)],
+                    colors: [TRYPColors.secondary, TRYPColors.primaryAlt],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
@@ -1635,12 +1644,12 @@ class _PassengerHomeScreenPageState
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: TRYPColors.primary.withValues(alpha: 0.2),
+                        color: TRYPColors.white.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.directions_bus_rounded,
-                        color: TRYPColors.primary,
+                        color: TRYPColors.white,
                         size: 20,
                       ),
                     ),
@@ -1672,7 +1681,7 @@ class _PassengerHomeScreenPageState
                         vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: TRYPColors.primary.withValues(alpha: 0.15),
+                        color: TRYPColors.white.withValues(alpha: 0.16),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -1680,13 +1689,13 @@ class _PassengerHomeScreenPageState
                           const Icon(
                             Icons.event_seat_rounded,
                             size: 12,
-                            color: TRYPColors.primary,
+                            color: TRYPColors.white,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'Book',
                             style: TRYPTypography.labelSmall.copyWith(
-                              color: TRYPColors.primary,
+                              color: TRYPColors.white,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -1751,7 +1760,7 @@ class _PassengerHomeScreenPageState
                         width: 10,
                         height: 10,
                         decoration: const BoxDecoration(
-                          color: Colors.green,
+                          color: TRYPColors.primary,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -1864,7 +1873,6 @@ class _PassengerHomeScreenPageState
                         _isRouteCalculationComplete = false;
                         _calculatedDistanceKm = null;
                         _calculatedDurationMins = null;
-                        _polylines = {};
                       });
 
                       final resolved = await _resolveLocationItem(item);
@@ -1877,7 +1885,6 @@ class _PassengerHomeScreenPageState
                         _isRouteCalculationComplete = false;
                         _calculatedDistanceKm = null;
                         _calculatedDurationMins = null;
-                        _polylines = {};
                       });
                       if (!context.mounted) return;
                       FocusScope.of(context).unfocus();
@@ -2454,10 +2461,7 @@ class _PassengerHomeScreenPageState
                     ? NetworkImage(avatarUrl)
                     : null,
                 child: (avatarUrl == null || avatarUrl.isEmpty)
-                    ? const Icon(
-                        Icons.person_rounded,
-                        color: TRYPColors.secondary,
-                      )
+                    ? const Icon(Icons.person_rounded, color: TRYPColors.white)
                     : null,
               ),
               const SizedBox(width: 14),

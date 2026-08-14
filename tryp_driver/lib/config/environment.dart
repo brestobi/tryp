@@ -13,8 +13,8 @@ class Environment {
     defaultValue: 'your-anon-key',
   );
 
-  static const String _defaultGoogleMapsApiKey = String.fromEnvironment(
-    'GOOGLE_MAPS_API_KEY',
+  static const String _defaultMapboxAccessToken = String.fromEnvironment(
+    'MAPBOX_ACCESS_TOKEN',
     defaultValue: '',
   );
 
@@ -82,8 +82,8 @@ class Environment {
   static String get supabaseAnonKey =>
       _resolve('SUPABASE_ANON_KEY', _defaultSupabaseAnonKey);
 
-  static String get googleMapsApiKey =>
-      _resolve('GOOGLE_MAPS_API_KEY', _defaultGoogleMapsApiKey);
+  static String get mapboxAccessToken =>
+      _resolve('MAPBOX_ACCESS_TOKEN', _defaultMapboxAccessToken);
 
   static bool get isProduction =>
       _resolveBool('IS_PRODUCTION', _defaultIsProduction);

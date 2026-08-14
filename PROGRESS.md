@@ -72,7 +72,7 @@
 
 #### Tasks
 - [ ] Create passenger profile screen (view/edit)
-- [ ] Implement map integration (Google Maps)
+- [x] Implement map integration (Mapbox)
 - [ ] Set up location permissions handling
 - [ ] Build current location detection
 - [ ] Implement pickup location selector on map
@@ -190,7 +190,7 @@ This is the **FIRST MAJOR MILESTONE**. When this phase completes, the core ride 
 | Database | PostgreSQL | Latest |
 | Navigation | GoRouter | 13.2.5 |
 | State Mgmt | Riverpod | 2.6.1 |
-| Maps | Google Maps | 2.18.0 |
+| Maps | Mapbox Maps Flutter | 2.28.2 |
 | Location | Geolocator | 10.1.1 |
 | Auth | Supabase Auth | - |
 | Notifications | Firebase | Latest |

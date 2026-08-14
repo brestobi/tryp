@@ -108,7 +108,7 @@ class PushNotificationService {
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
-          color: const Color(0xFF1B8F3A),
+          color: const Color(0xFF0B5D2A),
           icon: 'tryp_notification',
         ),
         iOS: const DarwinNotificationDetails(

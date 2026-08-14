@@ -233,7 +233,7 @@ class _RideCompletionScreenState extends ConsumerState<RideCompletionScreen> {
                             star <= _rating
                                 ? Icons.star_rounded
                                 : Icons.star_outline_rounded,
-                            color: Colors.amber.shade700,
+                            color: TRYPColors.primary,
                             size: 38,
                           ),
                         );

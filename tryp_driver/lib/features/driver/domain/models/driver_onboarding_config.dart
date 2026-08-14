@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tryp_driver/core/constants/service_areas.dart';
 import 'package:tryp_driver/core/utils/validators.dart';
 
 /// Vehicle Category Configuration
@@ -262,6 +263,7 @@ class DriverOnboardingData {
   final String idNumber;
   final String licenseNumber;
   final String operatingCity;
+  final String serviceArea;
 
   final String vehicleMake;
   final String vehicleModel;
@@ -288,6 +290,7 @@ class DriverOnboardingData {
     this.idNumber = '',
     this.licenseNumber = '',
     this.operatingCity = 'Johannesburg',
+    this.serviceArea = '',
     this.vehicleMake = '',
     this.vehicleModel = '',
     this.vehicleYear = '',
@@ -343,6 +346,7 @@ class DriverOnboardingData {
       idNumber: (json['id_number'] as String?) ?? '',
       licenseNumber: (json['license_number'] as String?) ?? '',
       operatingCity: (json['operating_city'] as String?) ?? 'Johannesburg',
+      serviceArea: (json['service_area'] as String?) ?? '',
       vehicleMake: (json['vehicle_make'] as String?) ?? '',
       vehicleModel: (json['vehicle_model'] as String?) ?? '',
       vehicleYear: (json['vehicle_year'] as String?) ?? '',
@@ -371,6 +375,7 @@ class DriverOnboardingData {
       'id_number': idNumber,
       'license_number': licenseNumber,
       'operating_city': operatingCity,
+      'service_area': serviceArea,
       'vehicle_make': vehicleMake,
       'vehicle_model': vehicleModel,
       'vehicle_year': vehicleYear,
@@ -392,6 +397,7 @@ class DriverOnboardingData {
     String? idNumber,
     String? licenseNumber,
     String? operatingCity,
+    String? serviceArea,
     String? vehicleMake,
     String? vehicleModel,
     String? vehicleYear,
@@ -413,6 +419,7 @@ class DriverOnboardingData {
       idNumber: idNumber ?? this.idNumber,
       licenseNumber: licenseNumber ?? this.licenseNumber,
       operatingCity: operatingCity ?? this.operatingCity,
+      serviceArea: serviceArea ?? this.serviceArea,
       vehicleMake: vehicleMake ?? this.vehicleMake,
       vehicleModel: vehicleModel ?? this.vehicleModel,
       vehicleYear: vehicleYear ?? this.vehicleYear,
@@ -435,7 +442,8 @@ class DriverOnboardingData {
       Validators.isValidPhone(phone) &&
       Validators.isValidIdOrPassport(idNumber) &&
       Validators.isValidLicenseNumber(licenseNumber) &&
-      operatingCity.trim().isNotEmpty;
+      operatingCity.trim().isNotEmpty &&
+      TRYPServiceAreas.byId(serviceArea) != null;
 
   bool get isVehicleDetailsComplete =>
       vehicleMake.trim().length >= 2 &&

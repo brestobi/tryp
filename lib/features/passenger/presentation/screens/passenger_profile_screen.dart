@@ -239,7 +239,7 @@ class _PassengerProfileScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile picture updated successfully! 📸'),
-            backgroundColor: Colors.green,
+            backgroundColor: TRYPColors.primary,
           ),
         );
       }
@@ -299,7 +299,7 @@ class _PassengerProfileScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile updated successfully'),
-            backgroundColor: Colors.green,
+            backgroundColor: TRYPColors.primary,
           ),
         );
       }
@@ -388,7 +388,7 @@ class _PassengerProfileScreenState
                                         : null,
                                     child: _isUploadingAvatar
                                         ? const CircularProgressIndicator(
-                                            color: TRYPColors.primary,
+                                            color: TRYPColors.white,
                                           )
                                         : ((_avatarUrl == null ||
                                                   !_avatarUrl!.startsWith(
@@ -397,7 +397,7 @@ class _PassengerProfileScreenState
                                               ? const Icon(
                                                   Icons.person_rounded,
                                                   size: 54,
-                                                  color: TRYPColors.primary,
+                                                  color: TRYPColors.white,
                                                 )
                                               : null),
                                   ),
@@ -446,7 +446,7 @@ class _PassengerProfileScreenState
                                         vertical: 3,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.green.shade50,
+                                        color: TRYPColors.accentSoft,
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Row(
@@ -455,13 +455,13 @@ class _PassengerProfileScreenState
                                           Icon(
                                             Icons.verified_rounded,
                                             size: 16,
-                                            color: Colors.green.shade700,
+                                            color: TRYPColors.primaryAlt,
                                           ),
                                           const SizedBox(width: 3),
                                           Text(
                                             'Verified',
                                             style: TextStyle(
-                                              color: Colors.green.shade700,
+                                              color: TRYPColors.primaryAlt,
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
                                             ),
@@ -642,7 +642,7 @@ class _PassengerProfileScreenState
                               ? Icons.verified_rounded
                               : Icons.verified_user_rounded,
                           color: _isVerified
-                              ? Colors.green.shade700
+                              ? TRYPColors.primaryAlt
                               : TRYPColors.primary,
                         ),
                         title: Text(

@@ -20,6 +20,7 @@ import 'package:tryp/features/passenger/presentation/screens/ride_completion_scr
 import 'package:tryp/features/notifications/presentation/screens/notifications_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/long_distance_rides_screen.dart';
 import 'package:tryp/app/routes.dart';
+import 'package:tryp/core/constants/service_areas.dart';
 import 'package:tryp/core/services/trip_service.dart';
 
 export 'routes.dart';
@@ -143,11 +144,19 @@ Future<String?> expectedHomeForCurrentVariant() async {
 
   final data = await client
       .from('profiles')
-      .select('role, passenger_verification_status')
+      .select(
+        'role, passenger_verification_status, onboarding_completed, service_area',
+      )
       .eq('id', user.id)
       .maybeSingle();
   final role = data?['role'] as String?;
-  return role == 'passenger' ? Routes.passengerHome : null;
+  if (role != 'passenger') return null;
+
+  final hasServiceArea =
+      TRYPServiceAreas.byId(data?['service_area'] as String?) != null;
+  return data?['onboarding_completed'] == true && hasServiceArea
+      ? Routes.passengerHome
+      : Routes.profileSetup;
 }
 
 /// Decides where a Google-authenticated passenger should continue.
@@ -160,7 +169,9 @@ String? passengerRouteForGoogleProfile(Map<String, dynamic>? profile) {
   if (profile == null || profile['role'] != 'passenger') return null;
 
   final onboardingCompleted = profile['onboarding_completed'];
-  return onboardingCompleted == true
+  final hasServiceArea =
+      TRYPServiceAreas.byId(profile['service_area'] as String?) != null;
+  return onboardingCompleted == true && hasServiceArea
       ? Routes.passengerHome
       : Routes.profileSetup;
 }
@@ -177,7 +188,7 @@ Future<String?> googlePostAuthRoute() async {
   for (var attempt = 0; attempt < 5; attempt++) {
     profile = await client
         .from('profiles')
-        .select('role, onboarding_completed')
+        .select('role, onboarding_completed, service_area')
         .eq('id', user.id)
         .maybeSingle();
     if (profile != null) break;

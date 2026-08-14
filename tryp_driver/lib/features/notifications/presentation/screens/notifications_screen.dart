@@ -82,11 +82,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               onSelected: (value) {
                 if (value == 'mark_read') {
                   ref.read(notificationsProvider.notifier).markAllAsRead();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('All notifications marked as read'),
-                    ),
-                  );
                 } else if (value == 'clear_all') {
                   ref.read(notificationsProvider.notifier).clearAll();
                 }
@@ -261,7 +256,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 3),
+      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 4),
     );
   }
 }
@@ -301,8 +296,8 @@ class _NotificationCard extends StatelessWidget {
         icon = Icons.directions_car_rounded;
         break;
       case NotificationType.promo:
-        iconBg = Colors.purple.withValues(alpha: 0.15);
-        iconColor = Colors.purple;
+        iconBg = TRYPColors.accentSoft;
+        iconColor = TRYPColors.primary;
         icon = Icons.local_offer_rounded;
         break;
       case NotificationType.payment:
@@ -311,8 +306,8 @@ class _NotificationCard extends StatelessWidget {
         icon = Icons.receipt_long_rounded;
         break;
       case NotificationType.system:
-        iconBg = Colors.orange.withValues(alpha: 0.15);
-        iconColor = Colors.orange;
+        iconBg = TRYPColors.lightGrey;
+        iconColor = TRYPColors.secondary;
         icon = Icons.shield_rounded;
         break;
     }
@@ -325,10 +320,13 @@ class _NotificationCard extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: 0.15),
+          color: TRYPColors.error.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(18),
         ),
-        child: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: TRYPColors.error,
+        ),
       ),
       child: GestureDetector(
         onTap: onTap,

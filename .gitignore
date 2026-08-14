@@ -49,3 +49,5 @@ app.*.map.json
 *.hprof
 client_secret_*.json
 tryp_driver/android/build/
+.vercel
+.env*

@@ -591,6 +591,29 @@ class TripService {
     }
   }
 
+  /// Fetch completed and cancelled rides for the current driver.
+  Future<List<TripModel>> getDriverTripHistory() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return [];
+
+    try {
+      final response = await _supabase
+          .from('rides')
+          .select('*, passenger:passenger_id(*), driver:driver_id(*)')
+          .eq('driver_id', user.id)
+          .inFilter('status', ['completed', 'cancelled'])
+          .order('requested_at', ascending: false);
+
+      final rides = response as List<dynamic>;
+      return rides
+          .map((item) => TripModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('Error fetching driver trip history: $e');
+      return [];
+    }
+  }
+
   /// Fetch a ride by ID, including participant/profile data when permitted.
   ///
   /// Completed rides may no longer permit reading the counterparty profile

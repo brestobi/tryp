@@ -20,6 +20,11 @@ class DriverBottomNavBar extends StatelessWidget {
       route: Routes.driverHome,
     ),
     _DriverNavItemData(
+      icon: Icons.history_rounded,
+      label: 'History',
+      route: Routes.driverTripHistory,
+    ),
+    _DriverNavItemData(
       icon: Icons.directions_bus_rounded,
       label: 'Long Dist.',
       route: Routes.driverLongDistance,
@@ -36,8 +41,8 @@ class DriverBottomNavBar extends StatelessWidget {
     ),
     _DriverNavItemData(
       icon: Icons.person_rounded,
-      label: 'Profile',
-      route: Routes.driverProfile,
+      label: 'Account',
+      route: Routes.driverAccount,
     ),
   ];
 

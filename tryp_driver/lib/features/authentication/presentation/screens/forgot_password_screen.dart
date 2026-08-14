@@ -48,13 +48,7 @@ class _ForgotPasswordScreenPageState
     } catch (error) {
       if (!mounted) return;
       _logger.e('Password reset error: $error');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Failed to send reset email. Please check the address and try again.',
-          ),
-        ),
-      );
+      _logger.e('Failed to send reset email.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

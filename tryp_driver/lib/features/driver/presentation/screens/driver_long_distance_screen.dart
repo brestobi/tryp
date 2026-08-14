@@ -5,11 +5,11 @@ import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/services/supabase_service.dart';
 import 'package:tryp_driver/core/widgets/driver_bottom_nav_bar.dart';
 
-const _driverNavy = Color(0xFF14261D);
-const _driverGreen = Color(0xFF1B8F3A);
-const _driverSky = Color(0xFF2F80ED);
-const _driverGold = Color(0xFFF2A93B);
-const _driverLilac = Color(0xFF7656D6);
+const _driverNavy = TRYPColors.secondary;
+const _driverGreen = TRYPColors.primary;
+const _driverSky = TRYPColors.primaryAlt;
+const _driverGold = TRYPColors.primary;
+const _driverLilac = TRYPColors.white;
 
 class DriverLongDistanceScreen extends ConsumerStatefulWidget {
   const DriverLongDistanceScreen({super.key});
@@ -143,15 +143,7 @@ class _DriverLongDistanceScreenState
 
   Future<void> _submitTrip() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_departureDate == null || _departureTime == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select departure date and time.'),
-          backgroundColor: TRYPColors.error,
-        ),
-      );
-      return;
-    }
+    if (_departureDate == null || _departureTime == null) return;
 
     setState(() => _isSubmitting = true);
     try {
@@ -190,22 +182,9 @@ class _DriverLongDistanceScreenState
         _departureDate = null;
         _departureTime = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Long-distance trip listed successfully.'),
-          backgroundColor: TRYPColors.primary,
-        ),
-      );
       await _fetchMyTrips();
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error posting trip: $error'),
-            backgroundColor: TRYPColors.error,
-          ),
-        );
-      }
+      debugPrint('Error posting trip: $error');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -245,14 +224,7 @@ class _DriverLongDistanceScreenState
           .eq('id', tripId);
       await _fetchMyTrips();
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error cancelling trip: $error'),
-            backgroundColor: TRYPColors.error,
-          ),
-        );
-      }
+      debugPrint('Error cancelling trip: $error');
     }
   }
 
@@ -330,7 +302,7 @@ class _DriverLongDistanceScreenState
           ],
         ),
       ),
-      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 1),
+      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 2),
     );
   }
 
@@ -338,7 +310,7 @@ class _DriverLongDistanceScreenState
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
       gradient: const LinearGradient(
-        colors: [_driverNavy, Color(0xFF24583A)],
+        colors: [_driverNavy, TRYPColors.primaryAlt],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
@@ -476,7 +448,7 @@ class _DriverLongDistanceScreenState
       children: [
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFEAF7EF),
+            color: TRYPColors.accentSoft,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: _driverGreen.withValues(alpha: 0.18)),
           ),
@@ -574,7 +546,7 @@ class _DriverLongDistanceScreenState
                   'Price per Seat (R)',
                   'e.g. 350',
                   Icons.payments_rounded,
-                  Colors.green,
+                  TRYPColors.primary,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -816,8 +788,8 @@ class _TripCard extends StatelessWidget {
     final statusColor = status == 'active'
         ? TRYPColors.primary
         : status == 'completed'
-        ? Colors.green
-        : Colors.red;
+        ? TRYPColors.primary
+        : TRYPColors.error;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -976,7 +948,7 @@ class _BookingCard extends StatelessWidget {
     final amount = (booking['amount_paid'] as num?)?.toDouble() ?? 0;
     final isPaid = paymentStatus == 'paid';
     final statusColor = status == 'confirmed' && isPaid
-        ? Colors.green
+        ? TRYPColors.primary
         : paymentStatus == 'failed'
         ? TRYPColors.error
         : TRYPColors.warning;

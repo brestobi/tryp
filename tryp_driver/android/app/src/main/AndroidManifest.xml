@@ -42,13 +42,6 @@
                 <data android:scheme="io.tryp.driver" android:host="auth-callback" />
             </intent-filter>
         </activity>
-        <!-- Google Maps API key is supplied at build time via the
-             GOOGLE_MAPS_API_KEY environment variable or Gradle property
-             -PgoogleMapsApiKey=.... -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${GOOGLE_MAPS_API_KEY}" />
-
         <!-- FCM default notification icon and green accent. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"

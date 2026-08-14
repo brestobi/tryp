@@ -2,8 +2,16 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:dio/dio.dart';
+import 'package:tryp_driver/config/environment.dart';
+
+/// Provider-neutral geographic coordinate in latitude/longitude order.
+class MapCoordinate {
+  final double latitude;
+  final double longitude;
+
+  const MapCoordinate(this.latitude, this.longitude);
+}
 
 class UserLocation {
   final double latitude;
@@ -43,7 +51,7 @@ class PlaceSuggestion {
 class RouteResult {
   final double distanceKm;
   final int durationMins;
-  final List<LatLng> polylinePoints;
+  final List<MapCoordinate> polylinePoints;
 
   const RouteResult({
     required this.distanceKm,
@@ -53,52 +61,78 @@ class RouteResult {
 }
 
 class LocationService {
-  static const String _nominatimSearchUrl =
-      'https://nominatim.openstreetmap.org/search';
-  static const String _nominatimReverseUrl =
-      'https://nominatim.openstreetmap.org/reverse';
+  static const String _mapboxGeocodingUrl =
+      'https://api.mapbox.com/geocoding/v5/mapbox.places';
+  static const String _mapboxDirectionsUrl =
+      'https://api.mapbox.com/directions/v5/mapbox/driving';
 
   final Dio _dio;
 
   LocationService({Dio? dio}) : _dio = dio ?? Dio();
 
-  Options get _nominatimOptions => Options(
-    headers: const {'User-Agent': 'TRYPApp/1.0', 'Accept-Language': 'en'},
+  String get _mapboxAccessToken => Environment.mapboxAccessToken;
+
+  Options get _mapboxOptions => Options(
+    headers: const {'Accept-Language': 'en'},
   );
 
-  /// Parse Nominatim search results into the app's suggestion model.
-  ///
-  /// Nominatim returns coordinates with each search result, so the values are
-  /// encoded in the legacy placeId field. This lets existing selection flows
-  /// resolve a result without making a second provider request.
-  static List<PlaceSuggestion> parseNominatimSearchResults(dynamic data) {
-    if (data is! List) return [];
-
-    return data
-        .whereType<Map>()
-        .map((item) {
-          final lat = item['lat']?.toString();
-          final lon = item['lon']?.toString();
-          final displayName = item['display_name']?.toString().trim() ?? '';
-          final rawName = item['name']?.toString().trim() ?? '';
-          final name = rawName.isNotEmpty
-              ? rawName
-              : displayName.split(',').first.trim();
-
-          return PlaceSuggestion(
-            placeId: lat != null && lon != null ? 'osm:$lat,$lon' : '',
-            name: name.isNotEmpty ? name : 'Selected place',
-            address: displayName.isNotEmpty ? displayName : name,
-          );
-        })
-        .where((suggestion) => suggestion.placeId.isNotEmpty)
-        .toList();
+  static List<Map<String, dynamic>> _mapboxFeatures(dynamic data) {
+    if (data is! Map) return [];
+    final features = data['features'];
+    if (features is! List) return [];
+    return features.whereType<Map>().map(
+      (feature) => Map<String, dynamic>.from(feature),
+    ).toList();
   }
 
-  /// Parse a Nominatim result's encoded coordinates into a location.
-  static UserLocation? parseNominatimPlaceId(String placeId) {
-    if (!placeId.startsWith('osm:')) return null;
-    final coordinates = placeId.substring(4).split(',');
+  static List<double>? _featureCenter(Map<String, dynamic> feature) {
+    final rawCenter = feature['center'];
+    final rawGeometry = feature['geometry'];
+    final rawCoordinates = rawCenter ??
+        (rawGeometry is Map ? rawGeometry['coordinates'] : null);
+    if (rawCoordinates is! List || rawCoordinates.length < 2) return null;
+
+    final longitude = (rawCoordinates[0] as num?)?.toDouble();
+    final latitude = (rawCoordinates[1] as num?)?.toDouble();
+    if (latitude == null || longitude == null) return null;
+    return [latitude, longitude];
+  }
+
+  /// Parse Mapbox Geocoding search results into the app's suggestion model.
+  /// Coordinates are embedded in the provider ID so selecting a suggestion
+  /// does not require a second request.
+  static List<PlaceSuggestion> parseMapboxSearchResults(dynamic data) {
+    final suggestions = <PlaceSuggestion>[];
+    for (final feature in _mapboxFeatures(data)) {
+      final center = _featureCenter(feature);
+      final id = feature['id']?.toString().trim() ?? '';
+      if (center == null || id.isEmpty) continue;
+
+      final placeName = feature['place_name']?.toString().trim() ?? '';
+      final text = feature['text']?.toString().trim() ?? '';
+      final name = text.isNotEmpty
+          ? text
+          : placeName.split(',').first.trim();
+      if (name.isEmpty) continue;
+
+      suggestions.add(
+        PlaceSuggestion(
+          placeId: 'mapbox:$id|${center[0]},${center[1]}',
+          name: name,
+          address: placeName.isNotEmpty ? placeName : name,
+        ),
+      );
+    }
+    return suggestions;
+  }
+
+  /// Parse a Mapbox result's encoded coordinates into a location.
+  static UserLocation? parseMapboxPlaceId(String placeId) {
+    if (!placeId.startsWith('mapbox:')) return null;
+    final separator = placeId.lastIndexOf('|');
+    if (separator == -1 || separator == placeId.length - 1) return null;
+
+    final coordinates = placeId.substring(separator + 1).split(',');
     if (coordinates.length != 2) return null;
 
     final latitude = double.tryParse(coordinates[0]);
@@ -108,41 +142,35 @@ class LocationService {
     return UserLocation(
       latitude: latitude,
       longitude: longitude,
-      address: 'Selected OpenStreetMap location',
+      address: 'Selected Mapbox location',
       shortName: 'Selected place',
       placeId: placeId,
     );
   }
 
-  static UserLocation? parseNominatimReverseResult(
+  static UserLocation? parseMapboxReverseResult(
     dynamic data, {
     required double latitude,
     required double longitude,
   }) {
-    if (data is! Map) return null;
-    final displayName = data['display_name']?.toString().trim() ?? '';
-    if (displayName.isEmpty) return null;
+    final features = _mapboxFeatures(data);
+    if (features.isEmpty) return null;
 
-    final address = data['address'];
-    final addressMap = address is Map ? address : const <String, dynamic>{};
-    final rawName = data['name']?.toString().trim() ?? '';
-    final fallbackName =
-        addressMap['suburb'] ??
-        addressMap['town'] ??
-        addressMap['city'] ??
-        addressMap['municipality'] ??
-        'Your Location';
-    final shortName = rawName.isNotEmpty ? rawName : fallbackName.toString();
+    final feature = features.first;
+    final address = feature['place_name']?.toString().trim() ?? '';
+    if (address.isEmpty) return null;
 
+    final text = feature['text']?.toString().trim() ?? '';
+    final shortName = text.isNotEmpty ? text : 'Your Location';
     return UserLocation(
       latitude: latitude,
       longitude: longitude,
-      address: displayName,
+      address: address,
       shortName: shortName,
     );
   }
 
-  /// Request permission and get the device's current GPS position
+  /// Request permission and get the device's current GPS position.
   Future<Position?> getCurrentPosition() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -177,30 +205,31 @@ class LocationService {
     }
   }
 
-  /// Reverse geocode a lat/lng to a human-readable address via OpenStreetMap.
+  /// Reverse geocode a lat/lng to a human-readable address with Mapbox.
   Future<UserLocation> reverseGeocode(double lat, double lng) async {
-    try {
-      final response = await _dio.get(
-        _nominatimReverseUrl,
-        queryParameters: {
-          'lat': lat,
-          'lon': lng,
-          'format': 'jsonv2',
-          'addressdetails': 1,
-        },
-        options: _nominatimOptions,
-      );
-      final data = response.data is String
-          ? jsonDecode(response.data as String)
-          : response.data;
-      final location = parseNominatimReverseResult(
-        data,
-        latitude: lat,
-        longitude: lng,
-      );
-      if (location != null) return location;
-    } catch (e) {
-      debugPrint('❌ OpenStreetMap reverse geocode error: $e');
+    if (_mapboxAccessToken.isNotEmpty) {
+      try {
+        final response = await _dio.get(
+          '$_mapboxGeocodingUrl/$lng,$lat.json',
+          queryParameters: {
+            'access_token': _mapboxAccessToken,
+            'language': 'en',
+            'limit': 1,
+          },
+          options: _mapboxOptions,
+        );
+        final data = response.data is String
+            ? jsonDecode(response.data as String)
+            : response.data;
+        final location = parseMapboxReverseResult(
+          data,
+          latitude: lat,
+          longitude: lng,
+        );
+        if (location != null) return location;
+      } catch (e) {
+        debugPrint('❌ Mapbox reverse geocode error: $e');
+      }
     }
 
     return UserLocation(
@@ -211,51 +240,51 @@ class LocationService {
     );
   }
 
-  /// Full pipeline: get GPS → reverse geocode → return UserLocation
+  /// Full pipeline: get GPS → Mapbox reverse geocode → return UserLocation.
   Future<UserLocation> getUserLocationWithAddress() async {
     final position = await getCurrentPosition();
     if (position == null) return UserLocation.fallback();
     return reverseGeocode(position.latitude, position.longitude);
   }
 
-  /// Search OpenStreetMap Nominatim for driver-facing location suggestions.
-  /// Coordinates are returned with every result, so no API key is required.
+  /// Search Mapbox Geocoding for driver-facing autocomplete suggestions.
   Future<List<PlaceSuggestion>> searchPlaces(
     String query, {
-    LatLng? near,
+    MapCoordinate? near,
   }) async {
     final trimmedQuery = query.trim();
-    if (trimmedQuery.length < 2) return [];
+    if (trimmedQuery.length < 2 || _mapboxAccessToken.isEmpty) return [];
 
     try {
       final response = await _dio.get(
-        _nominatimSearchUrl,
+        '$_mapboxGeocodingUrl/${Uri.encodeComponent(trimmedQuery)}.json',
         queryParameters: {
-          'q': trimmedQuery,
-          'format': 'jsonv2',
-          'addressdetails': 1,
+          'access_token': _mapboxAccessToken,
+          'autocomplete': 'true',
+          'language': 'en',
           'limit': 8,
-          'countrycodes': 'za',
-          'accept-language': 'en',
+          'country': 'za',
+          'types': 'address,poi,place,locality,neighborhood',
+          if (near != null) 'proximity': '${near.longitude},${near.latitude}',
         },
-        options: _nominatimOptions,
+        options: _mapboxOptions,
       );
       final data = response.data is String
           ? jsonDecode(response.data as String)
           : response.data;
-      return parseNominatimSearchResults(data);
+      return parseMapboxSearchResults(data);
     } catch (e) {
-      debugPrint('❌ OpenStreetMap autocomplete error: $e');
+      debugPrint('❌ Mapbox autocomplete error: $e');
       return [];
     }
   }
 
-  /// Resolve a selected OpenStreetMap result without a second network call.
+  /// Resolve a selected Mapbox result without a second network call.
   Future<UserLocation?> getPlaceDetails(String placeId) async {
-    return parseNominatimPlaceId(placeId);
+    return parseMapboxPlaceId(placeId);
   }
 
-  /// Backward-compatible helper that returns resolved OpenStreetMap locations.
+  /// Return resolved Mapbox locations for a search query.
   Future<List<UserLocation>> searchLocations(String query) async {
     final suggestions = await searchPlaces(query);
     final locations = <UserLocation>[];
@@ -266,56 +295,71 @@ class LocationService {
     return locations;
   }
 
-  /// Get real road driving route calculation via OSRM API
+  /// Get a real road driving route from Mapbox Directions.
   Future<RouteResult> getRealRoute({
     required double startLat,
     required double startLng,
     required double endLat,
     required double endLng,
   }) async {
-    try {
-      final response = await _dio.get(
-        'http://router.project-osrm.org/route/v1/driving/$startLng,$startLat;$endLng,$endLat',
-        queryParameters: {'overview': 'full', 'geometries': 'geojson'},
-        options: Options(receiveTimeout: const Duration(seconds: 8)),
-      );
+    if (_mapboxAccessToken.isNotEmpty) {
+      try {
+        final response = await _dio.get(
+          '$_mapboxDirectionsUrl/$startLng,$startLat;$endLng,$endLat',
+          queryParameters: {
+            'access_token': _mapboxAccessToken,
+            'overview': 'full',
+            'geometries': 'geojson',
+            'steps': 'false',
+          },
+          options: Options(
+            headers: const {'Accept-Language': 'en'},
+            receiveTimeout: const Duration(seconds: 8),
+          ),
+        );
 
-      if (response.statusCode == 200) {
         final data = response.data is String
             ? jsonDecode(response.data as String)
-            : response.data as Map<String, dynamic>;
+            : response.data;
+        if (data is Map && data['code'] == 'Ok') {
+          final routes = data['routes'];
+          if (routes is List && routes.isNotEmpty) {
+            final route = routes.first;
+            final distanceMeters = (route['distance'] as num).toDouble();
+            final durationSeconds = (route['duration'] as num).toDouble();
+            final geometry = route['geometry'];
+            final coordinates = geometry is Map
+                ? geometry['coordinates']
+                : null;
+            if (coordinates is List && coordinates.isNotEmpty) {
+              final points = coordinates.whereType<List>().where((coord) {
+                return coord.length >= 2 &&
+                    coord[0] is num &&
+                    coord[1] is num;
+              }).map((coord) {
+                return MapCoordinate(
+                  (coord[1] as num).toDouble(),
+                  (coord[0] as num).toDouble(),
+                );
+              }).toList();
 
-        if (data['code'] == 'Ok' && (data['routes'] as List).isNotEmpty) {
-          final route = (data['routes'] as List).first;
-          final leg = (route['legs'] as List).first;
-
-          final distanceMeters = (leg['distance'] as num).toDouble();
-          final durationSeconds = (leg['duration'] as num).toDouble();
-
-          final distanceKm = distanceMeters / 1000.0;
-          final durationMins = (durationSeconds / 60.0).round();
-
-          final geometry = route['geometry'];
-          final coordinates = (geometry['coordinates'] as List);
-
-          final List<LatLng> points = coordinates.map((coord) {
-            final lngVal = (coord[0] as num).toDouble();
-            final latVal = (coord[1] as num).toDouble();
-            return LatLng(latVal, lngVal);
-          }).toList();
-
-          return RouteResult(
-            distanceKm: distanceKm,
-            durationMins: durationMins < 1 ? 1 : durationMins,
-            polylinePoints: points,
-          );
+              if (points.isNotEmpty) {
+                final durationMins = (durationSeconds / 60.0).round();
+                return RouteResult(
+                  distanceKm: distanceMeters / 1000.0,
+                  durationMins: durationMins < 1 ? 1 : durationMins,
+                  polylinePoints: points,
+                );
+              }
+            }
+          }
         }
+      } catch (e) {
+        debugPrint('❌ Mapbox routing error: $e');
       }
-    } catch (e) {
-      debugPrint('❌ OSRM routing error: $e');
     }
 
-    // Fallback: Haversine distance with 1.35x road factor & interpolated points
+    // Keep the app usable if Mapbox is temporarily unavailable.
     final distanceMeters = Geolocator.distanceBetween(
       startLat,
       startLng,
@@ -325,7 +369,6 @@ class LocationService {
     final straightKm = distanceMeters / 1000.0;
     final roadKm = straightKm * 1.35;
     final durationMins = (roadKm / 35.0 * 60).round();
-
     final midLat = (startLat + endLat) / 2 + 0.003;
     final midLng = (startLng + endLng) / 2 + 0.002;
 
@@ -333,9 +376,9 @@ class LocationService {
       distanceKm: roadKm < 0.5 ? 0.5 : roadKm,
       durationMins: durationMins < 3 ? 3 : durationMins,
       polylinePoints: [
-        LatLng(startLat, startLng),
-        LatLng(midLat, midLng),
-        LatLng(endLat, endLng),
+        MapCoordinate(startLat, startLng),
+        MapCoordinate(midLat, midLng),
+        MapCoordinate(endLat, endLng),
       ],
     );
   }
@@ -345,7 +388,7 @@ final locationServiceProvider = Provider<LocationService>((ref) {
   return LocationService();
 });
 
-/// A provider that fetches the user's real current location on first watch
+/// A provider that fetches the user's real current location on first watch.
 final currentUserLocationProvider = FutureProvider<UserLocation>((ref) async {
   final service = ref.read(locationServiceProvider);
   return service.getUserLocationWithAddress();

@@ -62,12 +62,7 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
         errorMessage = rawError.replaceAll('AuthException:', '').trim();
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: TRYPColors.error,
-        ),
-      );
+      _logger.e(errorMessage);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -245,9 +240,6 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
                                     label: 'Google Cloud',
                                     icon: Icons.g_mobiledata,
                                     onTap: () async {
-                                      final messenger = ScaffoldMessenger.of(
-                                        context,
-                                      );
                                       setState(() => _isLoading = true);
                                       try {
                                         final signedIn = await ref
@@ -281,13 +273,8 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
                                         }
                                         if (!mounted) return;
                                         setState(() => _isLoading = false);
-                                        messenger.showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Google registration error: $e',
-                                            ),
-                                            backgroundColor: TRYPColors.error,
-                                          ),
+                                        _logger.e(
+                                          'Google registration error: $e',
                                         );
                                       }
                                     },

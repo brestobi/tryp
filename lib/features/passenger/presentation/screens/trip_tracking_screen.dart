@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
@@ -51,9 +51,9 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
     super.dispose();
   }
 
-  GoogleMapController? _mapController;
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
+  MapboxMap? _mapController;
+  CircleAnnotationManager? _circleAnnotationManager;
+  PolylineAnnotationManager? _polylineAnnotationManager;
 
   Future<void> _loadAndSubscribeToActiveRide() async {
     setState(() => _isLoading = true);
@@ -184,46 +184,46 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
     context.go(Routes.passengerHome);
   }
 
+  Point _mapPoint(double latitude, double longitude) =>
+      Point(coordinates: Position(longitude, latitude));
+
   Future<void> _updateMapMarkersAndRoute(TripModel trip) async {
-    final markers = <Marker>{};
+    final map = _mapController;
+    if (map == null) return;
 
-    markers.add(
-      Marker(
-        markerId: const MarkerId('pickup'),
-        position: LatLng(trip.pickupLat, trip.pickupLng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: InfoWindow(title: 'Pickup Location', snippet: trip.origin),
-      ),
-    );
+    _circleAnnotationManager ??= await map.annotations
+        .createCircleAnnotationManager();
+    await _circleAnnotationManager!.deleteAll();
 
-    markers.add(
-      Marker(
-        markerId: const MarkerId('destination'),
-        position: LatLng(trip.destLat, trip.destLng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        infoWindow: InfoWindow(title: 'Destination', snippet: trip.destination),
+    final markers = <CircleAnnotationOptions>[
+      CircleAnnotationOptions(
+        geometry: _mapPoint(trip.pickupLat, trip.pickupLng),
+        circleColor: TRYPColors.secondary.toARGB32(),
+        circleRadius: 8,
+        circleStrokeColor: Colors.white.toARGB32(),
+        circleStrokeWidth: 2,
       ),
-    );
+      CircleAnnotationOptions(
+        geometry: _mapPoint(trip.destLat, trip.destLng),
+        circleColor: Colors.red.toARGB32(),
+        circleRadius: 8,
+        circleStrokeColor: Colors.white.toARGB32(),
+        circleStrokeWidth: 2,
+      ),
+    ];
 
     if (trip.driverLat != null && trip.driverLng != null) {
       markers.add(
-        Marker(
-          markerId: const MarkerId('driver_live'),
-          position: LatLng(trip.driverLat!, trip.driverLng!),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueYellow,
-          ),
-          infoWindow: InfoWindow(
-            title: trip.driverName ?? 'Driver',
-            snippet: trip.vehicleDescription,
-          ),
+        CircleAnnotationOptions(
+          geometry: _mapPoint(trip.driverLat!, trip.driverLng!),
+          circleColor: TRYPColors.white.toARGB32(),
+          circleRadius: 7,
+          circleStrokeColor: TRYPColors.secondary.toARGB32(),
+          circleStrokeWidth: 2,
         ),
       );
     }
-
-    setState(() {
-      _markers = markers;
-    });
+    await _circleAnnotationManager!.createMulti(markers);
 
     try {
       final locService = ref.read(locationServiceProvider);
@@ -234,32 +234,30 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
         endLng: trip.destLng,
       );
 
-      if (!mounted) return;
+      if (!mounted || _mapController == null) return;
 
-      setState(() {
-        _polylines = {
-          Polyline(
-            polylineId: const PolylineId('active_trip_route'),
-            points: route.polylinePoints,
-            color: TRYPColors.primary,
-            width: 5,
+      _polylineAnnotationManager ??= await _mapController!.annotations
+          .createPolylineAnnotationManager();
+      await _polylineAnnotationManager!.deleteAll();
+      await _polylineAnnotationManager!.create(
+        PolylineAnnotationOptions(
+          geometry: LineString(
+            coordinates: route.polylinePoints
+                .map((point) => Position(point.longitude, point.latitude))
+                .toList(),
           ),
-        };
-      });
+          lineColor: TRYPColors.primary.toARGB32(),
+          lineWidth: 5,
+          lineJoin: LineJoin.ROUND,
+        ),
+      );
 
-      if (_mapController != null) {
-        final bounds = LatLngBounds(
-          southwest: LatLng(
-            trip.pickupLat < trip.destLat ? trip.pickupLat : trip.destLat,
-            trip.pickupLng < trip.destLng ? trip.pickupLng : trip.destLng,
-          ),
-          northeast: LatLng(
-            trip.pickupLat > trip.destLat ? trip.pickupLat : trip.destLat,
-            trip.pickupLng > trip.destLng ? trip.pickupLng : trip.destLng,
-          ),
-        );
-        _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
-      }
+      final centerLat = (trip.pickupLat + trip.destLat) / 2;
+      final centerLng = (trip.pickupLng + trip.destLng) / 2;
+      _mapController!.easeTo(
+        CameraOptions(center: _mapPoint(centerLat, centerLng), zoom: 11.5),
+        MapAnimationOptions(duration: 800),
+      );
     } catch (_) {}
   }
 
@@ -457,7 +455,7 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
               const Icon(
                 Icons.directions_car_rounded,
                 size: 48,
-                color: TRYPColors.accent,
+                color: TRYPColors.white,
               ),
               const SizedBox(height: 12),
               Text(
@@ -470,8 +468,8 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
               ElevatedButton(
                 onPressed: () => context.go(Routes.passengerHome),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: TRYPColors.accent,
-                  foregroundColor: TRYPColors.primary,
+                  backgroundColor: TRYPColors.primary,
+                  foregroundColor: TRYPColors.white,
                 ),
                 child: const Text('Go to Passenger Home'),
               ),
@@ -558,19 +556,21 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
           children: [
             // Real-Time Google Map
             Expanded(
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(trip.pickupLat, trip.pickupLng),
+              child: MapWidget(
+                key: const ValueKey('passenger-trip-map'),
+                viewport: CameraViewportState(
+                  center: _mapPoint(trip.pickupLat, trip.pickupLng),
                   zoom: 14,
                 ),
-                markers: _markers,
-                polylines: _polylines,
-                myLocationEnabled: true,
-                zoomControlsEnabled: false,
-                style: TRYPMapStyles.dark,
+                styleUri: TRYPMapStyles.light,
                 onMapCreated: (controller) {
                   _mapController = controller;
-                  _updateMapMarkersAndRoute(trip);
+                  unawaited(
+                    controller.location.updateSettings(
+                      LocationComponentSettings(enabled: true),
+                    ),
+                  );
+                  unawaited(_updateMapMarkersAndRoute(trip));
                 },
               ),
             ),
@@ -595,7 +595,7 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (status == TripStatus.requested) ...[
-                    const CircularProgressIndicator(color: TRYPColors.primary),
+                    const CircularProgressIndicator(color: TRYPColors.white),
                     const SizedBox(height: 14),
                     Text(
                       'Waiting for a driver to accept...',
@@ -615,9 +615,9 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                     OutlinedButton(
                       onPressed: _cancelRide,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: TRYPColors.accent,
+                        foregroundColor: TRYPColors.white,
                         side: const BorderSide(
-                          color: TRYPColors.accent,
+                          color: TRYPColors.white,
                           width: 1.4,
                         ),
                         minimumSize: const Size.fromHeight(48),
@@ -649,7 +649,7 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                       children: [
                         CircleAvatar(
                           radius: 26,
-                          backgroundColor: TRYPColors.accent,
+                          backgroundColor: TRYPColors.primary,
                           backgroundImage:
                               (trip.driverAvatar != null &&
                                   trip.driverAvatar!.isNotEmpty)
@@ -691,7 +691,7 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                           onPressed: () => _makeCall(trip.driverPhone ?? ''),
                           icon: const Icon(
                             Icons.phone_rounded,
-                            color: TRYPColors.accent,
+                            color: TRYPColors.white,
                             size: 28,
                           ),
                           tooltip: 'Call Driver',
@@ -770,7 +770,7 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                           'R${trip.fare.toStringAsFixed(2)}',
                           style: TRYPTypography.titleLarge.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: TRYPColors.accent,
+                            color: TRYPColors.white,
                           ),
                         ),
                       ],
@@ -780,9 +780,9 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                       OutlinedButton(
                         onPressed: _cancelRide,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: TRYPColors.accent,
+                          foregroundColor: TRYPColors.white,
                           side: const BorderSide(
-                            color: TRYPColors.accent,
+                            color: TRYPColors.white,
                             width: 1.4,
                           ),
                           minimumSize: const Size.fromHeight(48),

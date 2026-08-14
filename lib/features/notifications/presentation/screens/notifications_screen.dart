@@ -1,18 +1,54 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/notification_service.dart';
+import 'package:tryp/core/services/push_notification_service.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   String _selectedFilter = 'All';
+  bool _browserPushBusy = false;
+  String? _browserPushMessage;
+
+  Future<void> _enableBrowserNotifications() async {
+    setState(() {
+      _browserPushBusy = true;
+      _browserPushMessage = null;
+    });
+
+    try {
+      final settings = await ref
+          .read(pushNotificationServiceProvider)
+          .requestPermission();
+      if (!mounted) return;
+      setState(() {
+        _browserPushMessage =
+            settings.authorizationStatus == AuthorizationStatus.authorized
+            ? 'Browser notifications are enabled.'
+            : 'Browser notification permission was not granted.';
+      });
+    } catch (error) {
+      debugPrint('Browser push permission failed: $error');
+      if (mounted) {
+        setState(
+          () => _browserPushMessage =
+              'Browser notifications are not configured yet.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _browserPushBusy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +63,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       if (_selectedFilter == 'Unread') return !n.isRead;
       if (_selectedFilter == 'Rides') return n.type == NotificationType.ride;
       if (_selectedFilter == 'Promos') return n.type == NotificationType.promo;
-      if (_selectedFilter == 'System') return n.type == NotificationType.system || n.type == NotificationType.payment;
+      if (_selectedFilter == 'System')
+        return n.type == NotificationType.system ||
+            n.type == NotificationType.payment;
       return true;
     }).toList();
 
@@ -43,7 +81,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ),
         title: Row(
           children: [
-            Text('Notifications', style: TRYPTypography.headingSmall.copyWith(fontSize: 18)),
+            Text(
+              'Notifications',
+              style: TRYPTypography.headingSmall.copyWith(fontSize: 18),
+            ),
             if (unreadCount > 0) ...[
               const SizedBox(width: 8),
               Container(
@@ -67,12 +108,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         actions: [
           if (notifications.isNotEmpty)
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert_rounded, color: TRYPColors.secondary),
+              icon: const Icon(
+                Icons.more_vert_rounded,
+                color: TRYPColors.secondary,
+              ),
               onSelected: (value) {
                 if (value == 'mark_read') {
                   ref.read(notificationsProvider.notifier).markAllAsRead();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('All notifications marked as read')),
+                    const SnackBar(
+                      content: Text('All notifications marked as read'),
+                    ),
                   );
                 } else if (value == 'clear_all') {
                   ref.read(notificationsProvider.notifier).clearAll();
@@ -83,7 +129,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   value: 'mark_read',
                   child: Row(
                     children: [
-                      Icon(Icons.done_all_rounded, size: 18, color: TRYPColors.secondary),
+                      Icon(
+                        Icons.done_all_rounded,
+                        size: 18,
+                        color: TRYPColors.secondary,
+                      ),
                       SizedBox(width: 10),
                       Text('Mark all as read'),
                     ],
@@ -93,7 +143,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   value: 'clear_all',
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                      Icon(
+                        Icons.delete_outline_rounded,
+                        size: 18,
+                        color: Colors.red,
+                      ),
                       SizedBox(width: 10),
                       Text('Clear all', style: TextStyle(color: Colors.red)),
                     ],
@@ -111,7 +165,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Row(
-                children: ['All', 'Unread', 'Rides', 'Promos', 'System'].map((filter) {
+                children: ['All', 'Unread', 'Rides', 'Promos', 'System'].map((
+                  filter,
+                ) {
                   final isSelected = _selectedFilter == filter;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -119,14 +175,20 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       selected: isSelected,
                       label: Text(filter),
                       labelStyle: TextStyle(
-                        color: isSelected ? TRYPColors.secondary : TRYPColors.grey,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected
+                            ? TRYPColors.secondary
+                            : TRYPColors.grey,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                         fontSize: 12,
                       ),
                       selectedColor: TRYPColors.primary,
                       backgroundColor: TRYPColors.lightGrey,
                       side: BorderSide.none,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       onSelected: (val) {
                         setState(() => _selectedFilter = filter);
                       },
@@ -138,22 +200,28 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
             const SizedBox(height: 8),
 
+            if (kIsWeb) _buildBrowserPushBanner(),
+
             // Loading / error states
             if (asyncNotifications.isLoading)
-              const Expanded(
-                child: Center(child: CircularProgressIndicator()),
-              )
+              const Expanded(child: Center(child: CircularProgressIndicator()))
             else if (asyncNotifications.hasError)
               Expanded(
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.cloud_off_rounded, size: 48, color: TRYPColors.grey),
+                      const Icon(
+                        Icons.cloud_off_rounded,
+                        size: 48,
+                        color: TRYPColors.grey,
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         'Could not load notifications',
-                        style: TRYPTypography.bodyLarge.copyWith(color: TRYPColors.grey),
+                        style: TRYPTypography.bodyLarge.copyWith(
+                          color: TRYPColors.grey,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextButton(
@@ -169,38 +237,53 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               Expanded(
                 child: filteredNotifications.isEmpty
                     ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.notifications_none_rounded, size: 64, color: TRYPColors.grey),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No notifications found',
-                            style: TRYPTypography.headingSmall.copyWith(color: TRYPColors.grey),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'We will notify you about ride updates & offers here.',
-                            style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey),
-                          ),
-                        ],
-                      ),
-                    )
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.notifications_none_rounded,
+                              size: 64,
+                              color: TRYPColors.grey,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No notifications found',
+                              style: TRYPTypography.headingSmall.copyWith(
+                                color: TRYPColors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'We will notify you about ride updates & offers here.',
+                              style: TRYPTypography.bodySmall.copyWith(
+                                color: TRYPColors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
                     : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 8,
+                        ),
                         itemCount: filteredNotifications.length,
                         itemBuilder: (context, index) {
                           final notif = filteredNotifications[index];
                           return _NotificationCard(
                             notification: notif,
                             onTap: () {
-                              ref.read(notificationsProvider.notifier).markAsRead(notif.id);
+                              ref
+                                  .read(notificationsProvider.notifier)
+                                  .markAsRead(notif.id);
                               if (notif.routePath != null) {
                                 context.go(notif.routePath!);
                               }
                             },
                             onDismissed: () {
-                              ref.read(notificationsProvider.notifier).removeNotification(notif.id);
+                              ref
+                                  .read(notificationsProvider.notifier)
+                                  .removeNotification(notif.id);
                             },
                           );
                         },
@@ -208,6 +291,59 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBrowserPushBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: TRYPColors.inputFill,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: TRYPColors.divider),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.notifications_active_outlined,
+            color: TRYPColors.primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Stay updated on this browser',
+                  style: TRYPTypography.bodyMedium.copyWith(
+                    color: TRYPColors.secondary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  _browserPushMessage ??
+                      'Enable browser push for ride updates.',
+                  style: TRYPTypography.bodySmall.copyWith(
+                    color: TRYPColors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _browserPushBusy ? null : _enableBrowserNotifications,
+            child: _browserPushBusy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Enable'),
+          ),
+        ],
       ),
     );
   }
@@ -248,18 +384,18 @@ class _NotificationCard extends StatelessWidget {
         icon = Icons.directions_car_rounded;
         break;
       case NotificationType.promo:
-        iconBg = Colors.purple.withValues(alpha: 0.15);
-        iconColor = Colors.purple;
+        iconBg = TRYPColors.accentSoft;
+        iconColor = TRYPColors.primary;
         icon = Icons.local_offer_rounded;
         break;
       case NotificationType.payment:
-        iconBg = Colors.green.withValues(alpha: 0.15);
-        iconColor = Colors.green;
+        iconBg = TRYPColors.lightGrey;
+        iconColor = TRYPColors.secondary;
         icon = Icons.receipt_long_rounded;
         break;
       case NotificationType.system:
-        iconBg = Colors.orange.withValues(alpha: 0.15);
-        iconColor = Colors.orange;
+        iconBg = TRYPColors.accentSoft;
+        iconColor = TRYPColors.primaryAlt;
         icon = Icons.shield_rounded;
         break;
     }
@@ -272,10 +408,13 @@ class _NotificationCard extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: 0.15),
+          color: TRYPColors.accentSoft,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+        child: const Icon(
+          Icons.delete_outline_rounded,
+          color: TRYPColors.primary,
+        ),
       ),
       child: GestureDetector(
         onTap: onTap,
@@ -283,10 +422,14 @@ class _NotificationCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: notification.isRead ? TRYPColors.lightGrey : TRYPColors.white,
+            color: notification.isRead
+                ? TRYPColors.lightGrey
+                : TRYPColors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: notification.isRead ? Colors.transparent : TRYPColors.primary,
+              color: notification.isRead
+                  ? Colors.transparent
+                  : TRYPColors.primary,
               width: 1.5,
             ),
             boxShadow: notification.isRead
@@ -322,14 +465,19 @@ class _NotificationCard extends StatelessWidget {
                           child: Text(
                             notification.title,
                             style: TRYPTypography.bodyLarge.copyWith(
-                              fontWeight: notification.isRead ? FontWeight.normal : FontWeight.bold,
+                              fontWeight: notification.isRead
+                                  ? FontWeight.normal
+                                  : FontWeight.bold,
                               color: TRYPColors.secondary,
                             ),
                           ),
                         ),
                         Text(
                           _formatTimestamp(notification.timestamp),
-                          style: TRYPTypography.bodySmall.copyWith(color: TRYPColors.grey, fontSize: 10),
+                          style: TRYPTypography.bodySmall.copyWith(
+                            color: TRYPColors.grey,
+                            fontSize: 10,
+                          ),
                         ),
                       ],
                     ),

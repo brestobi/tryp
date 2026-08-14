@@ -6,15 +6,6 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-val googleMapsApiKey = providers.gradleProperty("googleMapsApiKey")
-    .orElse(System.getenv("GOOGLE_MAPS_API_KEY") ?: "")
-    .get()
-
-check(googleMapsApiKey.isNotBlank() && !googleMapsApiKey.startsWith("your-")) {
-    "Missing Google Maps API key. Set GOOGLE_MAPS_API_KEY in the environment " +
-        "or pass -PgoogleMapsApiKey=YOUR_KEY when building the driver app."
-}
-
 android {
     namespace = "com.hungrydevelopers.tryp_driver"
     compileSdk = flutter.compileSdkVersion
@@ -36,7 +27,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
     }
 
     buildTypes {

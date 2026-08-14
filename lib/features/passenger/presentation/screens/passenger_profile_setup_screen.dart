@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
+import 'package:tryp/core/constants/service_areas.dart';
 import 'package:tryp/core/services/supabase_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
@@ -25,6 +26,7 @@ class _PassengerProfileSetupScreenState
   final _emergencyPhoneController = TextEditingController();
 
   String _preferredPayment = 'Cash';
+  String? _selectedServiceArea;
   bool _isLoading = false;
   int _currentStep = 0;
 
@@ -76,6 +78,7 @@ class _PassengerProfileSetupScreenState
         'emergency_contact_name': _emergencyNameController.text.trim(),
         'emergency_contact_phone': _emergencyPhoneController.text.trim(),
         'preferred_payment': _preferredPayment,
+        'service_area': _selectedServiceArea,
         'onboarding_completed': true,
         'updated_at': DateTime.now().toIso8601String(),
       });
@@ -170,7 +173,9 @@ class _PassengerProfileSetupScreenState
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: PrimaryButton(
-                  label: _currentStep == 2 ? 'Continue to verification' : 'Continue',
+                  label: _currentStep == 2
+                      ? 'Continue to verification'
+                      : 'Continue',
                   onPressed: () {
                     if (_currentStep < 2) {
                       if (_formKey.currentState!.validate()) {
@@ -188,6 +193,83 @@ class _PassengerProfileSetupScreenState
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildServiceAreaSelector() {
+    return FormField<String>(
+      initialValue: _selectedServiceArea,
+      validator: (_) =>
+          _selectedServiceArea == null ? 'Select your TRYP service area' : null,
+      builder: (field) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ...TRYPServiceAreas.all.map((area) {
+              final selected = _selectedServiceArea == area.id;
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _selectedServiceArea = area.id);
+                  field.didChange(area.id);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? TRYPColors.primary.withValues(alpha: 0.08)
+                        : TRYPColors.lightGrey,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: selected ? TRYPColors.primary : TRYPColors.divider,
+                      width: selected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        selected
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: selected ? TRYPColors.primary : TRYPColors.grey,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              area.label,
+                              style: TRYPTypography.titleMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              area.description,
+                              style: TRYPTypography.bodySmall.copyWith(
+                                color: TRYPColors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            if (field.hasError)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, top: 2),
+                child: Text(
+                  field.errorText!,
+                  style: TextStyle(color: TRYPColors.error, fontSize: 12),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -254,6 +336,18 @@ class _PassengerProfileSetupScreenState
           key: const ValueKey(1),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'Your Service Area',
+              style: TRYPTypography.headingLarge.copyWith(fontSize: 24),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Choose the area where you need rides. We will match you with nearby drivers from that area.',
+              style: TRYPTypography.bodyMedium.copyWith(color: TRYPColors.grey),
+            ),
+            const SizedBox(height: 20),
+            _buildServiceAreaSelector(),
+            const SizedBox(height: 28),
             Text(
               'Saved Locations',
               style: TRYPTypography.headingLarge.copyWith(fontSize: 24),
@@ -340,7 +434,7 @@ class _StepIndicator extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: isActive ? TRYPColors.secondary : TRYPColors.grey,
+              color: isActive ? TRYPColors.white : TRYPColors.grey,
             ),
           ),
         ),
@@ -348,7 +442,7 @@ class _StepIndicator extends StatelessWidget {
         Text(
           label,
           style: TRYPTypography.bodySmall.copyWith(
-            color: isActive ? TRYPColors.secondary : TRYPColors.grey,
+            color: isActive ? TRYPColors.primary : TRYPColors.grey,
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             fontSize: 10,
           ),

@@ -4,7 +4,7 @@ import 'package:tryp/app/routes.dart';
 import 'package:tryp/app/theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Primary Button  — solid black pill  (Bolt-style)
+// Primary Button — solid black pill with red brand accents (TRYP-style)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class PrimaryButton extends StatelessWidget {

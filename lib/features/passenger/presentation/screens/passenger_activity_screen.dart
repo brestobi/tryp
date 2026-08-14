@@ -294,8 +294,8 @@ class _TripCard extends StatelessWidget {
     String statusText;
 
     if (isCompleted) {
-      statusBgColor = TRYPColors.success.withValues(alpha: 0.12);
-      statusTextColor = TRYPColors.success;
+      statusBgColor = TRYPColors.lightGrey;
+      statusTextColor = TRYPColors.secondary;
       statusText = 'Completed';
     } else if (isCancelled) {
       statusBgColor = TRYPColors.error.withValues(alpha: 0.12);

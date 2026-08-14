@@ -3,6 +3,7 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:tryp/config/environment.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -17,10 +18,13 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      final options = web;
+      if (options == null) {
+        throw UnsupportedError(
+          'Firebase Web configuration is missing. Add FIREBASE_WEB_* values to .env.',
+        );
+      }
+      return options;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -47,6 +51,38 @@ class DefaultFirebaseOptions {
           'DefaultFirebaseOptions are not supported for this platform.',
         );
     }
+  }
+
+  static FirebaseOptions? get web {
+    final apiKey = Environment.firebaseWebApiKey;
+    final authDomain = Environment.firebaseWebAuthDomain;
+    final projectId = Environment.firebaseWebProjectId;
+    final storageBucket = Environment.firebaseWebStorageBucket;
+    final messagingSenderId = Environment.firebaseWebMessagingSenderId;
+    final appId = Environment.firebaseWebAppId;
+
+    if ([
+      apiKey,
+      authDomain,
+      projectId,
+      storageBucket,
+      messagingSenderId,
+      appId,
+    ].any((value) => value.isEmpty)) {
+      return null;
+    }
+
+    return FirebaseOptions(
+      apiKey: apiKey,
+      authDomain: authDomain,
+      projectId: projectId,
+      storageBucket: storageBucket,
+      messagingSenderId: messagingSenderId,
+      appId: appId,
+      measurementId: Environment.firebaseWebMeasurementId.isEmpty
+          ? null
+          : Environment.firebaseWebMeasurementId,
+    );
   }
 
   static const FirebaseOptions android = FirebaseOptions(

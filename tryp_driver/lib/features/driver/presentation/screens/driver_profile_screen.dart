@@ -16,7 +16,7 @@ class DriverProfileScreen extends StatelessWidget {
         foregroundColor: TRYPColors.secondary,
         elevation: 0,
         title: Text(
-          'Profile',
+          'Driver workspace',
           style: TRYPTypography.headingSmall.copyWith(fontSize: 20),
         ),
         actions: [
@@ -90,15 +90,21 @@ class DriverProfileScreen extends StatelessWidget {
             const SizedBox(height: 10),
             _ProfileActionTile(
               icon: Icons.badge_outlined,
-              title: 'Driver details',
-              subtitle: 'Personal and vehicle information',
-              onTap: () {},
+              title: 'Account details',
+              subtitle: 'Manage your personal, area, and vehicle information',
+              onTap: () => context.go(Routes.driverAccount),
             ),
             _ProfileActionTile(
               icon: Icons.account_balance_wallet_rounded,
               title: 'Driver wallet',
               subtitle: 'View cash collected and online payments held by TRYP',
               onTap: () => context.go(Routes.driverWallet),
+            ),
+            _ProfileActionTile(
+              icon: Icons.history_rounded,
+              title: 'Ride history',
+              subtitle: 'View your completed and cancelled rides',
+              onTap: () => context.go(Routes.driverTripHistory),
             ),
             _ProfileActionTile(
               icon: Icons.account_balance_outlined,
@@ -157,7 +163,7 @@ class DriverProfileScreen extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 4),
+      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 5),
     );
   }
 }

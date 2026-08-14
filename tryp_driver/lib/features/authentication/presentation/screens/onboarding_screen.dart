@@ -30,7 +30,7 @@ class _OnboardingScreenPageState extends State<OnboardingScreenPage> {
           'Receive real-time ride requests nearby with live turn-by-turn navigation and trip distance previews.',
       badgeLabel: 'REAL-TIME DISPATCH',
       icon: Icons.navigation_rounded,
-      accentColor: Colors.blueAccent,
+      accentColor: TRYPColors.primary,
     ),
     _DriverSlideData(
       title: 'Keep 100% of Tips &\nSafety First',

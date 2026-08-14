@@ -25,8 +25,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
   bool _isOnline = false;
   String _driverName = 'Driver';
   String _driverStatus = 'under_review';
-  String _vehicleInfo = 'Vehicle not set';
-  double _driverRating = 4.9;
+  final double _driverRating = 4.9;
   bool _isLoading = false;
 
   Timer? _locationTimer;
@@ -72,14 +71,6 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
               _driverName = profile['full_name'];
             } else if (user.email != null && user.email!.contains('@')) {
               _driverName = user.email!.split('@').first;
-            }
-
-            final make = profile['vehicle_make'] as String? ?? '';
-            final model = profile['vehicle_model'] as String? ?? '';
-            final plate = profile['vehicle_plate'] as String? ?? '';
-            if (make.isNotEmpty || model.isNotEmpty) {
-              _vehicleInfo =
-                  '$make $model ${plate.isNotEmpty ? "• $plate" : ""}'.trim();
             }
           });
 
@@ -150,6 +141,9 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
       final pos = await locService.getCurrentPosition();
       if (pos != null) {
         _currentDriverPosition = pos;
+        if (mounted && _openRequests.isNotEmpty) {
+          setState(() => _openRequests = _sortOpenRequests(_openRequests));
+        }
         final tripService = ref.read(tripServiceProvider);
         await tripService.updateDriverLocation(
           lat: pos.latitude,
@@ -172,19 +166,57 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
       if (!mounted) return;
 
       final previousCount = _openRequests.length;
+      final sortedRequests = _sortOpenRequests(requests);
       setState(() {
-        _openRequests = requests;
+        _openRequests = sortedRequests;
       });
 
-      // If new request came in, auto-show detail bottom sheet for first request
-      if (requests.isNotEmpty &&
-          requests.length > previousCount &&
+      // If new request came in, show the closest request first.
+      if (sortedRequests.isNotEmpty &&
+          sortedRequests.length > previousCount &&
           ModalRoute.of(context)?.isCurrent == true) {
-        _showRealRideRequestSheet(requests.first);
+        _showRealRideRequestSheet(sortedRequests.first);
       }
     } catch (e) {
       debugPrint('Error fetching open requests: $e');
     }
+  }
+
+  List<TripModel> _sortOpenRequests(List<TripModel> requests) {
+    final sorted = [...requests];
+    sorted.sort((a, b) {
+      final aDistance = _distanceToPickupKm(a);
+      final bDistance = _distanceToPickupKm(b);
+      if (aDistance == null && bDistance == null) {
+        return b.requestedAt.compareTo(a.requestedAt);
+      }
+      if (aDistance == null) return 1;
+      if (bDistance == null) return -1;
+      final distanceOrder = aDistance.compareTo(bDistance);
+      return distanceOrder == 0
+          ? b.requestedAt.compareTo(a.requestedAt)
+          : distanceOrder;
+    });
+    return sorted;
+  }
+
+  double? _distanceToPickupKm(TripModel request) {
+    final position = _currentDriverPosition;
+    if (position == null) return null;
+    return Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          request.pickupLat,
+          request.pickupLng,
+        ) /
+        1000;
+  }
+
+  String _requestDistanceLabel(TripModel request) {
+    final distanceKm = _distanceToPickupKm(request);
+    return distanceKm == null
+        ? 'Pickup distance updating'
+        : '${distanceKm.toStringAsFixed(1)} km to pickup';
   }
 
   Future<void> _toggleOnline() async {
@@ -219,16 +251,6 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
         );
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          newOnlineState
-              ? 'ONLINE — Listening for real-time ride requests'
-              : 'OFFLINE',
-        ),
-        backgroundColor: newOnlineState ? TRYPColors.primary : Colors.orange,
-      ),
-    );
   }
 
   void _showRealRideRequestSheet(TripModel request) {
@@ -509,18 +531,6 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
       setState(() {
         _openRequests.removeWhere((ride) => ride.id == request.id);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ride declined and removed from your requests.'),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not decline this ride. Please try again.'),
-          backgroundColor: TRYPColors.error,
-        ),
-      );
     }
   }
 
@@ -546,30 +556,12 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
 
       if (acceptedTrip != null) {
         ref.read(activeTripStateProvider.notifier).stateTrip = acceptedTrip;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ride Accepted! En route to pickup passenger.'),
-            backgroundColor: TRYPColors.primary,
-          ),
-        );
         context.go(Routes.activeTrip);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ride request is no longer available.'),
-            backgroundColor: TRYPColors.error,
-          ),
-        );
         _fetchOpenRequests();
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error accepting ride: $e'),
-          backgroundColor: TRYPColors.error,
-        ),
-      );
+      debugPrint('Error accepting ride: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -590,12 +582,12 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.15),
+                  color: TRYPColors.accentSoft,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.shield_outlined,
-                  color: Colors.orange,
+                  color: TRYPColors.primary,
                   size: 40,
                 ),
               ),
@@ -631,7 +623,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                     const Icon(
                       Icons.hourglass_empty_rounded,
                       size: 16,
-                      color: Colors.orange,
+                      color: TRYPColors.primary,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -682,13 +674,6 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                   setState(() => _driverStatus = newStatus);
                   if (!context.mounted) return;
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Driver status updated to: ${newStatus.toUpperCase()}',
-                      ),
-                    ),
-                  );
                 },
                 child: Text(
                   _driverStatus == 'approved'
@@ -716,35 +701,23 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
         elevation: 0,
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: TRYPColors.accentSoft,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: TRYPColors.primary.withValues(alpha: 0.25),
+            Image.asset(
+              'assets/images/tryp-logo-green.png',
+              width: 42,
+              height: 30,
+              fit: BoxFit.contain,
+              semanticLabel: 'TRYP Driver logo',
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                _driverName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TRYPTypography.titleLarge.copyWith(
+                  color: TRYPColors.secondary,
+                  fontWeight: FontWeight.w800,
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset(
-                    'assets/images/tryp-logo-green.png',
-                    width: 42,
-                    height: 26,
-                    fit: BoxFit.contain,
-                    semanticLabel: 'TRYP Driver logo',
-                  ),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'DRIVER',
-                    style: TextStyle(
-                      color: TRYPColors.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
               ),
             ),
           ],
@@ -755,10 +728,10 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
               isVerified
                   ? Icons.verified_user_rounded
                   : Icons.pending_actions_rounded,
-              color: isVerified ? TRYPColors.primary : Colors.orange,
+              color: isVerified ? TRYPColors.primary : TRYPColors.secondary,
             ),
-            onPressed: () => context.go(Routes.driverProfile),
-            tooltip: 'Profile & Documents',
+            onPressed: () => context.go(Routes.driverAccount),
+            tooltip: 'Account',
           ),
         ],
       ),
@@ -843,15 +816,15 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                           margin: const EdgeInsets.only(bottom: 16),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.15),
+                            color: TRYPColors.accentSoft,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.orange),
+                            border: Border.all(color: TRYPColors.primary),
                           ),
                           child: Row(
                             children: [
                               const Icon(
                                 Icons.warning_amber_rounded,
-                                color: Colors.orange,
+                                color: TRYPColors.primary,
                                 size: 24,
                               ),
                               const SizedBox(width: 12),
@@ -862,7 +835,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                                     Text(
                                       'Verification Pending',
                                       style: TRYPTypography.bodyLarge.copyWith(
-                                        color: Colors.orange,
+                                        color: TRYPColors.primary,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -878,181 +851,109 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                               const Icon(
                                 Icons.arrow_forward_ios_rounded,
                                 size: 14,
-                                color: Colors.orange,
+                                color: TRYPColors.primary,
                               ),
                             ],
                           ),
                         ),
                       ),
 
+                    // Compact availability controls: no status card/container.
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _isOnline ? 'You are online' : 'You are offline',
+                              style: TRYPTypography.headingSmall.copyWith(
+                                color: TRYPColors.secondary,
+                                fontSize: 19,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _isOnline
+                                  ? 'Nearby requests are ready for you.'
+                                  : 'Go online when you are ready to drive.',
+                              style: TRYPTypography.bodySmall.copyWith(
+                                color: TRYPColors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
                         Text(
-                          'Welcome, $_driverName',
-                          style: TRYPTypography.headingLarge.copyWith(
-                            color: TRYPColors.secondary,
+                          '$_driverRating ★',
+                          style: TRYPTypography.bodyMedium.copyWith(
+                            color: TRYPColors.primary,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (isVerified) ...[
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.verified_rounded,
-                            color: TRYPColors.primary,
-                            size: 24,
-                          ),
-                        ],
                       ],
                     ),
-                    Text(
-                      _vehicleInfo,
-                      style: TRYPTypography.bodyMedium.copyWith(
-                        color: TRYPColors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Status & Earnings Card
-                    Container(
-                      padding: const EdgeInsets.all(22),
-                      decoration: BoxDecoration(
-                        color: TRYPColors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: _isOnline
-                              ? TRYPColors.success
-                              : TRYPColors.divider,
-                          width: 1.5,
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isOnline
+                              ? TRYPColors.primary
+                              : TRYPColors.secondary,
+                          foregroundColor: _isOnline
+                              ? TRYPColors.secondary
+                              : TRYPColors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        onPressed: _toggleOnline,
+                        icon: Icon(
+                          !isVerified
+                              ? Icons.lock_outline_rounded
+                              : (_isOnline
+                                    ? Icons.power_settings_new
+                                    : Icons.play_arrow_rounded),
+                        ),
+                        label: Text(
+                          !isVerified
+                              ? 'COMPLETE VERIFICATION TO GO ONLINE'
+                              : (_isOnline ? 'GO OFFLINE' : 'GO ONLINE'),
+                          style: TextStyle(
+                            color: _isOnline
+                                ? TRYPColors.secondary
+                                : TRYPColors.white,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                          ),
                         ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      color: _isOnline
-                                          ? TRYPColors.primary
-                                          : (isVerified
-                                                ? Colors.red
-                                                : Colors.orange),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    _isOnline
-                                        ? 'ONLINE & RECEIVING REQUESTS'
-                                        : (isVerified
-                                              ? 'YOU ARE OFFLINE'
-                                              : 'UNVERIFIED'),
-                                    style: TRYPTypography.labelLarge.copyWith(
-                                      color: _isOnline
-                                          ? TRYPColors.primary
-                                          : (isVerified
-                                                ? Colors.red
-                                                : Colors.orange),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                '$_driverRating ★',
-                                style: TRYPTypography.bodyMedium.copyWith(
-                                  color: TRYPColors.success,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          InkWell(
-                            onTap: () => context.go(Routes.driverWallet),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: TRYPColors.inputFill,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.lock_outline_rounded,
-                                    color: TRYPColors.secondary,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      'Your real wallet balances are protected. Tap to view cash collected and online payments held by TRYP.',
-                                      style: TRYPTypography.bodySmall.copyWith(
-                                        color: TRYPColors.secondary,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.arrow_forward_ios_rounded,
-                                    size: 14,
-                                    color: TRYPColors.grey,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: !isVerified
-                                    ? TRYPColors.lightGrey
-                                    : (_isOnline
-                                          ? TRYPColors.error
-                                          : TRYPColors.primary),
-                                foregroundColor: !isVerified
-                                    ? TRYPColors.grey
-                                    : TRYPColors.white,
-                                minimumSize: const Size.fromHeight(54),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              onPressed: _toggleOnline,
-                              icon: Icon(
-                                !isVerified
-                                    ? Icons.lock_outline_rounded
-                                    : (_isOnline
-                                          ? Icons.power_settings_new
-                                          : Icons.play_arrow_rounded),
-                              ),
-                              label: Text(
-                                !isVerified
-                                    ? 'VERIFICATION REQUIRED TO GO ONLINE'
-                                    : (_isOnline
-                                          ? 'GO OFFLINE'
-                                          : 'GO ONLINE TO ACCEPT RIDES'),
-                                style: TRYPTypography.labelLarge.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
-
                     const SizedBox(height: 20),
 
                     // Open Ride Requests Section
                     if (_isOnline) ...[
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.near_me_rounded,
+                            size: 16,
+                            color: TRYPColors.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Closest pickup first • live distance',
+                            style: TRYPTypography.bodySmall.copyWith(
+                              color: TRYPColors.grey,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1131,20 +1032,36 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                                       ),
                                     ),
                                     child: ListTile(
-                                      contentPadding: const EdgeInsets.all(16),
+                                      contentPadding: const EdgeInsets.all(12),
+                                      leading: CircleAvatar(
+                                        radius: 17,
+                                        backgroundColor: TRYPColors.secondary,
+                                        child: Text(
+                                          '${index + 1}',
+                                          style: const TextStyle(
+                                            color: TRYPColors.white,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ),
                                       title: Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text(
-                                            request.passengerName ??
-                                                'Verified Passenger',
-                                            style: TRYPTypography.titleMedium
-                                                .copyWith(
-                                                  color: TRYPColors.secondary,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
+                                          Expanded(
+                                            child: Text(
+                                              request.passengerName ??
+                                                  'Verified Passenger',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TRYPTypography.titleMedium
+                                                  .copyWith(
+                                                    color: TRYPColors.secondary,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                            ),
                                           ),
+                                          const SizedBox(width: 8),
                                           Text(
                                             'R${request.fare.toStringAsFixed(2)}',
                                             style: TRYPTypography.headingSmall
@@ -1158,6 +1075,15 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _requestDistanceLabel(request),
+                                            style: TRYPTypography.bodySmall
+                                                .copyWith(
+                                                  color: TRYPColors.primary,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
                                           const SizedBox(height: 8),
                                           Row(
                                             children: [

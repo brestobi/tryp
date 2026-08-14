@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
@@ -23,9 +23,9 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
   TripModel? _activeTrip;
   RealtimeChannel? _rideSubscription;
 
-  GoogleMapController? _mapController;
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
+  MapboxMap? _mapController;
+  CircleAnnotationManager? _circleAnnotationManager;
+  PolylineAnnotationManager? _polylineAnnotationManager;
   Timer? _gpsUpdateTimer;
   Timer? _statusRefreshTimer;
   bool _completionDialogShown = false;
@@ -181,30 +181,32 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     });
   }
 
+  Point _mapPoint(double latitude, double longitude) =>
+      Point(coordinates: Position(longitude, latitude));
+
   Future<void> _buildMapMarkersAndRoute(TripModel trip) async {
-    final markers = <Marker>{};
+    final map = _mapController;
+    if (map == null) return;
 
-    markers.add(
-      Marker(
-        markerId: const MarkerId('pickup'),
-        position: LatLng(trip.pickupLat, trip.pickupLng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: InfoWindow(title: 'Pickup Location', snippet: trip.origin),
+    _circleAnnotationManager ??= await map.annotations
+        .createCircleAnnotationManager();
+    await _circleAnnotationManager!.deleteAll();
+    await _circleAnnotationManager!.createMulti([
+      CircleAnnotationOptions(
+        geometry: _mapPoint(trip.pickupLat, trip.pickupLng),
+        circleColor: TRYPColors.primary.toARGB32(),
+        circleRadius: 8,
+        circleStrokeColor: TRYPColors.white.toARGB32(),
+        circleStrokeWidth: 2,
       ),
-    );
-
-    markers.add(
-      Marker(
-        markerId: const MarkerId('destination'),
-        position: LatLng(trip.destLat, trip.destLng),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        infoWindow: InfoWindow(title: 'Destination', snippet: trip.destination),
+      CircleAnnotationOptions(
+        geometry: _mapPoint(trip.destLat, trip.destLng),
+        circleColor: TRYPColors.secondary.toARGB32(),
+        circleRadius: 8,
+        circleStrokeColor: TRYPColors.white.toARGB32(),
+        circleStrokeWidth: 2,
       ),
-    );
-
-    setState(() {
-      _markers = markers;
-    });
+    ]);
 
     try {
       final locService = ref.read(locationServiceProvider);
@@ -215,18 +217,23 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
         endLng: trip.destLng,
       );
 
-      if (!mounted) return;
+      if (!mounted || _mapController == null) return;
 
-      setState(() {
-        _polylines = {
-          Polyline(
-            polylineId: const PolylineId('driver_route'),
-            points: route.polylinePoints,
-            color: TRYPColors.liveTracking,
-            width: 5,
+      _polylineAnnotationManager ??= await _mapController!.annotations
+          .createPolylineAnnotationManager();
+      await _polylineAnnotationManager!.deleteAll();
+      await _polylineAnnotationManager!.create(
+        PolylineAnnotationOptions(
+          geometry: LineString(
+            coordinates: route.polylinePoints
+                .map((point) => Position(point.longitude, point.latitude))
+                .toList(),
           ),
-        };
-      });
+          lineColor: TRYPColors.liveTracking.toARGB32(),
+          lineWidth: 5,
+          lineJoin: LineJoin.ROUND,
+        ),
+      );
     } catch (_) {}
   }
 
@@ -274,25 +281,9 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
         _statusRefreshTimer?.cancel();
         _gpsUpdateTimer?.cancel();
         _showCompletionDialog(updated);
-      } else if (!asDriverCompletion) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Trip status updated: ${nextStatus.toDbString().toUpperCase()}',
-            ),
-            backgroundColor: TRYPColors.primary,
-          ),
-        );
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not update trip status: $e'),
-          backgroundColor: TRYPColors.error,
-          duration: const Duration(seconds: 5),
-        ),
-      );
+      debugPrint('Could not update trip status: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -364,15 +355,6 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                   _activeTrip!.pinCode.isNotEmpty) {
                 if (inputPin == _activeTrip!.pinCode) {
                   _updateTripStatus(TripStatus.inTrip);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Incorrect PIN code. Please verify with passenger.',
-                      ),
-                      backgroundColor: TRYPColors.error,
-                    ),
-                  );
                 }
               } else {
                 // If no pin set, proceed directly
@@ -452,7 +434,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                       starIndex <= rating
                           ? Icons.star_rounded
                           : Icons.star_outline_rounded,
-                      color: Colors.amber,
+                      color: TRYPColors.primary,
                     ),
                     onPressed: () => setDialogState(() => rating = starIndex),
                   );
@@ -485,12 +467,6 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                 if (!saved) {
                   _completionDialogShown = false;
                   setDialogState(() => isSubmitting = false);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Could not save your passenger rating.'),
-                      backgroundColor: TRYPColors.error,
-                    ),
-                  );
                   return;
                 }
                 reviewController.dispose();
@@ -506,15 +482,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
   }
 
   void _makeCall(String phone) {
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passenger phone number not available')),
-      );
-      return;
-    }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Calling passenger: $phone')));
+    if (phone.isEmpty) return;
   }
 
   @override
@@ -637,17 +605,22 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
           children: [
             // Map Preview
             Expanded(
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(trip.pickupLat, trip.pickupLng),
+              child: MapWidget(
+                key: const ValueKey('driver-active-trip-map'),
+                cameraOptions: CameraOptions(
+                  center: _mapPoint(trip.pickupLat, trip.pickupLng),
                   zoom: 14,
                 ),
-                markers: _markers,
-                polylines: _polylines,
-                myLocationEnabled: true,
-                zoomControlsEnabled: false,
-                style: TRYPMapStyles.dark,
-                onMapCreated: (controller) => _mapController = controller,
+                styleUri: TRYPMapStyles.light,
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                  unawaited(
+                    controller.location.updateSettings(
+                      LocationComponentSettings(enabled: true),
+                    ),
+                  );
+                  unawaited(_buildMapMarkersAndRoute(trip));
+                },
               ),
             ),
 
@@ -661,7 +634,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: TRYPColors.secondary.withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, -6),
                   ),

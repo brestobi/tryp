@@ -177,6 +177,7 @@ class DriverOnboardingNotifier extends AsyncNotifier<DriverOnboardingData> {
     required String idNumber,
     required String licenseNumber,
     required String operatingCity,
+    required String serviceArea,
   }) async {
     final current = state.value;
     if (current == null) return;
@@ -187,6 +188,7 @@ class DriverOnboardingNotifier extends AsyncNotifier<DriverOnboardingData> {
       idNumber: idNumber,
       licenseNumber: licenseNumber,
       operatingCity: operatingCity,
+      serviceArea: serviceArea,
     );
 
     state = AsyncValue.data(updated);

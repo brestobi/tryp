@@ -50,6 +50,7 @@ class UserProfileModel {
   final String phone;
   final String? avatarUrl;
   final String role;
+  final String? serviceArea;
   final bool isOnline;
   final double? currentLat;
   final double? currentLng;
@@ -64,6 +65,7 @@ class UserProfileModel {
     required this.phone,
     this.avatarUrl,
     required this.role,
+    this.serviceArea,
     this.isOnline = false,
     this.currentLat,
     this.currentLng,
@@ -80,6 +82,7 @@ class UserProfileModel {
       phone: json['phone'] as String? ?? '',
       avatarUrl: json['avatar_url'] as String?,
       role: json['role'] as String? ?? 'passenger',
+      serviceArea: json['service_area'] as String?,
       isOnline: json['is_online'] as bool? ?? false,
       currentLat: (json['current_lat'] as num?)?.toDouble(),
       currentLng: (json['current_lng'] as num?)?.toDouble(),
@@ -798,21 +801,54 @@ class TripService {
     }
   }
 
-  /// Fetch online drivers nearby for map plot
-  Future<List<UserProfileModel>> getOnlineDrivers() async {
+  /// Fetch online drivers in the passenger's service area and nearby radius.
+  Future<List<UserProfileModel>> getOnlineDrivers({
+    double? pickupLat,
+    double? pickupLng,
+    double radiusKm = 5,
+  }) async {
     try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return [];
+
+      final passengerProfile = await _supabase
+          .from('profiles')
+          .select('service_area')
+          .eq('id', user.id)
+          .maybeSingle();
+      final serviceArea = passengerProfile?['service_area'] as String?;
+      if (serviceArea == null || serviceArea.isEmpty) return [];
+
       final response = await _supabase
           .from('profiles')
           .select()
           .eq('role', 'driver')
-          .eq('is_online', true);
+          .eq('is_online', true)
+          .eq('service_area', serviceArea);
 
-      final list = response as List<dynamic>;
-      return list
+      final drivers = (response as List<dynamic>)
           .map((e) => UserProfileModel.fromJson(e as Map<String, dynamic>))
+          .where(
+            (driver) => driver.currentLat != null && driver.currentLng != null,
+          )
           .toList();
+
+      if (pickupLat == null || pickupLng == null) return drivers;
+
+      return drivers.where((driver) {
+        final latDelta = (driver.currentLat! - pickupLat) * pi / 180;
+        final lngDelta = (driver.currentLng! - pickupLng) * pi / 180;
+        final lat1 = pickupLat * pi / 180;
+        final lat2 = driver.currentLat! * pi / 180;
+        final haversine =
+            pow(sin(latDelta / 2), 2) +
+            cos(lat1) * cos(lat2) * pow(sin(lngDelta / 2), 2);
+        final distanceKm =
+            6371 * 2 * atan2(sqrt(haversine), sqrt(1 - haversine));
+        return distanceKm <= radiusKm;
+      }).toList();
     } catch (e) {
-      debugPrint('Error fetching online drivers: $e');
+      debugPrint('Error fetching nearby service-area drivers: $e');
       return [];
     }
   }

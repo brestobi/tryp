@@ -6,7 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/services/supabase_service.dart';
-import 'package:tryp_driver/core/services/welcome_notification_service.dart';
 import 'package:tryp_driver/core/utils/validators.dart';
 import 'package:tryp_driver/core/widgets/common_widgets.dart';
 
@@ -61,28 +60,12 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
         // Account exists but is registered as passenger
         await ref.read(authServiceProvider).signOut();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'This account is registered as a Passenger. Please log in using the TRYP Passenger app.',
-            ),
-            backgroundColor: TRYPColors.error,
-          ),
-        );
       }
     } catch (e) {
       _logger.e('Error checking post login role: $e');
       if (!mounted) return;
       await ref.read(authServiceProvider).signOut();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'We could not verify this driver account. Please try again.',
-          ),
-          backgroundColor: TRYPColors.error,
-        ),
-      );
     }
   }
 
@@ -97,19 +80,6 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
       );
       if (!mounted) return;
 
-      WelcomeNotificationService.showWelcomeNotification(
-        callback: (title, body) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$title\n$body'),
-              duration: const Duration(seconds: 4),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: TRYPColors.secondary,
-            ),
-          );
-        },
-      );
-
       await _handlePostLoginRedirect();
     } catch (error) {
       if (!mounted) return;
@@ -117,9 +87,7 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
       final message = error is AuthException
           ? error.message
           : 'Login failed. Please check your credentials and try again.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: TRYPColors.error),
-      );
+      _logger.e(message);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -307,9 +275,6 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
                                     label: 'Google Cloud',
                                     icon: Icons.g_mobiledata,
                                     onTap: () async {
-                                      final messenger = ScaffoldMessenger.of(
-                                        context,
-                                      );
                                       setState(() => _isLoading = true);
                                       try {
                                         final signedIn = await ref
@@ -328,14 +293,7 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
                                       } catch (e) {
                                         if (!mounted) return;
                                         setState(() => _isLoading = false);
-                                        messenger.showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Google sign-in error: $e',
-                                            ),
-                                            backgroundColor: TRYPColors.error,
-                                          ),
-                                        );
+                                        _logger.e('Google sign-in error: $e');
                                       }
                                     },
                                   ),

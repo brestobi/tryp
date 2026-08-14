@@ -134,39 +134,11 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
     setState(() => _uploadingDocKey = doc.key);
 
     try {
-      final success = await ref
+      await ref
           .read(driverOnboardingStateProvider.notifier)
           .uploadDocument(doc.key, image);
 
       if (!mounted) return;
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white),
-                const SizedBox(width: 12),
-                Text('${doc.title} uploaded successfully!'),
-              ],
-            ),
-            backgroundColor: TRYPColors.secondary,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Upload failed for ${doc.title}. Please check network connection.',
-            ),
-            backgroundColor: TRYPColors.error,
-          ),
-        );
-      }
     } finally {
       if (mounted) setState(() => _uploadingDocKey = null);
     }
@@ -327,7 +299,7 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
+                          color: TRYPColors.secondary.withValues(alpha: 0.15),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
@@ -502,7 +474,7 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
           },
         ),
       ),
-      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 1),
+      bottomNavigationBar: const DriverBottomNavBar(currentIndex: 5),
     );
   }
 }
@@ -546,8 +518,8 @@ class _DocumentUploadCard extends StatelessWidget {
         badgeIcon = Icons.error_rounded;
         break;
       case 'pending':
-        badgeBg = Colors.orange.withValues(alpha: 0.12);
-        badgeFg = Colors.orange;
+        badgeBg = TRYPColors.accentSoft;
+        badgeFg = TRYPColors.primary;
         badgeLabel = 'Under Review';
         badgeIcon = Icons.access_time_filled_rounded;
         break;

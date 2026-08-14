@@ -95,15 +95,6 @@ class _SplashScreenPageState extends State<SplashScreenPage>
           // User has a passenger account - sign out and redirect to driver onboarding
           await client.auth.signOut();
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'This account is registered as a passenger. Please sign up or log in with a Driver account.',
-              ),
-              backgroundColor: Colors.orange,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
           context.go(Routes.onboarding);
         }
       } catch (e) {

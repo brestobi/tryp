@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:tryp/config/environment.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -43,6 +44,8 @@ class PushNotificationService {
   StreamSubscription<String>? _tokenSubscription;
 
   Future<void> _initializeLocalNotifications() async {
+    if (kIsWeb) return;
+
     const androidSettings = AndroidInitializationSettings('tryp_notification');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -56,7 +59,7 @@ class PushNotificationService {
 
     await _localNotifications.initialize(initSettings);
 
-    if (Platform.isAndroid) {
+    if (!kIsWeb && Platform.isAndroid) {
       final androidPlugin = _localNotifications
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
@@ -144,17 +147,19 @@ class PushNotificationService {
       debugPrint('⚠️ Local notification setup warning: $e');
     }
 
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
+    final settings = kIsWeb
+        ? await _messaging.getNotificationSettings()
+        : await _messaging.requestPermission(
+            alert: true,
+            announcement: false,
+            badge: true,
+            carPlay: false,
+            criticalAlert: false,
+            provisional: false,
+            sound: true,
+          );
 
-    if (Platform.isIOS || Platform.isMacOS) {
+    if (!kIsWeb && (Platform.isIOS || Platform.isMacOS)) {
       await _messaging.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
@@ -193,12 +198,13 @@ class PushNotificationService {
         debugPrint(
           '🔑 Supabase session active (${event.name}), registering FCM push token...',
         );
-        unawaited(_registerTokenWithSupabase());
+        if (!kIsWeb) unawaited(_registerTokenWithSupabase());
       }
     });
 
-    // Covers a session restored before the auth listener was attached.
-    await _registerTokenWithSupabase();
+    // Covers a session restored before the auth listener was attached. Browser
+    // push waits for the explicit permission button in the notifications UI.
+    if (!kIsWeb) await _registerTokenWithSupabase();
 
     _tokenSubscription = _messaging.onTokenRefresh.listen((newToken) async {
       debugPrint('🔄 FCM token refreshed, updating Supabase...');
@@ -237,6 +243,14 @@ class PushNotificationService {
   /// Get the current FCM push token.
   Future<String?> getPushToken() async {
     try {
+      if (kIsWeb) {
+        final vapidKey = Environment.firebaseWebVapidKey;
+        if (vapidKey.isEmpty) {
+          debugPrint('⚠️ Firebase Web VAPID key is not configured.');
+          return null;
+        }
+        return await _messaging.getToken(vapidKey: vapidKey);
+      }
       if (Platform.isAndroid) return await _messaging.getToken();
       if (Platform.isIOS) {
         final apnsToken = await _messaging.getAPNSToken();
