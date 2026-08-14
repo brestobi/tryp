@@ -241,7 +241,7 @@ class _LoginScreenPageState extends ConsumerState<LoginScreenPage> {
                                       try {
                                         final signedIn = await ref
                                             .read(authServiceProvider)
-                                            .signInWithGoogleNative();
+                                            .signInWithGoogleAuto();
                                         if (!mounted || !signedIn) return;
                                         await _handlePostLoginRedirect(
                                           fromGoogle: true,

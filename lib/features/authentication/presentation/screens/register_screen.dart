@@ -210,7 +210,7 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
                                       try {
                                         final signedIn = await ref
                                             .read(authServiceProvider)
-                                            .signInWithGoogleNative();
+                                            .signInWithGoogleAuto();
                                         if (!mounted || !signedIn) return;
                                         final route =
                                             await googlePostAuthRoute();

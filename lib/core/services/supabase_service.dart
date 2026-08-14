@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import 'package:logger/logger.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -35,13 +36,32 @@ class AuthService {
   /// Check if user is authenticated
   bool get isAuthenticated => currentUser != null;
 
-  /// Sign in with Google (OAuth flow)
-  Future<void> signInWithGoogle() async {
+  /// Sign in with Google using the best method for the current platform.
+  ///
+  /// On web this opens the OAuth redirect flow. On mobile it uses the
+  /// native Google Sign-In SDK via the google_sign_in package.
+  /// Returns false when the user cancels the provider dialog.
+  Future<bool> signInWithGoogleAuto() async {
+    if (kIsWeb) {
+      return signInWithGoogleWeb();
+    }
+    return signInWithGoogleNative();
+  }
+
+  /// Sign in with Google on web using Supabase OAuth redirect.
+  ///
+  /// This redirects the browser to Google's consent screen and back.
+  /// Returns true on success (the page will reload after redirect).
+  Future<bool> signInWithGoogleWeb() async {
     try {
-      _logger.i('Signing in with Google');
-      await _supabase.auth.signInWithOAuth(OAuthProvider.google);
+      _logger.i('Starting Google OAuth redirect flow (web)');
+      await _supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: '${Uri.base.origin}/auth/callback',
+      );
+      return true;
     } catch (e) {
-      _logger.e('Google sign in error: $e');
+      _logger.e('Web Google sign in error: $e');
       rethrow;
     }
   }
