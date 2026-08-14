@@ -50,7 +50,9 @@ jobs:
         run: flutter test
 
       - name: Run static analysis
-        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+        # Scoped to the passenger app: the nested tryp_driver app is a separate
+        # Dart package and cannot be resolved from the passenger package root.
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos lib test
 
       - name: Create production environment asset
         env:
