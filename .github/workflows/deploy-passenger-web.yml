@@ -151,6 +151,10 @@ jobs:
           FIREBASE_WEB_APP_ID: ${{ secrets.FIREBASE_WEB_APP_ID }}
           FIREBASE_WEB_MEASUREMENT_ID: ${{ secrets.FIREBASE_WEB_MEASUREMENT_ID }}
         run: |
+          set -eu
+          # Flutter copies only part of web/ into build/web. The messaging
+          # service worker must be copied explicitly before it is configured.
+          cp web/firebase-messaging-sw.js build/web/firebase-messaging-sw.js
           python3 - <<'PY'
           import json
           import os
