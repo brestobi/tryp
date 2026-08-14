@@ -36,6 +36,16 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Create minimal environment asset for tests
+        # The repository references .env as a Flutter asset, but .env is
+        # gitignored and absent in CI. Tests only need the asset to exist.
+        run: |
+          printf '%s\n' \
+            "SUPABASE_URL=https://placeholder.supabase.co" \
+            "SUPABASE_ANON_KEY=placeholder-anon-key" \
+            "MAPBOX_ACCESS_TOKEN=placeholder-mapbox-token" \
+            "IS_PRODUCTION=false" > .env
+
       - name: Run tests
         run: flutter test
 
