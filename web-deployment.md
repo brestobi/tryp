@@ -246,27 +246,59 @@ In Supabase, go to:
 Authentication → URL Configuration
 ```
 
-Set the **Site URL** to your production URL, for example:
+Set the **Site URL** to the Vercel production URL:
 
 ```text
-https://app.yourdomain.co.za
+https://tryp-passenger-web.vercel.app
 ```
 
 Add this to **Redirect URLs**:
 
 ```text
-https://app.yourdomain.co.za/**
+https://tryp-passenger-web.vercel.app/**
 ```
 
-If you will test using the Vercel URL, also add:
+If you later add another Vercel preview or custom domain, add its exact origin
+as an additional redirect URL.
+
+
+## 9. Configure Google OAuth for the passenger web app
+
+The Flutter Web app uses Supabase's Google OAuth redirect flow. Configure both
+Supabase and Google Cloud before testing the Google button.
+
+In Supabase, go to:
+
+```text
+Authentication → Providers → Google
+```
+
+Enable Google and enter the Google OAuth **Web application** client ID and
+client secret. The client ID used by the native mobile flow is not a substitute
+for enabling the Supabase web provider.
+
+In Google Cloud, add this authorized JavaScript origin:
+
+```text
+https://tryp-passenger-web.vercel.app
+```
+
+Add the Supabase callback URL shown on the Supabase Google provider page under
+Google's authorized redirect URIs. For this project it is:
+
+```text
+https://lapkfscxtkvbuojysygk.supabase.co/auth/v1/callback
+```
+
+The Flutter app returns to the Vercel origin after Supabase completes the
+provider exchange, so the following URL must also be present in Supabase's
+redirect allow list:
 
 ```text
 https://tryp-passenger-web.vercel.app/**
 ```
 
-Use your actual Vercel project URL.
-
-## 9. Configure Firebase authorized domains
+## 10. Configure Firebase authorized domains
 
 In Firebase Console, go to:
 
@@ -274,13 +306,7 @@ In Firebase Console, go to:
 Authentication → Settings → Authorized domains
 ```
 
-Add:
-
-```text
-app.yourdomain.co.za
-```
-
-Also add the Vercel domain if you will test there:
+Add the Vercel domain:
 
 ```text
 tryp-passenger-web.vercel.app
@@ -288,7 +314,7 @@ tryp-passenger-web.vercel.app
 
 Do not include `https://` in the Firebase authorized-domain field.
 
-## 10. Deploy the first version
+## 11. Deploy the first version
 
 Once all GitHub secrets are configured, trigger the workflow by pushing to `main`:
 
@@ -319,7 +345,7 @@ Watch the result under:
 GitHub repository → Actions
 ```
 
-## 11. Add your custom domain
+## 12. Add your custom domain
 
 In Vercel, go to:
 

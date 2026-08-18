@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,6 +11,7 @@ import 'package:tryp/features/authentication/presentation/screens/register_scree
 import 'package:tryp/features/authentication/presentation/screens/phone_verification_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/email_verification_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/forgot_password_screen.dart';
+import 'package:tryp/features/authentication/presentation/screens/reset_password_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_home_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_profile_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_profile_setup_screen.dart';
@@ -25,7 +28,7 @@ import 'package:tryp/core/services/trip_service.dart';
 
 export 'routes.dart';
 
-GoRouter buildRouter() {
+GoRouter buildRouter({PassengerRouteGuard? routeGuard}) {
   final routes = <RouteBase>[
     GoRoute(
       path: Routes.notifications,
@@ -64,6 +67,15 @@ GoRouter buildRouter() {
     GoRoute(
       path: Routes.forgotPassword,
       builder: (context, state) => const ForgotPasswordScreenPage(),
+    ),
+    GoRoute(
+      path: Routes.resetPassword,
+      builder: (context, state) => ResetPasswordScreenPage(
+        onCancel: () {
+          routeGuard?.clearPasswordRecovery();
+          context.go(Routes.login);
+        },
+      ),
     ),
   ];
 
@@ -121,9 +133,132 @@ GoRouter buildRouter() {
   return GoRouter(
     initialLocation: Routes.splash,
     debugLogDiagnostics: true,
+    refreshListenable: routeGuard,
+    redirect: routeGuard?.redirect,
     routes: routes,
     errorBuilder: (context, state) => ErrorScreen(error: state.error),
   );
+}
+
+/// Keeps passenger routes behind Supabase authentication and handles recovery.
+/// Profile loading is cached so GoRouter redirects remain synchronous.
+class PassengerRouteGuard extends ChangeNotifier {
+  final SupabaseClient _client;
+  late final StreamSubscription<AuthState> _authSubscription;
+
+  Session? _session;
+  String? _role;
+  bool _profileLoaded = false;
+  bool _profileLoading = false;
+  bool _profileLoadFailed = false;
+  bool _passwordRecoveryActive = false;
+
+  PassengerRouteGuard({SupabaseClient? client})
+      : _client = client ?? Supabase.instance.client {
+    _session = _client.auth.currentSession;
+    _authSubscription = _client.auth.onAuthStateChange.listen(_handleAuthState);
+    if (_session == null) {
+      _profileLoaded = true;
+    } else {
+      unawaited(_loadProfile(_session!.user.id));
+    }
+  }
+
+  bool get _isAuthenticated => _session != null;
+
+  static bool _isPublicRoute(String location) {
+    return location == Routes.splash ||
+        location == Routes.onboarding ||
+        location == Routes.welcome ||
+        location == Routes.login ||
+        location == Routes.register ||
+        location == Routes.phoneVerification ||
+        location == Routes.emailVerification ||
+        location == Routes.forgotPassword;
+  }
+
+  String? redirect(BuildContext context, GoRouterState state) {
+    final location = state.matchedLocation;
+
+    if (location == Routes.resetPassword) {
+      return _passwordRecoveryActive ? null : Routes.login;
+    }
+    if (_passwordRecoveryActive) return Routes.resetPassword;
+    if (_isPublicRoute(location)) return null;
+    if (!_isAuthenticated) return Routes.onboarding;
+
+    // A new Google account may not have a profile row until the trigger
+    // completes. Allow the setup route once auth is established.
+    if (location == Routes.profileSetup &&
+        _profileLoaded &&
+        !_profileLoadFailed &&
+        (_role == null || _role == 'passenger')) {
+      return null;
+    }
+
+    if (!_profileLoaded || _profileLoading) return Routes.splash;
+    if (_profileLoadFailed || _role != 'passenger') return Routes.onboarding;
+    return null;
+  }
+
+  void clearPasswordRecovery() {
+    if (!_passwordRecoveryActive) return;
+    _passwordRecoveryActive = false;
+    notifyListeners();
+  }
+
+  void _handleAuthState(AuthState authState) {
+    if (authState.event == AuthChangeEvent.passwordRecovery) {
+      _passwordRecoveryActive = true;
+    } else if (authState.event == AuthChangeEvent.signedOut) {
+      _passwordRecoveryActive = false;
+    }
+
+    _session = authState.session;
+    _role = null;
+    _profileLoaded = _session == null;
+    _profileLoading = false;
+    _profileLoadFailed = false;
+    notifyListeners();
+
+    final userId = _session?.user.id;
+    if (userId != null) unawaited(_loadProfile(userId));
+  }
+
+  Future<void> _loadProfile(String userId) async {
+    if (_profileLoading) return;
+    _profileLoading = true;
+    _profileLoaded = false;
+    _profileLoadFailed = false;
+    notifyListeners();
+
+    try {
+      final profile = await _client
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (_client.auth.currentUser?.id != userId) return;
+      _role = profile?['role'] as String?;
+    } catch (_) {
+      if (_client.auth.currentUser?.id != userId) return;
+      _role = null;
+      _profileLoadFailed = true;
+    } finally {
+      if (_client.auth.currentUser?.id == userId) {
+        _profileLoading = false;
+        _profileLoaded = true;
+        notifyListeners();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_authSubscription.cancel());
+    super.dispose();
+  }
 }
 
 class ErrorScreen extends StatelessWidget {

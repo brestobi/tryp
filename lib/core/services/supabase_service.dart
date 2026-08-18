@@ -20,6 +20,16 @@ final authServiceProvider = riverpod.Provider<AuthService>((ref) {
   return AuthService(client);
 });
 
+/// Converts provider errors into a safe message suitable for the auth UI.
+String authErrorMessage(Object error) {
+  if (error is AuthException && error.message.isNotEmpty) {
+    return error.message;
+  }
+
+  final message = error.toString().replaceFirst('Exception: ', '').trim();
+  return message.isEmpty ? 'Authentication failed. Please try again.' : message;
+}
+
 /// Authentication Service
 class AuthService {
   final SupabaseClient _supabase;
@@ -55,9 +65,12 @@ class AuthService {
   Future<bool> signInWithGoogleWeb() async {
     try {
       _logger.i('Starting Google OAuth redirect flow (web)');
+      // Supabase handles the PKCE callback automatically on web. The app
+      // origin is used instead of a non-existent /auth/callback route so the
+      // Flutter shell can restore the session and route from the splash screen.
       await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: '${Uri.base.origin}/',
+        redirectTo: Uri.base.origin,
       );
       return true;
     } catch (e) {
@@ -302,16 +315,34 @@ class AuthService {
   }
 
   /// Send a password reset email.
-  Future<void> resetPasswordForEmail(String email) async {
+  Future<void> resetPasswordForEmail(String email, {String? redirectTo}) async {
     try {
       _logger.i('Sending password reset email to: $email');
-      await _supabase.auth.resetPasswordForEmail(email);
+      await _supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: redirectTo ?? (kIsWeb ? Uri.base.origin : null),
+      );
       _logger.i('Password reset email sent');
     } on AuthException catch (error) {
       _logger.e('Password reset auth error: ${error.message}');
       rethrow;
     } catch (error) {
       _logger.e('Password reset error: $error');
+      rethrow;
+    }
+  }
+
+  /// Update the authenticated user's password during recovery.
+  Future<void> updatePassword(String password) async {
+    try {
+      _logger.i('Updating password');
+      await _supabase.auth.updateUser(UserAttributes(password: password));
+      _logger.i('Password updated successfully');
+    } on AuthException catch (error) {
+      _logger.e('Password update auth error: ${error.message}');
+      rethrow;
+    } catch (error) {
+      _logger.e('Password update error: $error');
       rethrow;
     }
   }

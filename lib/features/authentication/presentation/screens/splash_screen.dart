@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -50,7 +51,40 @@ class _SplashScreenPageState extends State<SplashScreenPage>
     super.dispose();
   }
 
+  Future<Session?> _resolveSession() async {
+    try {
+      final auth = Supabase.instance.client.auth;
+      final current = auth.currentSession;
+      if (current != null && !current.isExpired) return current;
+
+      try {
+        await auth.onAuthStateChange
+            .where(
+              (state) =>
+                  state.event == AuthChangeEvent.signedIn ||
+                  state.event == AuthChangeEvent.initialSession ||
+                  state.event == AuthChangeEvent.tokenRefreshed ||
+                  state.event == AuthChangeEvent.signedOut,
+            )
+            .first
+            .timeout(const Duration(seconds: 4));
+      } catch (_) {
+        // A missing session is a normal unauthenticated startup state.
+      }
+
+      final resolved = auth.currentSession;
+      return resolved != null && !resolved.isExpired ? resolved : null;
+    } catch (_) {
+      // Widget tests and recovery screens can mount before Supabase is ready.
+      return null;
+    }
+  }
+
   Future<void> _initialize() async {
+    // Start waiting before the splash animation and location permission flow.
+    // This covers the asynchronous PKCE callback exchange on web.
+    final sessionFuture = _resolveSession();
+
     // Request location permissions (non-fatal)
     try {
       final permission = await Geolocator.checkPermission();
@@ -65,8 +99,10 @@ class _SplashScreenPageState extends State<SplashScreenPage>
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    // Check for an existing Supabase session
-    final session = Supabase.instance.client.auth.currentSession;
+    // Check for an existing Supabase session, including any callback or
+    // refresh event that completed while the splash screen was visible.
+    final session = await sessionFuture;
+    if (!mounted) return;
     if (session != null) {
       // Resolve profile completion for every restored passenger session.
       // Non-Google profiles default to completed, while new Google profiles

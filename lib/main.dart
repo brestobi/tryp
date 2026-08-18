@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/app.dart';
+import 'package:tryp/app/router.dart';
 import 'package:tryp/config/environment.dart';
 import 'package:tryp/core/services/push_notification_service.dart';
 import 'package:tryp/firebase_options.dart';
@@ -93,7 +94,16 @@ Future<void> _runBootstrap() async {
         await Supabase.initialize(
           url: Environment.supabaseUrl,
           publishableKey: Environment.supabaseAnonKey,
+          // Keep the browser callback exchange explicit and consistent with
+          // Supabase's web OAuth flow.
+          authOptions: const FlutterAuthClientOptions(
+            authFlowType: AuthFlowType.pkce,
+          ),
         );
+
+        // Subscribe before the remaining bootstrap work so a password-recovery
+        // or OAuth auth event cannot be missed while Firebase initializes.
+        final passengerRouteGuard = PassengerRouteGuard();
 
         // 2. Initialize Firebase Messaging so Android can receive real OS-level
         //    push notifications in the background and while the app is active.
@@ -109,7 +119,11 @@ Future<void> _runBootstrap() async {
           );
         }
 
-        runApp(ProviderScope(child: const TRYPApp()));
+        runApp(
+          ProviderScope(
+            child: TRYPApp(routeGuard: passengerRouteGuard),
+          ),
+        );
       } catch (error, stack) {
         debugPrint('Initialization error: $error\n$stack');
         runApp(

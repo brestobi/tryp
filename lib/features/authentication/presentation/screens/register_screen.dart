@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -211,7 +212,17 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
                                         final signedIn = await ref
                                             .read(authServiceProvider)
                                             .signInWithGoogleAuto();
-                                        if (!mounted || !signedIn) return;
+                                        if (!mounted) return;
+                                        if (!signedIn) {
+                                          setState(() => _isLoading = false);
+                                          return;
+                                        }
+                                        // Web OAuth navigates away and returns
+                                        // through the splash/session handler.
+                                        if (kIsWeb) {
+                                          setState(() => _isLoading = false);
+                                          return;
+                                        }
                                         final route =
                                             await googlePostAuthRoute();
                                         if (!mounted) return;
@@ -234,10 +245,9 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
                                         if (!mounted) return;
                                         setState(() => _isLoading = false);
                                         messenger.showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Google sign-in failed.',
-                                            ),
+                                          SnackBar(
+                                            content: Text(authErrorMessage(e)),
+                                            backgroundColor: TRYPColors.error,
                                           ),
                                         );
                                       }
@@ -249,7 +259,15 @@ class _RegisterScreenPageState extends ConsumerState<RegisterScreenPage> {
                                   child: _SocialButton(
                                     label: 'Apple',
                                     icon: Icons.apple,
-                                    onTap: () {},
+                                    onTap: () => ScaffoldMessenger.of(
+                                      context,
+                                    ).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Apple sign-in is not available yet.',
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
