@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -663,12 +664,14 @@ class _PassengerHomeScreenPageState
       Point(coordinates: Position(longitude, latitude));
 
   Future<void> _clearMapRoute() async {
+    if (kIsWeb) return;
     if (_lineAnnotationManager != null) {
       await _lineAnnotationManager!.deleteAll();
     }
   }
 
   Future<void> _drawMapRoute(List<MapCoordinate> points) async {
+    if (kIsWeb) return;
     final map = _mapController;
     if (map == null || points.isEmpty) return;
 
@@ -690,6 +693,9 @@ class _PassengerHomeScreenPageState
   }
 
   Future<void> _updateMapMarkers() async {
+    // Circle and polyline annotation managers are not implemented by the
+    // Mapbox Flutter Web plugin. The base map remains available on web.
+    if (kIsWeb) return;
     final map = _mapController;
     if (map == null) return;
 
@@ -1292,12 +1298,14 @@ class _PassengerHomeScreenPageState
             styleUri: TRYPMapStyles.light,
             onMapCreated: (controller) {
               _mapController = controller;
-              unawaited(
-                controller.location.updateSettings(
-                  LocationComponentSettings(enabled: true),
-                ),
-              );
-              unawaited(_updateMapMarkers());
+              if (!kIsWeb) {
+                unawaited(
+                  controller.location.updateSettings(
+                    LocationComponentSettings(enabled: true),
+                  ),
+                );
+                unawaited(_updateMapMarkers());
+              }
             },
           ),
 

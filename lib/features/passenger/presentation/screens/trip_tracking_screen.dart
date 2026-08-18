@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -188,6 +189,9 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
       Point(coordinates: Position(longitude, latitude));
 
   Future<void> _updateMapMarkersAndRoute(TripModel trip) async {
+    // Circle and polyline annotation managers are not implemented by the
+    // Mapbox Flutter Web plugin. The base map remains available on web.
+    if (kIsWeb) return;
     final map = _mapController;
     if (map == null) return;
 
@@ -565,12 +569,14 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                 styleUri: TRYPMapStyles.light,
                 onMapCreated: (controller) {
                   _mapController = controller;
-                  unawaited(
-                    controller.location.updateSettings(
-                      LocationComponentSettings(enabled: true),
-                    ),
-                  );
-                  unawaited(_updateMapMarkersAndRoute(trip));
+                  if (!kIsWeb) {
+                    unawaited(
+                      controller.location.updateSettings(
+                        LocationComponentSettings(enabled: true),
+                      ),
+                    );
+                    unawaited(_updateMapMarkersAndRoute(trip));
+                  }
                 },
               ),
             ),

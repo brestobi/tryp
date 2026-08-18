@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -8,6 +9,38 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:tryp/config/environment.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Normalizes the Firebase Web Push public key before it reaches the
+/// browser SDK, which decodes it as base64url.
+String? normalizeFirebaseWebVapidKey(String rawKey) {
+  var key = rawKey.trim();
+  if (key.length >= 2 &&
+      ((key.startsWith('"') && key.endsWith('"')) ||
+          (key.startsWith("'") && key.endsWith("'")))) {
+    key = key.substring(1, key.length - 1).trim();
+  }
+
+  key = key.replaceAll(RegExp(r'\s+'), '');
+  if (key.isEmpty) return null;
+
+  // Accept standard base64 input too, then pass the unpadded URL-safe form
+  // expected by Firebase Messaging.
+  key = key.replaceAll('+', '-').replaceAll('/', '_');
+  key = key.replaceFirst(RegExp(r'=+$'), '');
+  if (!RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(key)) return null;
+
+  try {
+    final padding = (4 - key.length % 4) % 4;
+    final paddedKey = key.padRight(key.length + padding, '=');
+    final decoded = base64Url.decode(paddedKey);
+    // A Web Push P-256 public key is an uncompressed 65-byte point.
+    if (decoded.length != 65 || decoded.first != 4) return null;
+  } on FormatException {
+    return null;
+  }
+
+  return key;
+}
 
 /// Background message handler — MUST be a top-level function.
 @pragma('vm:entry-point')
@@ -244,9 +277,15 @@ class PushNotificationService {
   Future<String?> getPushToken() async {
     try {
       if (kIsWeb) {
-        final vapidKey = Environment.firebaseWebVapidKey;
-        if (vapidKey.isEmpty) {
-          debugPrint('⚠️ Firebase Web VAPID key is not configured.');
+        final vapidKey = normalizeFirebaseWebVapidKey(
+          Environment.firebaseWebVapidKey,
+        );
+        if (vapidKey == null) {
+          debugPrint(
+            '⚠️ Firebase Web VAPID key is missing or invalid. '
+            'Use the public key from Firebase Console → Project settings → '
+            'Cloud Messaging → Web Push certificates.',
+          );
           return null;
         }
         return await _messaging.getToken(vapidKey: vapidKey);
