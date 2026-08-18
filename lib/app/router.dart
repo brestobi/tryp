@@ -189,10 +189,10 @@ class PassengerRouteGuard extends ChangeNotifier {
 
     // A new Google account may not have a profile row until the trigger
     // completes. Allow the setup route once auth is established.
-    if (location == Routes.profileSetup &&
-        _profileLoaded &&
-        !_profileLoadFailed &&
-        (_role == null || _role == 'passenger')) {
+    if (location == Routes.profileSetup && _role != 'driver') {
+      // Splash resolves the Google callback and navigates here while the
+      // guard may still be loading the same profile. Do not bounce the user
+      // back to splash during that normal startup race.
       return null;
     }
 
