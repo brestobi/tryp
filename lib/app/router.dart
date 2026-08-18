@@ -277,19 +277,44 @@ Future<String?> expectedHomeForCurrentVariant() async {
   final user = client.auth.currentUser;
   if (user == null) return null;
 
-  final data = await client
-      .from('profiles')
-      .select(
-        'role, passenger_verification_status, onboarding_completed, service_area',
-      )
-      .eq('id', user.id)
-      .maybeSingle();
-  final role = data?['role'] as String?;
+  Map<String, dynamic>? data;
+  for (var attempt = 0; attempt < 5; attempt++) {
+    try {
+      data = await client
+          .from('profiles')
+          .select('role, onboarding_completed, service_area')
+          .eq('id', user.id)
+          .maybeSingle();
+    } on PostgrestException {
+      // Older production schemas may not have the optional onboarding fields
+      // yet. The role-only fallback still lets an authenticated passenger
+      // reach profile setup instead of showing a false login failure.
+      final fallback = await client
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+      final fallbackRole = fallback?['role'] as String?;
+      if (fallbackRole == 'passenger') return Routes.profileSetup;
+      return null;
+    }
+    if (data != null) break;
+    if (attempt < 4) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+  }
+
+  // The auth trigger can commit the profile just after sign-in completes.
+  // Treat a still-missing row as a new passenger profile instead of signing
+  // the user out and incorrectly reporting a driver-account login failure.
+  if (data == null) return Routes.profileSetup;
+
+  final role = data['role'] as String?;
   if (role != 'passenger') return null;
 
   final hasServiceArea =
-      TRYPServiceAreas.byId(data?['service_area'] as String?) != null;
-  return data?['onboarding_completed'] == true && hasServiceArea
+      TRYPServiceAreas.byId(data['service_area'] as String?) != null;
+  return data['onboarding_completed'] == true && hasServiceArea
       ? Routes.passengerHome
       : Routes.profileSetup;
 }
