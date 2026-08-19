@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/app.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/config/environment.dart';
+import 'package:tryp/core/platform/device_support.dart';
 import 'package:tryp/core/services/push_notification_service.dart';
 import 'package:tryp/firebase_options.dart';
 
@@ -19,6 +20,13 @@ Future<void> _runBootstrap() async {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+
+      // Do not initialize backend services when the passenger web app is
+      // opened on an unsupported desktop browser.
+      if (kIsWeb && !isMobileWebDevice) {
+        runApp(const UnsupportedDesktopApp());
+        return;
+      }
 
       // Load environment variables first
       await Environment.load();
