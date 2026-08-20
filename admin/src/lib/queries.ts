@@ -19,6 +19,15 @@ import type {
   PayoutSettlement,
   AdminAuditLog,
   AdminRole,
+  AdminUser,
+  Refund,
+  RefundStatus,
+  SafetyIncident,
+  IncidentStatus,
+  IncidentType,
+  IncidentNote,
+  ScheduledRide,
+  ScheduledRideStatus,
 } from '../types/admin';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -745,4 +754,415 @@ export async function sendDriverStatements(
   }
 
   return { success, failed };
+}
+
+// ─── Admin Console User Management ───────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapAdminUser(row: any): AdminUser {
+  // Legacy `role = 'admin'` accounts default to super_admin in the RBAC table
+  // while they have no scoped admin_role assigned. Preserve that behaviour
+  // here so the UI surfaces the same permissions the code enforces.
+  const baseRole = (row.role === 'super_admin' ? 'super_admin' : 'admin') as AdminUser['baseRole'];
+  const adminRole = (row.admin_role ?? 'super_admin') as AdminRole;
+  return {
+    id: row.id,
+    fullName: row.full_name ?? 'Unnamed Admin',
+    email: row.email ?? '',
+    phone: row.phone ?? '',
+    baseRole,
+    adminRole,
+    isOnline: row.is_online ?? false,
+    lastSeenAt: row.last_location_update ?? row.updated_at ?? row.created_at ?? '',
+    createdAt: row.created_at ?? '',
+    avatarUrl: row.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(row.full_name ?? 'Admin')}&background=111111&color=ffffff`,
+  };
+}
+
+export async function fetchAdmins(): Promise<AdminUser[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, phone, role, admin_role, is_online, last_location_update, updated_at, created_at, avatar_url')
+    .in('role', ['admin', 'super_admin'])
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((row: any) => mapAdminUser(row));
+}
+
+/**
+ * Assign a scoped admin console role. The pair of triggers
+ * (`prevent_admin_role_escalation` and `prevent_role_escalation`) means only
+ * super admins can mutate `role` / `admin_role`, so this update will surface a
+ * server-side permission error if invoked by the wrong caller.
+ */
+export async function dbAssignAdminRole(
+  userId: string,
+  adminRole: AdminRole,
+): Promise<void> {
+  // Sibling trigger expects `role` to remain in (admin, super_admin) while
+  // an admin_role is set, so we re-affirm it explicitly to clear the path for
+  // existing super_admin accounts.
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      role: 'admin',
+      admin_role: adminRole,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+/**
+ * Promote a non-admin (driver/passenger) into the admin console with the
+ * requested scoped role.
+ */
+export async function dbPromoteUserToAdmin(
+  userId: string,
+  adminRole: AdminRole = 'super_admin',
+): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      role: 'admin',
+      admin_role: adminRole,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+/**
+ * Remove a profile's admin access. We default the role back to `passenger`
+ * because `prevent_role_escalation` blocks any caller other than super admins
+ * from re-writing it. A driver-former-admin can be restored to `driver` by
+ * the caller explicitly.
+ */
+export async function dbDemoteAdmin(
+  userId: string,
+  fallbackRole: 'passenger' | 'driver' = 'passenger',
+): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      role: fallbackRole,
+      admin_role: null,
+      is_online: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+// ─── Refunds & Disputes ───────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRefundRow(row: any): Refund {
+  return {
+    id: row.id,
+    rideId: row.ride_id,
+    paymentReference: row.payment_reference ?? '',
+    requestedAmount: parseFloat(row.requested_amount ?? '0') || 0,
+    processedAmount: parseFloat(row.processed_amount ?? '0') || 0,
+    currency: row.currency ?? 'ZAR',
+    reason: row.reason ?? '',
+    status: (row.status ?? 'pending') as RefundStatus,
+    paystackRefundId: row.paystack_refund_id ?? null,
+    failureReason: row.failure_reason ?? null,
+    requestedBy: row.requested_by,
+    passengerId: row.passenger_id ?? null,
+    driverId: row.driver_id ?? null,
+    notes: (row.notes ?? {}) as Record<string, unknown>,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    completedAt: row.completed_at ?? null,
+    passengerName: row.passenger?.full_name ?? undefined,
+    passengerEmail: row.passenger?.email ?? undefined,
+    driverName: row.driver?.full_name ?? undefined,
+    driverEmail: row.driver?.email ?? undefined,
+    rideReference: row.ride?.ride_reference ?? undefined,
+    rideFare: row.ride?.fare ? parseFloat(row.ride.fare) : undefined,
+    ridePaymentStatus: row.ride?.payment_status ?? undefined,
+  };
+}
+
+export async function fetchRefunds(): Promise<Refund[]> {
+  const { data, error } = await supabase
+    .from('refunds')
+    .select(`
+      id, ride_id, payment_reference, requested_amount, processed_amount, currency,
+      reason, status, paystack_refund_id, failure_reason, requested_by, passenger_id,
+      driver_id, notes, created_at, updated_at, completed_at,
+      passenger:passenger_id ( full_name, email ),
+      driver:driver_id ( full_name, email ),
+      ride:ride_id ( ride_reference, fare, payment_status )
+    `)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((row: any) => mapRefundRow(row));
+}
+
+/**
+ * Look up a single ride by id (UUID) or payment_reference. Returns null if
+ * nothing matches. The query avoids ambiguous return shapes by always
+ * fetching both id columns.
+ */
+export async function fetchRefundableRide(
+  identifier: string,
+): Promise<{
+  id: string;
+  rideReference: string;
+  fare: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  paymentReference: string;
+  passengerId: string | null;
+  passengerName: string;
+  passengerEmail: string;
+  driverName: string;
+  status: string;
+} | null> {
+  const isUuid = /^[0-9a-f-]{36}$/i.test(identifier.trim());
+  const baseSelect = `
+    id, ride_reference, fare, payment_method, payment_status, payment_reference,
+    status, passenger_id, driver_id,
+    passenger:passenger_id ( full_name, email ),
+    driver:driver_id ( full_name )
+  `;
+  const base = isUuid
+    ? supabase.from('rides').select(baseSelect).eq('id', identifier.trim())
+    : supabase
+        .from('rides')
+        .select(baseSelect)
+        .or(`payment_reference.eq.${identifier.trim()},ride_reference.eq.${identifier.trim()}`)
+        .limit(1);
+  const { data, error } = await base.maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    id: data.id,
+    rideReference: data.ride_reference ?? '',
+    fare: parseFloat(String((data as { fare?: string | number }).fare ?? '0')) || 0,
+    paymentMethod: (data as { payment_method?: string }).payment_method ?? 'Cash',
+    paymentStatus: (data as { payment_status?: string }).payment_status ?? 'pending',
+    paymentReference: (data as { payment_reference?: string }).payment_reference ?? '',
+    passengerId: (data as { passenger_id?: string | null }).passenger_id ?? null,
+    passengerName:
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((data as any).passenger?.full_name as string | undefined) ?? '',
+    passengerEmail:
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((data as any).passenger?.email as string | undefined) ?? '',
+    driverName:
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((data as any).driver?.full_name as string | undefined) ?? '',
+    status: (data as { status?: string }).status ?? '',
+  };
+}
+
+/**
+ * Issue a refund. The finance team controls the amount and reason. The
+ * Edge Function performs the actual Paystack call and updates the refund row.
+ */
+export async function processRefund(params: {
+  rideId: string;
+  amount: number;
+  reason: string;
+  notes?: Record<string, unknown>;
+}): Promise<{
+  refundId: string;
+  status: 'completed' | 'failed';
+  amount: number;
+  processedAmount?: number;
+  paystackRefundId?: string | null;
+  paystackMessage?: string;
+}> {
+  const { data, error } = await supabase.functions.invoke('paystack-refund', {
+    body: {
+      rideId: params.rideId,
+      amount: params.amount,
+      reason: params.reason,
+      notes: params.notes ?? {},
+    },
+  });
+  if (error) throw error;
+  const payload = (data ?? {}) as {
+    refundId?: string;
+    status?: 'completed' | 'failed';
+    amount?: number;
+    processedAmount?: number;
+    paystackRefundId?: string | null;
+    paystackMessage?: string;
+  };
+  if (!payload.refundId) {
+    throw new Error((data as { error?: string })?.error ?? 'Paystack refund response missing refund ID.');
+  }
+  return {
+    refundId: payload.refundId,
+    status: payload.status ?? 'failed',
+    amount: payload.amount ?? params.amount,
+    processedAmount: payload.processedAmount,
+    paystackRefundId: payload.paystackRefundId ?? null,
+    paystackMessage: payload.paystackMessage,
+  };
+}
+
+/**
+ * Mark a refund under dispute without contacting Paystack. Used when finance
+ * flags a refund as disputed pending Paystack investigation.
+ */
+export async function flagRefundDispute(refundId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('finalize_refund', {
+    p_refund_id: refundId,
+    p_status: 'disputed',
+    p_processed_amount: 0,
+    p_paystack_refund_id: null,
+    p_paystack_response: null,
+    p_failure_reason: reason,
+  });
+  if (error) throw error;
+}
+
+// ─── Safety Incidents ─────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapIncident(row: any): SafetyIncident {
+  return {
+    id: row.id,
+    rideId: row.ride_id ?? null,
+    reporterId: row.reporter_id,
+    incidentType: (row.incident_type ?? 'other') as IncidentType,
+    message: row.message ?? null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+    status: (row.status ?? 'open') as IncidentStatus,
+    createdAt: row.created_at,
+    acknowledgedBy: row.acknowledged_by ?? null,
+    acknowledgedAt: row.acknowledged_at ?? null,
+    resolvedBy: row.resolved_by ?? null,
+    resolvedAt: row.resolved_at ?? null,
+    internalNotes: Array.isArray(row.internal_notes)
+      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (row.internal_notes as any[]).map((n) => n as IncidentNote)
+      : [],
+    reporterName: row.reporter_name ?? 'Unknown reporter',
+    reporterEmail: row.reporter_email ?? '',
+    reporterPhone: row.reporter_phone ?? '',
+    reporterRole: row.reporter_role ?? 'passenger',
+    acknowledgedByName: row.acknowledged_by_name ?? null,
+    resolvedByName: row.resolved_by_name ?? null,
+    rideReference: row.ride_reference ?? null,
+    rideStatus: row.ride_status ?? null,
+    rideOrigin: row.ride_origin ?? null,
+    rideDestination: row.ride_destination ?? null,
+  };
+}
+
+export async function fetchSafetyIncidents(): Promise<SafetyIncident[]> {
+  const { data, error } = await supabase.rpc('fetch_admin_incidents', {
+    p_limit: 200,
+  });
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[]).map((row) => mapIncident(row));
+}
+
+export async function acknowledgeIncident(incidentId: string): Promise<void> {
+  const { error } = await supabase.rpc('update_safety_incident_status', {
+    p_incident_id: incidentId,
+    p_status: 'acknowledged',
+  });
+  if (error) throw error;
+}
+
+export async function resolveIncident(incidentId: string): Promise<void> {
+  const { error } = await supabase.rpc('update_safety_incident_status', {
+    p_incident_id: incidentId,
+    p_status: 'resolved',
+  });
+  if (error) throw error;
+}
+
+export async function appendIncidentNote(incidentId: string, note: string): Promise<IncidentNote> {
+  const { data, error } = await supabase.rpc('append_incident_note', {
+    p_incident_id: incidentId,
+    p_note: note,
+  });
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data as any) ?? {};
+}
+
+// ─── Scheduled Rides ──────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapScheduledRide(row: any): ScheduledRide {
+  return {
+    id: row.id,
+    rideReference: row.ride_reference ?? '',
+    passengerId: row.passenger_id,
+    passengerName: row.passenger_name ?? 'Unknown passenger',
+    passengerEmail: row.passenger_email ?? '',
+    passengerPhone: row.passenger_phone ?? '',
+    driverId: row.driver_id ?? null,
+    driverName: row.driver_name ?? null,
+    driverPhone: row.driver_phone ?? null,
+    driverPlate: row.driver_plate ?? null,
+    origin: row.origin ?? '',
+    destination: row.destination ?? '',
+    pickupLat: parseFloat(String(row.pickup_lat ?? 0)) || 0,
+    pickupLng: parseFloat(String(row.pickup_lng ?? 0)) || 0,
+    destLat: parseFloat(String(row.dest_lat ?? 0)) || 0,
+    destLng: parseFloat(String(row.dest_lng ?? 0)) || 0,
+    fare: parseFloat(String(row.fare ?? '0')) || 0,
+    rideType: row.ride_type ?? 'TRYP Go',
+    paymentMethod: row.payment_method ?? 'Cash',
+    paymentStatus: row.payment_status ?? 'pending',
+    paymentReference: row.payment_reference ?? '',
+    status: (row.status ?? 'requested') as ScheduledRideStatus,
+    scheduledFor: row.scheduled_for,
+    requestedAt: row.requested_at,
+    acceptedAt: row.accepted_at ?? null,
+    rescheduleCount: Number(row.reschedule_count ?? 0),
+    lastRescheduledAt: row.last_rescheduled_at ?? null,
+    lastRescheduledBy: row.last_rescheduled_by ?? null,
+    lastRescheduledByName: row.last_rescheduled_by_name ?? null,
+    lastRescheduleReason: row.last_reschedule_reason ?? null,
+  };
+}
+
+export async function fetchScheduledRides(): Promise<ScheduledRide[]> {
+  const { data, error } = await supabase.rpc('fetch_admin_scheduled_rides', {
+    p_window_minutes: 60 * 24 * 30,
+  });
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return ((data ?? []) as any[]).map((row) => mapScheduledRide(row));
+}
+
+export async function rescheduleRide(
+  rideId: string,
+  scheduledForIso: string,
+  reason: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('reschedule_ride', {
+    p_ride_id: rideId,
+    p_scheduled_for: scheduledForIso,
+    p_reason: reason || null,
+  });
+  if (error) throw error;
+}
+
+export async function cancelScheduledRide(
+  rideId: string,
+  reason: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('admin_cancel_scheduled_ride', {
+    p_ride_id: rideId,
+    p_reason: reason || null,
+  });
+  if (error) throw error;
 }

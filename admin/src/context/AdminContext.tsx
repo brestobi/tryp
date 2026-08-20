@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type {
   AdminRole,
+  AdminUser,
+  Refund,
+  SafetyIncident,
+  ScheduledRide,
   DriverProfile,
   PassengerProfile,
   PassengerVerification,
@@ -22,6 +26,17 @@ import {
   fetchFareSchemas,
   fetchPayouts,
   fetchAuditLogs,
+  fetchAdmins,
+  fetchRefunds,
+  processRefund,
+  flagRefundDispute,
+  fetchSafetyIncidents,
+  acknowledgeIncident,
+  resolveIncident,
+  appendIncidentNote,
+  fetchScheduledRides,
+  rescheduleRide,
+  cancelScheduledRide,
   dbUpdateDriverStatus,
   dbUpdateDocumentStatus,
   dbUpdateFareSchema,
@@ -33,6 +48,9 @@ import {
   dbUpdateUserProfile,
   dbDeleteUser,
   dbInsertAuditLog,
+  dbAssignAdminRole,
+  dbPromoteUserToAdmin,
+  dbDemoteAdmin,
   dbBroadcastNotification,
   type BroadcastType,
   type BroadcastTarget,
@@ -41,18 +59,22 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { hasPermission, type Permission } from '../lib/rbac';
 
-export type ActiveTab = 'dashboard' | 'kyc' | 'passenger-verification' | 'fleet' | 'fares' | 'payouts' | 'wallets' | 'users' | 'audit' | 'broadcast' | 'statements';
+export type ActiveTab = 'dashboard' | 'kyc' | 'passenger-verification' | 'fleet' | 'scheduled' | 'fares' | 'payouts' | 'wallets' | 'refunds' | 'users' | 'admin-users' | 'audit' | 'incidents' | 'broadcast' | 'statements';
 
 const TAB_PERMISSIONS: Record<ActiveTab, Permission> = {
   dashboard: 'dashboard:read',
   kyc: 'kyc:read',
   'passenger-verification': 'kyc:read',
   fleet: 'fleet:read',
+  scheduled: 'fleet:read',
   fares: 'fares:read',
   payouts: 'finance:read',
   wallets: 'finance:read',
+  refunds: 'finance:read',
   users: 'users:read',
+  'admin-users': 'admin:manage',
   audit: 'audit:read',
+  incidents: 'fleet:read',
   broadcast: 'broadcast:write',
   statements: 'statements:read',
 };
@@ -70,6 +92,7 @@ interface AdminContextType {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   currentRole: AdminRole;
+  user: { id: string; email: string } | null;
   can: (permission: Permission) => boolean;
 
   // Loading & error states
@@ -85,6 +108,10 @@ interface AdminContextType {
   fareSchemas: FareSchema[];
   payouts: PayoutSettlement[];
   driverWallets: DriverWallet[];
+  admins: AdminUser[];
+  refunds: Refund[];
+  incidents: SafetyIncident[];
+  scheduledRides: ScheduledRide[];
   auditLogs: AdminAuditLog[];
   notifications: AdminNotification[];
   isRealtimeLive: boolean;
@@ -104,6 +131,16 @@ interface AdminContextType {
   toggleUserStatus: (userId: string, isDriver: boolean) => Promise<void>;
   updateUserProfile: (userId: string, isDriver: boolean, updates: Parameters<typeof dbUpdateUserProfile>[1]) => Promise<void>;
   promoteUserToAdmin: (userId: string) => Promise<void>;
+  promoteUserToAdminScoped: (userId: string, adminRole: AdminRole, sourceRole: 'driver' | 'passenger') => Promise<void>;
+  assignAdminRole: (adminId: string, adminRole: AdminRole) => Promise<void>;
+  demoteAdmin: (adminId: string, fallbackRole: 'driver' | 'passenger') => Promise<void>;
+  issueRefund: (params: { rideId: string; amount: number; reason: string; notes?: Record<string, unknown> }) => Promise<string>;
+  disputeRefund: (refundId: string, reason: string) => Promise<void>;
+  acknowledgeSafetyIncident: (incidentId: string) => Promise<void>;
+  resolveSafetyIncident: (incidentId: string) => Promise<void>;
+  addIncidentNote: (incidentId: string, note: string) => Promise<void>;
+  rescheduleScheduledRide: (rideId: string, scheduledForIso: string, reason: string) => Promise<void>;
+  cancelScheduledRideAction: (rideId: string, reason: string) => Promise<void>;
   deleteUser: (userId: string, isDriver: boolean) => Promise<void>;
   markNotificationsRead: () => void;
   addNotification: (n: Omit<AdminNotification, 'id' | 'read'>) => void;
@@ -155,6 +192,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [fareSchemas, setFareSchemas] = useState<FareSchema[]>([]);
   const [payouts, setPayouts] = useState<PayoutSettlement[]>([]);
   const [driverWallets, setDriverWallets] = useState<DriverWallet[]>([]);
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
+  const [scheduledRides, setScheduledRides] = useState<ScheduledRide[]>([]);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
 
@@ -165,7 +206,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       // Do not let a restricted role fail the whole console because it cannot
       // read another department's sensitive tables.
-      const [d, wallets, p, pv, r, f, pay, logs] = await Promise.all([
+      const [d, wallets, p, pv, r, f, pay, adminsList, refundsList, incidentsList, scheduledList, logs] = await Promise.all([
         can('users:read') || can('kyc:read') || can('fleet:read')
           ? fetchDrivers()
           : Promise.resolve([]),
@@ -175,6 +216,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         can('dashboard:read') || can('fleet:read') ? fetchRides() : Promise.resolve([]),
         can('fares:read') ? fetchFareSchemas() : Promise.resolve([]),
         can('finance:read') ? fetchPayouts() : Promise.resolve([]),
+        can('admin:manage') ? fetchAdmins() : Promise.resolve([]),
+        can('finance:read') ? fetchRefunds() : Promise.resolve([]),
+        can('fleet:read') ? fetchSafetyIncidents() : Promise.resolve([]),
+        can('fleet:read') || can('finance:read') ? fetchScheduledRides() : Promise.resolve([]),
         can('audit:read') ? fetchAuditLogs() : Promise.resolve([]),
       ]);
       setDrivers(d);
@@ -184,6 +229,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setRides(r);
       setFareSchemas(f);
       setPayouts(pay);
+      setAdmins(adminsList);
+      setRefunds(refundsList);
+      setIncidents(incidentsList);
+      setScheduledRides(scheduledList);
       setAuditLogs(logs);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load data');
@@ -214,11 +263,43 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
       .subscribe();
 
+    const refundsChannel = supabase
+      .channel('admin-refunds')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'refunds' }, () => {
+        if (can('finance:read')) {
+          fetchRefunds().then(setRefunds).catch(console.error);
+        }
+      })
+      .subscribe();
+
+    const incidentsChannel = supabase
+      .channel('admin-incidents')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'safety_incidents' }, () => {
+        if (can('fleet:read')) {
+          // Pull the SECURE view, not the base table, so we never request
+          // internal_notes without the SECURITY DEFINER gate.
+          fetchSafetyIncidents().then(setIncidents).catch(console.error);
+        }
+      })
+      .subscribe();
+
+    const scheduledChannel = supabase
+      .channel('admin-scheduled-rides')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, () => {
+        if (can('fleet:read') || can('finance:read')) {
+          fetchScheduledRides().then(setScheduledRides).catch(console.error);
+        }
+      })
+      .subscribe();
+
     const profilesChannel = supabase
       .channel('admin-profiles')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
         fetchDrivers().then(setDrivers).catch(console.error);
         fetchPassengers().then(setPassengers).catch(console.error);
+        if (can('admin:manage')) {
+          fetchAdmins().then(setAdmins).catch(console.error);
+        }
       })
       .subscribe();
 
@@ -244,6 +325,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       supabase.removeChannel(ridesChannel);
       supabase.removeChannel(walletsChannel);
       supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(refundsChannel);
+      supabase.removeChannel(incidentsChannel);
+      supabase.removeChannel(scheduledChannel);
       supabase.removeChannel(logsChannel);
     };
   }, [isRealtimeLive]);
@@ -484,11 +568,291 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const promoteUserToAdmin = async (userId: string) => {
+    // Backwards-compatible wrapper: existing call sites (UserDirectory) hand
+    // off the user ID without a scoped role. Default to super_admin so the
+    // Migration role-escalation triggers approve the elevation; the super
+    // admin can refine the scoped role immediately afterwards.
+    await promoteUserToAdminScoped(userId, 'super_admin', 'passenger');
+  };
+
+  const promoteUserToAdminScoped = async (
+    userId: string,
+    adminRole: AdminRole,
+    sourceRole: 'driver' | 'passenger',
+  ) => {
     requirePermission('admin:manage');
-    await dbUpdateUserProfile(userId, { role: 'admin' });
-    await writeAuditLog('PROMOTE_TO_ADMIN', userId, 'user', `Promoted user to admin role.`);
-    addNotification({ type: 'success', title: 'User Promoted', message: `User promoted to admin successfully.`, timestamp: new Date().toISOString() });
-    loadAll(); // Refresh to update user lists
+    const expectedFallback = sourceRole === 'driver' ? 'driver' : 'passenger';
+    const target = passengers.find((p) => p.id === userId)
+      ?? drivers.find((d) => d.id === userId);
+    const targetName = target?.fullName ?? userId;
+    await dbPromoteUserToAdmin(userId, adminRole);
+    setPassengers((prev) => prev.filter((p) => p.id !== userId));
+    setDrivers((prev) => prev.filter((d) => d.id !== userId));
+    setAdmins((prev) => [
+      {
+        id: userId,
+        fullName: target?.fullName ?? '',
+        email: target?.email ?? '',
+        phone: target?.phone ?? '',
+        baseRole: 'admin',
+        adminRole,
+        isOnline: false,
+        lastSeenAt: '',
+        createdAt: target?.joinedAt ?? new Date().toISOString(),
+        avatarUrl: target?.avatarUrl ?? '',
+      },
+      ...prev,
+    ]);
+    await writeAuditLog(
+      'PROMOTE_TO_ADMIN',
+      userId,
+      expectedFallback,
+      `Promoted ${targetName} to admin with scoped role "${adminRole}".`,
+    );
+    addNotification({
+      type: 'success',
+      title: 'Admin Role Assigned',
+      message: `${targetName} is now a ${adminRole} admin.`,
+      timestamp: new Date().toISOString(),
+    });
+    loadAll();
+  };
+
+  const assignAdminRole = async (adminId: string, adminRole: AdminRole) => {
+    requirePermission('admin:manage');
+    const admin = admins.find((a) => a.id === adminId);
+    if (!admin) throw new Error('Admin not found.');
+    if (admin.id === user?.id && adminRole !== 'super_admin') {
+      throw new Error('You cannot downgrade yourself away from super admin.');
+    }
+    if (admin.adminRole === 'super_admin' && adminRole !== 'super_admin') {
+      const remainingSuper = admins.filter(
+        (a) => a.id !== adminId && a.adminRole === 'super_admin',
+      ).length;
+      if (remainingSuper === 0) {
+        throw new Error('At least one super admin must remain in the console.');
+      }
+    }
+    await dbAssignAdminRole(adminId, adminRole);
+    setAdmins((prev) =>
+      prev.map((a) => (a.id === adminId ? { ...a, adminRole } : a)),
+    );
+    await writeAuditLog(
+      'ASSIGN_ADMIN_ROLE',
+      adminId,
+      'admin_console_role',
+      `Assigned role "${adminRole}" to ${admin.fullName}.`,
+    );
+    addNotification({
+      type: 'success',
+      title: 'Admin Role Updated',
+      message: `${admin.fullName} is now ${adminRole}.`,
+      timestamp: new Date().toISOString(),
+    });
+  };
+
+  const demoteAdmin = async (adminId: string, fallbackRole: 'driver' | 'passenger') => {
+    requirePermission('admin:manage');
+    const admin = admins.find((a) => a.id === adminId);
+    if (!admin) throw new Error('Admin not found.');
+    if (admin.id === user?.id) {
+      throw new Error('You cannot demote yourself. Ask another super admin.');
+    }
+    if (admin.adminRole === 'super_admin') {
+      const remainingSuper = admins.filter(
+        (a) => a.id !== adminId && a.adminRole === 'super_admin',
+      ).length;
+      if (remainingSuper === 0) {
+        throw new Error('At least one super admin must remain in the console.');
+      }
+    }
+    await dbDemoteAdmin(adminId, fallbackRole);
+    setAdmins((prev) => prev.filter((a) => a.id !== adminId));
+    await writeAuditLog(
+      'DEMOTE_ADMIN',
+      adminId,
+      'admin',
+      `Demoted ${admin.fullName}. Admin access revoked; restored to ${fallbackRole}.`,
+    );
+    addNotification({
+      type: 'warning',
+      title: 'Admin Demoted',
+      message: `${admin.fullName} has been demoted to ${fallbackRole}.`,
+      timestamp: new Date().toISOString(),
+    });
+    loadAll();
+  };
+
+  const issueRefund = async (params: {
+    rideId: string;
+    amount: number;
+    reason: string;
+    notes?: Record<string, unknown>;
+  }) => {
+    requirePermission('finance:write');
+    const result = await processRefund(params);
+    if (result.status === 'completed') {
+      await writeAuditLog(
+        'PROCESS_REFUND',
+        result.refundId,
+        'refund',
+        `Issued Paystack refund R ${(result.processedAmount ?? params.amount).toFixed(2)} for ride ${params.rideId}. ${params.reason}`,
+      );
+      addNotification({
+        type: 'success',
+        title: 'Refund completed',
+        message: `R ${(result.processedAmount ?? params.amount).toFixed(2)} refunded via Paystack.`,
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      await writeAuditLog(
+        'REFUND_FAILED',
+        result.refundId,
+        'refund',
+        `Paystack refund attempt failed for ride ${params.rideId}. ${result.paystackMessage ?? ''}`.trim(),
+      );
+      addNotification({
+        type: 'error',
+        title: 'Refund failed',
+        message: result.paystackMessage ?? 'Paystack did not process the refund.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+    // Pull fresh refund data so the table reflects the latest state.
+    if (can('finance:read')) {
+      fetchRefunds().then(setRefunds).catch(console.error);
+      fetchRides().then(setRides).catch(console.error);
+    }
+    return result.refundId;
+  };
+
+  const disputeRefund = async (refundId: string, reason: string) => {
+    requirePermission('finance:write');
+    await flagRefundDispute(refundId, reason);
+    const refund = refunds.find((r) => r.id === refundId);
+    await writeAuditLog(
+      'DISPUTE_REFUND',
+      refundId,
+      'refund',
+      `Flagged refund ${refund?.paymentReference ?? refundId} as disputed. ${reason}`,
+    );
+    addNotification({
+      type: 'warning',
+      title: 'Refund flagged',
+      message: 'Refund marked as disputed. Paystack will be notified manually.',
+      timestamp: new Date().toISOString(),
+    });
+    if (can('finance:read')) {
+      fetchRefunds().then(setRefunds).catch(console.error);
+      fetchRides().then(setRides).catch(console.error);
+    }
+  };
+
+  const acknowledgeSafetyIncident = async (incidentId: string) => {
+    requirePermission('fleet:read');
+    await acknowledgeIncident(incidentId);
+    const incident = incidents.find((i) => i.id === incidentId);
+    await writeAuditLog(
+      'ACKNOWLEDGE_INCIDENT',
+      incidentId,
+      'safety_incident',
+      `Acknowledged incident reported by ${incident?.reporterName ?? incidentId} (${incident?.incidentType ?? 'unknown'}).`,
+    );
+    addNotification({
+      type: 'info',
+      title: 'Incident acknowledged',
+      message: `${incident?.reporterName ?? incidentId} marked as acknowledged.`,
+      timestamp: new Date().toISOString(),
+    });
+    if (can('fleet:read')) {
+      fetchSafetyIncidents().then(setIncidents).catch(console.error);
+    }
+  };
+
+  const resolveSafetyIncident = async (incidentId: string) => {
+    requirePermission('fleet:write');
+    await resolveIncident(incidentId);
+    const incident = incidents.find((i) => i.id === incidentId);
+    await writeAuditLog(
+      'RESOLVE_INCIDENT',
+      incidentId,
+      'safety_incident',
+      `Resolved incident reported by ${incident?.reporterName ?? incidentId} (${incident?.incidentType ?? 'unknown'}).`,
+    );
+    addNotification({
+      type: 'success',
+      title: 'Incident resolved',
+      message: `${incident?.reporterName ?? incidentId} marked as resolved.`,
+      timestamp: new Date().toISOString(),
+    });
+    if (can('fleet:read')) {
+      fetchSafetyIncidents().then(setIncidents).catch(console.error);
+    }
+  };
+
+  const addIncidentNote = async (incidentId: string, note: string) => {
+    requirePermission('fleet:read');
+    await appendIncidentNote(incidentId, note);
+    const incident = incidents.find((i) => i.id === incidentId);
+    await writeAuditLog(
+      'APPEND_INCIDENT_NOTE',
+      incidentId,
+      'safety_incident',
+      `Note appended to incident ${incident?.reporterName ?? incidentId} (${note.length} chars).`,
+    );
+    addNotification({
+      type: 'info',
+      title: 'Note saved',
+      message: 'Operator note recorded in the audit trail.',
+      timestamp: new Date().toISOString(),
+    });
+    if (can('fleet:read')) {
+      fetchSafetyIncidents().then(setIncidents).catch(console.error);
+    }
+  };
+
+  const rescheduleScheduledRide = async (rideId: string, scheduledForIso: string, reason: string) => {
+    requirePermission('fleet:read');
+    await rescheduleRide(rideId, scheduledForIso, reason);
+    const ride = scheduledRides.find((r) => r.id === rideId);
+    await writeAuditLog(
+      'RESCHEDULE_RIDE',
+      rideId,
+      'ride',
+      `Rescheduled ride ${ride?.rideReference ?? rideId} to ${new Date(scheduledForIso).toISOString()}.${reason ? ' Reason: ' + reason : ''}`,
+    );
+    addNotification({
+      type: 'success',
+      title: 'Ride rescheduled',
+      message: `${ride?.rideReference ?? rideId} moved to ${new Date(scheduledForIso).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}.`,
+      timestamp: new Date().toISOString(),
+    });
+    if (can('fleet:read') || can('finance:read')) {
+      fetchScheduledRides().then(setScheduledRides).catch(console.error);
+      fetchRides().then(setRides).catch(console.error);
+    }
+  };
+
+  const cancelScheduledRideAction = async (rideId: string, reason: string) => {
+    requirePermission('fleet:read');
+    await cancelScheduledRide(rideId, reason);
+    const ride = scheduledRides.find((r) => r.id === rideId);
+    await writeAuditLog(
+      'CANCEL_SCHEDULED_RIDE',
+      rideId,
+      'ride',
+      `Cancelled scheduled ride ${ride?.rideReference ?? rideId}.${reason ? ' Reason: ' + reason : ''}`,
+    );
+    addNotification({
+      type: 'warning',
+      title: 'Scheduled ride cancelled',
+      message: `${ride?.passengerName ?? 'Passenger'} (${ride?.rideReference ?? rideId}) notified via audit log.`,
+      timestamp: new Date().toISOString(),
+    });
+    if (can('fleet:read') || can('finance:read')) {
+      fetchScheduledRides().then(setScheduledRides).catch(console.error);
+      fetchRides().then(setRides).catch(console.error);
+    }
   };
 
   const markNotificationsRead = () => {
@@ -532,6 +896,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         activeTab,
         setActiveTab,
         currentRole,
+        user: user ? { id: user.id, email: user.email } : null,
         can,
         loading,
         error,
@@ -543,6 +908,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         fareSchemas,
         payouts,
         driverWallets,
+        admins,
+        refunds,
+        incidents,
+        scheduledRides,
         auditLogs,
         notifications,
         isRealtimeLive,
@@ -560,6 +929,16 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleUserStatus,
         updateUserProfile,
         promoteUserToAdmin,
+        promoteUserToAdminScoped,
+        assignAdminRole,
+        demoteAdmin,
+        issueRefund,
+        disputeRefund,
+        acknowledgeSafetyIncident,
+        resolveSafetyIncident,
+        addIncidentNote,
+        rescheduleScheduledRide,
+        cancelScheduledRideAction,
         deleteUser,
         markNotificationsRead,
         addNotification,

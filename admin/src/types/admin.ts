@@ -211,3 +211,122 @@ export interface StatementPeriod {
   end: string;
   label: string;
 }
+
+export interface AdminUser {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  baseRole: 'admin' | 'super_admin';
+  adminRole: AdminRole;
+  isOnline: boolean;
+  lastSeenAt: string;
+  createdAt: string;
+  avatarUrl: string;
+}
+
+export type RefundStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'disputed';
+
+export interface Refund {
+  id: string;
+  rideId: string;
+  paymentReference: string;
+  requestedAmount: number;
+  processedAmount: number;
+  currency: string;
+  reason: string;
+  status: RefundStatus;
+  paystackRefundId: string | null;
+  failureReason: string | null;
+  requestedBy: string;
+  passengerId: string | null;
+  driverId: string | null;
+  notes: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+
+  /** Soft join populated by `fetchRefunds` for direct admin viewing. */
+  passengerName?: string;
+  passengerEmail?: string;
+  driverName?: string;
+  driverEmail?: string;
+  rideReference?: string;
+  rideFare?: number;
+  ridePaymentStatus?: string;
+}
+
+export type IncidentType = 'emergency' | 'unsafe_driving' | 'medical' | 'harassment' | 'other';
+export type IncidentStatus = 'open' | 'acknowledged' | 'resolved';
+
+export interface IncidentNote {
+  /** Raw snake_case matching the SQL RPC return shape. */
+  note: string;
+  operator_id: string;
+  operator_email: string;
+  operator_role: string;
+  appended_at: string;
+}
+
+export interface SafetyIncident {
+  id: string;
+  rideId: string | null;
+  reporterId: string;
+  incidentType: IncidentType;
+  message: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: IncidentStatus;
+  createdAt: string;
+  acknowledgedBy: string | null;
+  acknowledgedAt: string | null;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  internalNotes: IncidentNote[];
+
+  reporterName: string;
+  reporterEmail: string;
+  reporterPhone: string;
+  reporterRole: string;
+  acknowledgedByName: string | null;
+  resolvedByName: string | null;
+  rideReference: string | null;
+  rideStatus: string | null;
+  rideOrigin: string | null;
+  rideDestination: string | null;
+}
+
+export type ScheduledRideStatus = 'requested' | 'accepted' | 'cancelled' | 'pending';
+
+export interface ScheduledRide {
+  id: string;
+  rideReference: string;
+  passengerId: string;
+  passengerName: string;
+  passengerEmail: string;
+  passengerPhone: string;
+  driverId: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
+  driverPlate: string | null;
+  origin: string;
+  destination: string;
+  pickupLat: number;
+  pickupLng: number;
+  destLat: number;
+  destLng: number;
+  fare: number;
+  rideType: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  paymentReference: string;
+  status: ScheduledRideStatus;
+  scheduledFor: string;
+  requestedAt: string;
+  acceptedAt: string | null;
+  rescheduleCount: number;
+  lastRescheduledAt: string | null;
+  lastRescheduledBy: string | null;
+  lastRescheduledByName: string | null;
+  lastRescheduleReason: string | null;
+}

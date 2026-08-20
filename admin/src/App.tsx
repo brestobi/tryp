@@ -13,7 +13,11 @@ import { FleetCommandCenter } from './components/FleetCommandCenter';
 import { FarePricingEngine } from './components/FarePricingEngine';
 import { FinancialPayouts } from './components/FinancialPayouts';
 import { DriverWalletOverview } from './components/DriverWalletOverview';
+import { ScheduledRides } from './components/ScheduledRides';
+import { Refunds } from './components/Refunds';
+import { IncidentReview } from './components/IncidentReview';
 import { UserDirectory } from './components/UserDirectory';
+import { AdminUsers } from './components/AdminUsers';
 import { AuditLogsView } from './components/AuditLogsView';
 import { BroadcastComposer } from './components/BroadcastComposer';
 import { DriverStatements } from './components/DriverStatements';
@@ -84,11 +88,15 @@ const MainContent: React.FC = () => {
       {activeTab === 'kyc'       && <DriverKYCInspector />}
       {activeTab === 'passenger-verification' && <PassengerVerificationInspector />}
       {activeTab === 'fleet'     && <FleetCommandCenter />}
+      {activeTab === 'scheduled' && <ScheduledRides />}
       {activeTab === 'fares'     && <FarePricingEngine />}
       {activeTab === 'payouts'   && <FinancialPayouts />}
       {activeTab === 'wallets'   && <DriverWalletOverview />}
+      {activeTab === 'refunds'   && <Refunds />}
       {activeTab === 'users'     && <UserDirectory />}
+      {activeTab === 'admin-users' && <AdminUsers />}
       {activeTab === 'audit'     && <AuditLogsView />}
+      {activeTab === 'incidents' && <IncidentReview />}
       {activeTab === 'broadcast' && <BroadcastComposer />}
       {activeTab === 'statements' && <DriverStatements />}
     </main>

@@ -16,10 +16,14 @@ import {
   Server,
   Megaphone,
   FileSpreadsheet,
+  ShieldCheck,
+  CornerDownLeft,
+  ShieldAlert,
+  CalendarClock,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
-  const { activeTab, setActiveTab, drivers, rides, payouts, can } = useAdmin();
+  const { activeTab, setActiveTab, drivers, rides, payouts, incidents, scheduledRides, can } = useAdmin();
 
   const pendingKycCount = drivers.filter(
     (d) => d.driverStatus === 'pending' || d.driverStatus === 'under_review'
@@ -28,6 +32,10 @@ export const Sidebar: React.FC = () => {
     (r) => r.status === 'in_trip' || r.status === 'accepted' || r.status === 'arrived'
   ).length;
   const pendingPayoutsCount = payouts.filter((p) => p.status === 'pending').length;
+  const openIncidentCount = incidents.filter((i) => i.status === 'open').length;
+  const upcomingScheduledCount = scheduledRides.filter(
+    (r) => r.status === 'requested' && new Date(r.scheduledFor).getTime() > Date.now(),
+  ).length;
 
   const navItems: {
     id: ActiveTab;
@@ -41,10 +49,14 @@ export const Sidebar: React.FC = () => {
     { id: 'kyc',       label: 'Driver KYC Inspector',  icon: UserCheck, badge: pendingKycCount,    badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30', permission: 'kyc:read' },
     { id: 'passenger-verification', label: 'Passenger Verification', icon: UserRoundCheck, permission: 'kyc:read' },
     { id: 'fleet',     label: 'Fleet Command Center',  icon: MapPin,    badge: activeRidesCount,   badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', permission: 'fleet:read' },
+    { id: 'scheduled', label: 'Scheduled Rides',      icon: CalendarClock, badge: upcomingScheduledCount, badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40', permission: 'fleet:read' },
+    { id: 'incidents', label: 'Incident Review',      icon: ShieldAlert, badge: openIncidentCount, badgeColor: 'bg-red-500/20 text-red-300 border-red-500/40', permission: 'fleet:read' },
     { id: 'fares',     label: 'Dynamic Fare Engine',   icon: BadgePercent, permission: 'fares:read' },
     { id: 'payouts',   label: 'Payouts & Banking',     icon: CreditCard, badge: pendingPayoutsCount, badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30', permission: 'finance:read' },
     { id: 'wallets',   label: 'Driver Wallets',         icon: Wallet, permission: 'finance:read' },
+    { id: 'refunds',   label: 'Refunds & Disputes',    icon: CornerDownLeft, permission: 'finance:read' },
     { id: 'users',     label: 'User Directory',        icon: Users, permission: 'users:read' },
+    { id: 'admin-users', label: 'Admin Roster',         icon: ShieldCheck, permission: 'admin:manage' },
     { id: 'audit',     label: 'Admin Audit Logs',      icon: FileText, permission: 'audit:read' },
     { id: 'broadcast', label: 'Broadcast Center',      icon: Megaphone, permission: 'broadcast:write' },
     { id: 'statements', label: 'Driver Statements',    icon: FileSpreadsheet, permission: 'statements:read' },
