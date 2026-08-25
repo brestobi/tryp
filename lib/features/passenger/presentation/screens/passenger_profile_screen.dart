@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
+import 'package:tryp/core/services/camera_permission_service.dart';
 import 'package:tryp/core/services/supabase_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
@@ -34,8 +35,6 @@ class _PassengerProfileScreenState
   bool _isLoading = false;
   bool _isUploadingAvatar = false;
   String? _avatarUrl;
-  bool _pinVerificationEnabled = false;
-  bool _shareTripEnabled = true;
   bool _isVerified = false;
   double _userRating = 4.9;
 
@@ -115,6 +114,27 @@ class _PassengerProfileScreenState
     }
   }
 
+  Future<XFile?> _pickCameraAvatar(ImagePicker picker) async {
+    final granted = await CameraPermissionService.ensureCameraPermission();
+    if (!mounted) return null;
+    if (!granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Camera permission is required to take a profile photo.'),
+          backgroundColor: TRYPColors.error,
+        ),
+      );
+      return null;
+    }
+
+    return picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 600,
+      maxHeight: 600,
+      imageQuality: 85,
+    );
+  }
+
   Future<void> _pickAndUploadAvatar() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await showModalBottomSheet<XFile?>(
@@ -149,12 +169,7 @@ class _PassengerProfileScreenState
               ),
               subtitle: const Text('Use camera to take a new profile picture'),
               onTap: () async {
-                final file = await picker.pickImage(
-                  source: ImageSource.camera,
-                  maxWidth: 600,
-                  maxHeight: 600,
-                  imageQuality: 85,
-                );
+                final file = await _pickCameraAvatar(picker);
                 if (mounted) Navigator.pop(context, file);
               },
             ),
@@ -595,38 +610,19 @@ class _PassengerProfileScreenState
                           color: TRYPColors.inputFill,
                           borderRadius: BorderRadius.circular(18),
                         ),
-                        child: Column(
-                          children: [
-                            SwitchListTile(
-                              activeTrackColor: TRYPColors.accent,
-                              title: const Text(
-                                'PIN Verification',
-                                style: TextStyle(color: TRYPColors.primary),
-                              ),
-                              subtitle: const Text(
-                                'Require 4-digit PIN before ride starts',
-                                style: TextStyle(color: TRYPColors.grey),
-                              ),
-                              value: _pinVerificationEnabled,
-                              onChanged: (val) =>
-                                  setState(() => _pinVerificationEnabled = val),
-                            ),
-                            const Divider(height: 1, color: TRYPColors.grey),
-                            SwitchListTile(
-                              activeTrackColor: TRYPColors.accent,
-                              title: const Text(
-                                'Share Trip Status',
-                                style: TextStyle(color: TRYPColors.primary),
-                              ),
-                              subtitle: const Text(
-                                'Auto-share live location with emergency contact',
-                                style: TextStyle(color: TRYPColors.grey),
-                              ),
-                              value: _shareTripEnabled,
-                              onChanged: (val) =>
-                                  setState(() => _shareTripEnabled = val),
-                            ),
-                          ],
+                        child: const ListTile(
+                          leading: Icon(
+                            Icons.shield_rounded,
+                            color: TRYPColors.primary,
+                          ),
+                          title: Text(
+                            'Ride PIN verification is enabled',
+                            style: TextStyle(color: TRYPColors.primary),
+                          ),
+                          subtitle: Text(
+                            'Your driver must verify the 4-digit PIN before starting the ride. Use the SOS button during an active ride to contact TRYP safety support or call 112.',
+                            style: TextStyle(color: TRYPColors.grey),
+                          ),
                         ),
                       ),
 

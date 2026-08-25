@@ -157,6 +157,7 @@ class _PassengerHomeScreenPageState
   );
   LocationItem? _destination;
   LocationItem? _currentLocation;
+  bool _hasCenteredOnCurrentLocation = false;
 
   // Search state
   final TextEditingController _destinationSearchController =
@@ -188,7 +189,9 @@ class _PassengerHomeScreenPageState
   int _searchRequestId = 0;
   String? _completionRideId;
   String? _watchedRideId;
+  DateTime? _lastPaymentVerificationAt;
   bool _rideStatusRefreshInFlight = false;
+  bool _paymentVerificationInFlight = false;
 
   @override
   void initState() {
@@ -208,15 +211,29 @@ class _PassengerHomeScreenPageState
     if (state == AppLifecycleState.resumed) {
       unawaited(_refreshActiveRideStatus());
       final activeTrip = ref.read(activeTripStateProvider);
-      if (activeTrip != null &&
-          activeTrip.paymentMethod != 'Cash' &&
-          activeTrip.paymentStatus != 'paid') {
-        unawaited(_verifyOnlinePayment(activeTrip.id));
+      if (activeTrip != null) {
+        // Recreate the ride channel because mobile operating systems may
+        // suspend websocket connections while the app is backgrounded.
+        _watchedRideId = activeTrip.id;
+        _subscribeToRide(activeTrip.id);
+        if (activeTrip.paymentMethod != 'Cash' &&
+            activeTrip.paymentStatus != 'paid') {
+          unawaited(_verifyOnlinePayment(activeTrip.id));
+        }
       }
     }
   }
 
   Future<void> _verifyOnlinePayment(String rideId) async {
+    if (_paymentVerificationInFlight) return;
+    final lastChecked = _lastPaymentVerificationAt;
+    if (lastChecked != null &&
+        DateTime.now().difference(lastChecked) < const Duration(seconds: 8)) {
+      return;
+    }
+
+    _paymentVerificationInFlight = true;
+    _lastPaymentVerificationAt = DateTime.now();
     try {
       final status = await PaymentService.verifyRidePayment(rideId: rideId);
       if (!mounted) return;
@@ -265,6 +282,8 @@ class _PassengerHomeScreenPageState
       }
     } catch (error) {
       debugPrint('Paystack payment recovery check failed: $error');
+    } finally {
+      _paymentVerificationInFlight = false;
     }
   }
 
@@ -288,6 +307,7 @@ class _PassengerHomeScreenPageState
     ref.read(activeTripStateProvider.notifier).stateTrip = activeTrip;
     _syncScheduleFromTrip(activeTrip);
     _watchedRideId = activeTrip.id;
+    _lastPaymentVerificationAt = null;
     setState(() {
       _mode = _isFutureScheduledRide(activeTrip)
           ? PassengerRideMode.scheduledConfirmation
@@ -345,6 +365,10 @@ class _PassengerHomeScreenPageState
 
       ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
       _syncScheduleFromTrip(updatedTrip);
+      if (updatedTrip.paymentMethod != 'Cash' &&
+          updatedTrip.paymentStatus != 'paid') {
+        unawaited(_verifyOnlinePayment(updatedTrip.id));
+      }
       setState(() {
         _mode = _isFutureScheduledRide(updatedTrip)
             ? PassengerRideMode.scheduledConfirmation
@@ -594,31 +618,7 @@ class _PassengerHomeScreenPageState
     final tripService = ref.read(tripServiceProvider);
     _rideSubscription = tripService.subscribeToRide(
       rideId: rideId,
-      onUpdate: (payload) async {
-        if (!mounted) return;
-        final updatedTrip = await tripService.getTripById(rideId);
-        if (!mounted || updatedTrip == null) return;
-
-        if (updatedTrip.status == TripStatus.completed) {
-          _openCompletionScreen(updatedTrip);
-          return;
-        }
-
-        ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
-        _syncScheduleFromTrip(updatedTrip);
-        if (updatedTrip.status == TripStatus.cancelled) {
-          ref.read(activeTripStateProvider.notifier).stateTrip = null;
-        }
-        setState(() {
-          _mode = updatedTrip.status == TripStatus.cancelled
-              ? PassengerRideMode.idle
-              : _isFutureScheduledRide(updatedTrip)
-              ? PassengerRideMode.scheduledConfirmation
-              : updatedTrip.status == TripStatus.requested
-              ? PassengerRideMode.dispatching
-              : PassengerRideMode.activeTrip;
-        });
-      },
+      onUpdate: (_) => unawaited(_refreshActiveRideStatus()),
     );
   }
 
@@ -654,10 +654,30 @@ class _PassengerHomeScreenPageState
         _pickupSearchController.text = locItem.name;
       });
 
+      _centerMapOnCurrentLocation();
       _updateMapMarkers();
     } catch (_) {
       _updateMapMarkers();
     }
+  }
+
+  void _centerMapOnCurrentLocation() {
+    final currentLocation = _currentLocation;
+    final map = _mapController;
+    if (_hasCenteredOnCurrentLocation ||
+        currentLocation == null ||
+        map == null) {
+      return;
+    }
+
+    _hasCenteredOnCurrentLocation = true;
+    map.easeTo(
+      CameraOptions(
+        center: _mapPoint(currentLocation.lat, currentLocation.lng),
+        zoom: 15,
+      ),
+      MapAnimationOptions(duration: 800),
+    );
   }
 
   Point _mapPoint(double latitude, double longitude) =>
@@ -941,6 +961,7 @@ class _PassengerHomeScreenPageState
       ref.read(activeTripStateProvider.notifier).stateTrip = newTrip;
       _syncScheduleFromTrip(newTrip);
       _watchedRideId = newTrip.id;
+      _lastPaymentVerificationAt = null;
       if (_isFutureScheduledRide(newTrip)) {
         setState(() => _mode = PassengerRideMode.scheduledConfirmation);
       }
@@ -1089,50 +1110,7 @@ class _PassengerHomeScreenPageState
       // Subscribe to real-time trip status changes via Supabase WebSocket stream
       _rideSubscription = tripService.subscribeToRide(
         rideId: newTrip.id,
-        onUpdate: (payload) async {
-          if (!mounted) return;
-          final updatedStatus = payload['status'] as String?;
-          if (updatedStatus == 'accepted' ||
-              updatedStatus == 'arrived' ||
-              updatedStatus == 'in_trip') {
-            final fullTrip = await tripService.getPassengerActiveTrip();
-            if (fullTrip != null && mounted) {
-              ref.read(activeTripStateProvider.notifier).stateTrip = fullTrip;
-              setState(() {
-                _mode = PassengerRideMode.activeTrip;
-              });
-
-              final driverName =
-                  fullTrip.driverName ?? 'A verified TRYP driver';
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('$driverName accepted your ride request!'),
-                  backgroundColor: TRYPColors.primary,
-                ),
-              );
-            }
-          } else if (updatedStatus == 'completed') {
-            final completedTrip = await tripService.getTripById(newTrip.id);
-            if (completedTrip != null && mounted) {
-              _openCompletionScreen(completedTrip);
-            }
-          } else if (updatedStatus == 'cancelled') {
-            ref.read(activeTripStateProvider.notifier).stateTrip = null;
-            _rideSubscription?.unsubscribe();
-            _rideSubscription = null;
-            setState(() {
-              _mode = PassengerRideMode.tierSelection;
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Ride request was cancelled by driver or system.',
-                ),
-                backgroundColor: TRYPColors.error,
-              ),
-            );
-          }
-        },
+        onUpdate: (_) => unawaited(_refreshActiveRideStatus()),
       );
     } catch (e) {
       if (!mounted) return;
@@ -1296,8 +1274,15 @@ class _PassengerHomeScreenPageState
               zoom: 14,
             ),
             styleUri: TRYPMapStyles.light,
+            onStyleLoadedListener: (_) {
+              final map = _mapController;
+              if (map != null) {
+                unawaited(TRYPMapStyles.applyBranding(map));
+              }
+            },
             onMapCreated: (controller) {
               _mapController = controller;
+              _centerMapOnCurrentLocation();
               if (!kIsWeb) {
                 unawaited(
                   controller.location.updateSettings(
@@ -2396,6 +2381,11 @@ class _PassengerHomeScreenPageState
 
   // ── MODE D: Dispatching Radar Sheet ─────────────────────────────────
   Widget _buildDispatchingSheet() {
+    final activeTrip = ref.watch(activeTripStateProvider);
+    final paymentPending = activeTrip != null &&
+        activeTrip.paymentMethod != 'Cash' &&
+        activeTrip.paymentStatus != 'paid';
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         24,
@@ -2413,16 +2403,27 @@ class _PassengerHomeScreenPageState
           const CircularProgressIndicator(color: TRYPColors.secondary),
           const SizedBox(height: 16),
           Text(
-            'Connecting to nearby drivers...',
+            paymentPending
+                ? 'Confirming your online payment...'
+                : 'Connecting to nearby drivers...',
             style: TRYPTypography.headingSmall,
           ),
           const SizedBox(height: 6),
           Text(
-            'Matching you with top-rated $_selectedRideType drivers near ${_pickup.name}',
+            paymentPending
+                ? 'Your ride will be sent to drivers after Paystack confirms the payment.'
+                : 'Matching you with top-rated $_selectedRideType drivers near ${_pickup.name}',
             textAlign: TextAlign.center,
             style: TRYPTypography.bodySmall,
           ),
           const SizedBox(height: 20),
+          if (paymentPending)
+            PrimaryButton(
+              label: 'Check Payment Status',
+              onPressed: () =>
+                  unawaited(_verifyOnlinePayment(activeTrip.id)),
+            ),
+          if (paymentPending) const SizedBox(height: 12),
           OutlinedButton(
             onPressed: _cancelActiveRide,
             style: OutlinedButton.styleFrom(

@@ -1,3 +1,4 @@
+import 'package:camera/camera.dart' show CameraLensDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/constants/service_areas.dart';
+import 'package:tryp_driver/core/services/camera_permission_service.dart';
 import 'package:tryp_driver/core/services/document_storage_service.dart';
 import 'package:tryp_driver/core/widgets/common_widgets.dart';
 import 'package:tryp_driver/features/driver/data/repositories/driver_onboarding_repository.dart';
@@ -263,6 +265,20 @@ class _DriverOnboardingScreenState
     final storageService = ref.read(documentStorageServiceProvider);
 
     if (doc.key == 'selfie') {
+      final granted = await CameraPermissionService.ensureCameraPermission(
+        lensDirection: CameraLensDirection.front,
+      );
+      if (!mounted) return;
+      if (!granted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Camera permission is required for the live selfie.'),
+            backgroundColor: TRYPColors.error,
+          ),
+        );
+        return;
+      }
+
       final selfie = await Navigator.of(context).push<XFile>(
         MaterialPageRoute(builder: (_) => const LiveSelfieScreen()),
       );

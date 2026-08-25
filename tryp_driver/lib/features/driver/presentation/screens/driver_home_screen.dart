@@ -21,7 +21,8 @@ class DriverHomeScreenPage extends ConsumerStatefulWidget {
       _DriverHomeScreenPageState();
 }
 
-class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
+class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage>
+    with WidgetsBindingObserver {
   bool _isOnline = false;
   String _driverName = 'Driver';
   String _driverStatus = 'under_review';
@@ -31,6 +32,10 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
   Timer? _locationTimer;
   Timer? _requestsPollTimer;
   RealtimeChannel? _pendingRidesChannel;
+  bool _locationUpdateInFlight = false;
+  bool _requestsFetchInFlight = false;
+  bool _requestSheetVisible = false;
+  Timer? _requestSheetExpiryTimer;
 
   List<TripModel> _openRequests = [];
   TripModel? _currentActiveTrip;
@@ -39,14 +44,27 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkDriverVerificationStatus();
     _checkForActiveTrip();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Timers and realtime sockets may be suspended by the operating system.
+      // Reconcile the server state and recreate the listeners on resume.
+      unawaited(_checkDriverVerificationStatus());
+      unawaited(_checkForActiveTrip());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _locationTimer?.cancel();
     _requestsPollTimer?.cancel();
+    _requestSheetExpiryTimer?.cancel();
     _pendingRidesChannel?.unsubscribe();
     super.dispose();
   }
@@ -76,6 +94,8 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
 
           if (_isOnline) {
             _startOnlineTrackingAndListening();
+          } else {
+            _stopOnlineTrackingAndListening();
           }
         }
       }
@@ -101,6 +121,8 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
   void _startOnlineTrackingAndListening() {
     _locationTimer?.cancel();
     _requestsPollTimer?.cancel();
+    _pendingRidesChannel?.unsubscribe();
+    _pendingRidesChannel = null;
 
     // 1. Periodic GPS location broadcast
     _updateAndBroadcastLocation();
@@ -127,6 +149,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
   void _stopOnlineTrackingAndListening() {
     _locationTimer?.cancel();
     _requestsPollTimer?.cancel();
+    _requestSheetExpiryTimer?.cancel();
     _pendingRidesChannel?.unsubscribe();
     _pendingRidesChannel = null;
     setState(() {
@@ -135,7 +158,8 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
   }
 
   Future<void> _updateAndBroadcastLocation() async {
-    if (!_isOnline) return;
+    if (!_isOnline || _locationUpdateInFlight) return;
+    _locationUpdateInFlight = true;
     try {
       final locService = ref.read(locationServiceProvider);
       final pos = await locService.getCurrentPosition();
@@ -154,11 +178,18 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
       }
     } catch (e) {
       debugPrint('Error updating driver location: $e');
+    } finally {
+      _locationUpdateInFlight = false;
     }
   }
 
   Future<void> _fetchOpenRequests() async {
-    if (!_isOnline || _driverStatus != 'approved') return;
+    if (!_isOnline ||
+        _driverStatus != 'approved' ||
+        _requestsFetchInFlight) {
+      return;
+    }
+    _requestsFetchInFlight = true;
 
     try {
       final tripService = ref.read(tripServiceProvider);
@@ -179,6 +210,8 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
       }
     } catch (e) {
       debugPrint('Error fetching open requests: $e');
+    } finally {
+      _requestsFetchInFlight = false;
     }
   }
 
@@ -254,6 +287,19 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
   }
 
   void _showRealRideRequestSheet(TripModel request) {
+    if (_requestSheetVisible) return;
+    _requestSheetVisible = true;
+    _requestSheetExpiryTimer?.cancel();
+    _requestSheetExpiryTimer = Timer(const Duration(seconds: 30), () {
+      if (!mounted || !_requestSheetVisible) return;
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This ride offer has expired.')),
+        );
+      }
+    });
+
     double? pickupDistanceKm;
     if (_currentDriverPosition != null) {
       final meters = Geolocator.distanceBetween(
@@ -515,7 +561,11 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
           ),
         );
       },
-    );
+    ).whenComplete(() {
+      _requestSheetExpiryTimer?.cancel();
+      _requestSheetExpiryTimer = null;
+      _requestSheetVisible = false;
+    });
   }
 
   Future<void> _declineRideRequest(
@@ -657,31 +707,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage> {
                   child: const Text('View Uploaded Documents'),
                 ),
               ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: () async {
-                  final newStatus = _driverStatus == 'approved'
-                      ? 'under_review'
-                      : 'approved';
-                  final client = ref.read(supabaseClientProvider);
-                  final user = client.auth.currentUser;
-                  if (user != null) {
-                    await client
-                        .from('profiles')
-                        .update({'driver_status': newStatus})
-                        .eq('id', user.id);
-                  }
-                  setState(() => _driverStatus = newStatus);
-                  if (!context.mounted) return;
-                  Navigator.pop(context);
-                },
-                child: Text(
-                  _driverStatus == 'approved'
-                      ? 'Set Status to Under Review'
-                      : 'Approve Driver Account (Test Mode)',
-                  style: const TextStyle(color: TRYPColors.grey, fontSize: 12),
-                ),
-              ),
+
             ],
           ),
         );

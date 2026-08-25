@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart' as geo;
 import 'package:go_router/go_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,6 +11,7 @@ import 'package:tryp_driver/core/constants/map_styles.dart';
 import 'package:tryp_driver/core/services/location_service.dart';
 import 'package:tryp_driver/core/services/trip_service.dart';
 import 'package:tryp_driver/core/widgets/common_widgets.dart';
+import 'package:tryp_driver/core/widgets/ride_chat_sheet.dart';
 
 class ActiveTripScreen extends ConsumerStatefulWidget {
   const ActiveTripScreen({Key? key}) : super(key: key);
@@ -18,7 +20,8 @@ class ActiveTripScreen extends ConsumerStatefulWidget {
   ConsumerState<ActiveTripScreen> createState() => _ActiveTripScreenState();
 }
 
-class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
+class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
+    with WidgetsBindingObserver {
   bool _isLoading = false;
   TripModel? _activeTrip;
   RealtimeChannel? _rideSubscription;
@@ -28,19 +31,43 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
   PolylineAnnotationManager? _polylineAnnotationManager;
   Timer? _gpsUpdateTimer;
   Timer? _statusRefreshTimer;
+  DateTime? _lastPickupRouteAt;
+  geo.Position? _driverPosition;
+  double? _pickupDistanceKm;
+  int? _pickupEtaMins;
   bool _completionDialogShown = false;
   bool _statusRefreshInFlight = false;
+  bool _gpsUpdateInFlight = false;
+  bool _pickupRouteInFlight = false;
 
   final TextEditingController _pinController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadActiveTrip();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final trip = _activeTrip;
+      if (trip != null) {
+        // Recreate the ride channel and GPS loop after the OS resumes the app.
+        _subscribeToRideUpdates(trip.id);
+        _startGpsUpdates();
+        unawaited(_refreshPickupRouteIfNeeded(force: true));
+        unawaited(_refreshActiveTrip());
+      } else {
+        unawaited(_loadActiveTrip());
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _rideSubscription?.unsubscribe();
     _gpsUpdateTimer?.cancel();
     _statusRefreshTimer?.cancel();
@@ -136,39 +163,21 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
     final tripService = ref.read(tripServiceProvider);
     _rideSubscription = tripService.subscribeToRide(
       rideId: rideId,
-      onUpdate: (payload) async {
-        if (!mounted) return;
-        final updatedTrip = await ref
-            .read(tripServiceProvider)
-            .getTripById(rideId);
-        if (!mounted || updatedTrip == null) return;
-        setState(() {
-          _activeTrip = updatedTrip;
-        });
-        ref.read(activeTripStateProvider.notifier).stateTrip = updatedTrip;
-
-        if (updatedTrip.status == TripStatus.cancelled) {
-          _finishCancelledTrip();
-          return;
-        }
-
-        if (updatedTrip.status == TripStatus.completed && mounted) {
-          _statusRefreshTimer?.cancel();
-          _gpsUpdateTimer?.cancel();
-          _showCompletionDialog(updatedTrip);
-        }
-      },
+      onUpdate: (_) => unawaited(_refreshActiveTrip()),
     );
   }
 
   void _startGpsUpdates() {
     _gpsUpdateTimer?.cancel();
     _gpsUpdateTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
-      if (_activeTrip == null) return;
+      if (_activeTrip == null || _gpsUpdateInFlight) return;
+      _gpsUpdateInFlight = true;
       try {
         final locService = ref.read(locationServiceProvider);
         final pos = await locService.getCurrentPosition();
         if (pos != null && mounted) {
+          _driverPosition = pos;
+          unawaited(_refreshPickupRouteIfNeeded());
           final tripService = ref.read(tripServiceProvider);
           await tripService.updateDriverLocation(
             lat: pos.latitude,
@@ -177,8 +186,83 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
             isOnline: true,
           );
         }
-      } catch (_) {}
+      } catch (_) {
+        // The next heartbeat retries; the server-side presence job will
+        // remove this driver from dispatch if the failures continue.
+      } finally {
+        _gpsUpdateInFlight = false;
+      }
     });
+  }
+
+  Future<void> _refreshPickupRouteIfNeeded({bool force = false}) async {
+    final trip = _activeTrip;
+    final position = _driverPosition;
+    if (!mounted ||
+        trip == null ||
+        trip.status != TripStatus.accepted ||
+        position == null ||
+        _pickupRouteInFlight) {
+      return;
+    }
+
+    final lastUpdated = _lastPickupRouteAt;
+    if (!force &&
+        lastUpdated != null &&
+        DateTime.now().difference(lastUpdated) < const Duration(seconds: 15)) {
+      return;
+    }
+
+    _pickupRouteInFlight = true;
+    try {
+      final route = await ref.read(locationServiceProvider).getRealRoute(
+        startLat: position.latitude,
+        startLng: position.longitude,
+        endLat: trip.pickupLat,
+        endLng: trip.pickupLng,
+      );
+      if (!mounted || _activeTrip?.id != trip.id) return;
+
+      _lastPickupRouteAt = DateTime.now();
+      setState(() {
+        _pickupDistanceKm = route.distanceKm;
+        _pickupEtaMins = route.durationMins;
+      });
+      await _drawRoute(route);
+      _mapController?.easeTo(
+        CameraOptions(
+          center: _mapPoint(
+            (position.latitude + trip.pickupLat) / 2,
+            (position.longitude + trip.pickupLng) / 2,
+          ),
+          zoom: 13,
+        ),
+        MapAnimationOptions(duration: 600),
+      );
+    } catch (_) {
+      // The next GPS heartbeat retries route guidance.
+    } finally {
+      _pickupRouteInFlight = false;
+    }
+  }
+
+  Future<void> _drawRoute(RouteResult route) async {
+    if (!mounted || _mapController == null) return;
+    _polylineAnnotationManager ??= await _mapController!.annotations
+        .createPolylineAnnotationManager();
+    await _polylineAnnotationManager!.deleteAll();
+    await _polylineAnnotationManager!.create(
+      PolylineAnnotationOptions(
+        geometry: LineString(
+          coordinates: route.polylinePoints
+              .map((point) => Position(point.longitude, point.latitude))
+              .toList(),
+        ),
+        lineColor: TRYPColors.liveTracking.toARGB32(),
+        lineWidth: 5,
+        lineJoin: LineJoin.ROUND,
+      ),
+    );
   }
 
   Point _mapPoint(double latitude, double longitude) =>
@@ -219,21 +303,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
 
       if (!mounted || _mapController == null) return;
 
-      _polylineAnnotationManager ??= await _mapController!.annotations
-          .createPolylineAnnotationManager();
-      await _polylineAnnotationManager!.deleteAll();
-      await _polylineAnnotationManager!.create(
-        PolylineAnnotationOptions(
-          geometry: LineString(
-            coordinates: route.polylinePoints
-                .map((point) => Position(point.longitude, point.latitude))
-                .toList(),
-          ),
-          lineColor: TRYPColors.liveTracking.toARGB32(),
-          lineWidth: 5,
-          lineJoin: LineJoin.ROUND,
-        ),
-      );
+      await _drawRoute(route);
     } catch (_) {}
   }
 
@@ -284,9 +354,54 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
       }
     } catch (e) {
       debugPrint('Could not update trip status: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not update the trip. Please try again.'),
+            backgroundColor: TRYPColors.error,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _markArrivedAtPickup() async {
+    final trip = _activeTrip;
+    if (trip == null) return;
+
+    final position = await ref.read(locationServiceProvider).getCurrentPosition();
+    if (!mounted) return;
+    if (position == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your location is unavailable. Enable GPS and try again.'),
+          backgroundColor: TRYPColors.error,
+        ),
+      );
+      return;
+    }
+
+    final distanceMeters = geo.Geolocator.distanceBetween(
+      position.latitude,
+      position.longitude,
+      trip.pickupLat,
+      trip.pickupLng,
+    );
+    if (distanceMeters > 500) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Move closer to the pickup point before marking arrival (${distanceMeters.round()} m away).',
+          ),
+          backgroundColor: TRYPColors.secondary,
+        ),
+      );
+      return;
+    }
+
+    await _updateTripStatus(TripStatus.arrived);
   }
 
   void _showPinVerificationDialog() {
@@ -349,17 +464,20 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
               ),
             ),
             onPressed: () {
-              Navigator.pop(dialogContext);
               final inputPin = _pinController.text.trim();
-              if (_activeTrip?.pinCode != null &&
-                  _activeTrip!.pinCode.isNotEmpty) {
-                if (inputPin == _activeTrip!.pinCode) {
-                  _updateTripStatus(TripStatus.inTrip);
-                }
-              } else {
-                // If no pin set, proceed directly
-                _updateTripStatus(TripStatus.inTrip);
+              final expectedPin = _activeTrip?.pinCode ?? '';
+              if (expectedPin.isNotEmpty && inputPin != expectedPin) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('That safety PIN is incorrect. Please try again.'),
+                    backgroundColor: TRYPColors.error,
+                  ),
+                );
+                return;
               }
+
+              Navigator.pop(dialogContext);
+              _updateTripStatus(TripStatus.inTrip);
             },
             child: const Text(
               'Verify & Start Trip',
@@ -367,6 +485,24 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showChat() {
+    final trip = _activeTrip;
+    if (trip == null || trip.driverId == null) return;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => RideChatSheet(
+        tripService: ref.read(tripServiceProvider),
+        rideId: trip.id,
+        currentUserId: trip.driverId!,
+        otherPartyName: trip.passengerName ?? 'the passenger',
       ),
     );
   }
@@ -536,7 +672,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
       case TripStatus.accepted:
         headerTitle = 'En Route to Pickup';
         actionButtonLabel = 'I Have Arrived at Pickup';
-        onActionButtonPressed = () => _updateTripStatus(TripStatus.arrived);
+        onActionButtonPressed = _markArrivedAtPickup;
         break;
       case TripStatus.arrived:
         headerTitle = 'Arrived at Pickup';
@@ -579,6 +715,14 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
           style: TRYPTypography.headingSmall.copyWith(fontSize: 18),
         ),
         actions: [
+          if (status == TripStatus.accepted ||
+              status == TripStatus.arrived ||
+              status == TripStatus.inTrip)
+            IconButton(
+              icon: const Icon(Icons.chat_rounded),
+              onPressed: _showChat,
+              tooltip: 'Chat with passenger',
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Row(
@@ -595,6 +739,13 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                if (status == TripStatus.accepted)
+                  IconButton(
+                    icon: const Icon(Icons.navigation_rounded),
+                    onPressed: () =>
+                        unawaited(_refreshPickupRouteIfNeeded(force: true)),
+                    tooltip: 'Refresh pickup route',
+                  ),
               ],
             ),
           ),
@@ -612,6 +763,12 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                   zoom: 14,
                 ),
                 styleUri: TRYPMapStyles.light,
+                onStyleLoadedListener: (_) {
+                  final map = _mapController;
+                  if (map != null) {
+                    unawaited(TRYPMapStyles.applyBranding(map));
+                  }
+                },
                 onMapCreated: (controller) {
                   _mapController = controller;
                   unawaited(
@@ -724,6 +881,41 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen> {
                         ),
                     ],
                   ),
+                  if (status == TripStatus.accepted &&
+                      _pickupEtaMins != null &&
+                      _pickupDistanceKm != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: TRYPColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.navigation_rounded,
+                            size: 18,
+                            color: TRYPColors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Pickup route: ${_pickupDistanceKm!.toStringAsFixed(1)} km • about ${_pickupEtaMins} min',
+                              style: TRYPTypography.bodySmall.copyWith(
+                                color: TRYPColors.secondary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   const Divider(),
                   const SizedBox(height: 8),

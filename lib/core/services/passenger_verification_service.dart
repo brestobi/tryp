@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tryp/core/services/camera_permission_service.dart';
 import 'package:tryp/core/services/supabase_service.dart';
 
 class PassengerVerificationService {
@@ -14,6 +15,9 @@ class PassengerVerificationService {
 
   Future<XFile?> capturePhoto() async {
     try {
+      if (!await CameraPermissionService.ensureCameraPermission()) {
+        return null;
+      }
       return await _picker.pickImage(
         source: ImageSource.camera,
         maxWidth: 1800,

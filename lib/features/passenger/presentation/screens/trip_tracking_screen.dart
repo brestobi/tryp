@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/constants/map_styles.dart';
 import 'package:tryp/core/services/location_service.dart';
 import 'package:tryp/core/services/trip_service.dart';
+import 'package:tryp/core/widgets/ride_chat_sheet.dart';
 
 class TripTrackingScreenPage extends ConsumerStatefulWidget {
   const TripTrackingScreenPage({Key? key}) : super(key: key);
@@ -39,6 +41,13 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      final trip = _currentTrip;
+      if (trip != null) {
+        // Recreate channels after the OS suspends the websocket while the app
+        // is backgrounded. The periodic refresh remains the source of truth.
+        _subscribeToRideUpdates(trip.id);
+        _subscribeToDriverLocation(trip);
+      }
       unawaited(_refreshCurrentTrip());
     }
   }
@@ -167,9 +176,7 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
 
     _rideSubscription = tripService.subscribeToRide(
       rideId: rideId,
-      onUpdate: (_) {
-        unawaited(_refreshCurrentTrip());
-      },
+      onUpdate: (_) => unawaited(_refreshCurrentTrip()),
     );
   }
 
@@ -318,6 +325,24 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
     context.go(Routes.rideCompletion, extra: trip);
   }
 
+  void _showChat() {
+    final trip = _currentTrip;
+    if (trip == null || trip.driverId == null) return;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => RideChatSheet(
+        tripService: ref.read(tripServiceProvider),
+        rideId: trip.id,
+        currentUserId: trip.passengerId,
+        otherPartyName: trip.driverName ?? 'your driver',
+      ),
+    );
+  }
+
   void _showSosDialog() {
     String incidentType = 'emergency';
     final messageController = TextEditingController();
@@ -378,18 +403,41 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                 },
                 child: const Text('Cancel'),
               ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(dialogContext);
+                  final launched = await launchUrl(
+                    Uri(scheme: 'tel', path: '112'),
+                  );
+                  if (!launched && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Could not open emergency calling.'),
+                        backgroundColor: TRYPColors.error,
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.phone_in_talk_rounded),
+                label: const Text('Call 112'),
+              ),
               ElevatedButton(
                 onPressed: isSubmitting
                     ? null
                     : () async {
                         final trip = _currentTrip;
                         setDialogState(() => isSubmitting = true);
+                        final position = await ref
+                            .read(locationServiceProvider)
+                            .getCurrentPosition();
                         final saved = await ref
                             .read(tripServiceProvider)
                             .createSafetyIncident(
                               rideId: trip?.id,
                               incidentType: incidentType,
                               message: messageController.text,
+                              latitude: position?.latitude,
+                              longitude: position?.longitude,
                             );
                         if (!mounted) return;
                         if (!saved) {
@@ -423,16 +471,23 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
     );
   }
 
-  void _makeCall(String phone) {
+  Future<void> _makeCall(String phone) async {
     if (phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Driver phone number not available')),
       );
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Calling driver: $phone')));
+
+    final launched = await launchUrl(Uri(scheme: 'tel', path: phone));
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open the phone app.'),
+          backgroundColor: TRYPColors.error,
+        ),
+      );
+    }
   }
 
   @override
@@ -549,6 +604,14 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
           ],
         ),
         actions: [
+          if (status == TripStatus.accepted ||
+              status == TripStatus.arrived ||
+              status == TripStatus.inTrip)
+            IconButton(
+              icon: const Icon(Icons.chat_rounded),
+              onPressed: _showChat,
+              tooltip: 'Chat with driver',
+            ),
           IconButton(
             icon: const Icon(Icons.sos_rounded, color: Colors.red),
             onPressed: _showSosDialog,
@@ -567,6 +630,12 @@ class _TripTrackingScreenPageState extends ConsumerState<TripTrackingScreenPage>
                   zoom: 14,
                 ),
                 styleUri: TRYPMapStyles.light,
+                onStyleLoadedListener: (_) {
+                  final map = _mapController;
+                  if (map != null) {
+                    unawaited(TRYPMapStyles.applyBranding(map));
+                  }
+                },
                 onMapCreated: (controller) {
                   _mapController = controller;
                   if (!kIsWeb) {

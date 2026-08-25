@@ -386,6 +386,34 @@ class TripModel {
   }
 }
 
+class RideChatMessage {
+  final String id;
+  final String rideId;
+  final String senderId;
+  final String body;
+  final DateTime createdAt;
+
+  const RideChatMessage({
+    required this.id,
+    required this.rideId,
+    required this.senderId,
+    required this.body,
+    required this.createdAt,
+  });
+
+  factory RideChatMessage.fromJson(Map<String, dynamic> json) {
+    return RideChatMessage(
+      id: json['id'] as String,
+      rideId: json['ride_id'] as String,
+      senderId: json['sender_id'] as String,
+      body: json['message'] as String,
+      createdAt:
+          DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
+}
+
 class TripService {
   final SupabaseClient _supabase;
 
@@ -551,7 +579,7 @@ class TripService {
             'current_lng': lng,
             'heading': heading,
             'is_online': isOnline,
-            'last_location_update': DateTime.now().toIso8601String(),
+            'last_location_update': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', user.id);
     } catch (e) {
@@ -569,7 +597,9 @@ class TripService {
           .from('profiles')
           .update({
             'is_online': isOnline,
-            'updated_at': DateTime.now().toIso8601String(),
+            if (isOnline)
+              'last_location_update': DateTime.now().toUtc().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', user.id);
     } catch (e) {
@@ -652,6 +682,75 @@ class TripService {
       debugPrint('Error fetching passenger active trip: $e');
       return null;
     }
+  }
+
+  /// Load the temporary conversation for an active ride.
+  Future<List<RideChatMessage>> getRideMessages(String rideId) async {
+    try {
+      final response = await _supabase
+          .from('ride_messages')
+          .select('id, ride_id, sender_id, message, created_at')
+          .eq('ride_id', rideId)
+          .order('created_at', ascending: true);
+      return (response as List<dynamic>)
+          .map(
+            (item) => RideChatMessage.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .toList();
+    } catch (e) {
+      debugPrint('Error loading ride chat: $e');
+      return [];
+    }
+  }
+
+  /// Send a message as the currently authenticated ride participant.
+  Future<RideChatMessage?> sendRideMessage({
+    required String rideId,
+    required String message,
+  }) async {
+    final user = _supabase.auth.currentUser;
+    final body = message.trim();
+    if (user == null || body.isEmpty) return null;
+
+    try {
+      final response = await _supabase
+          .from('ride_messages')
+          .insert({'ride_id': rideId, 'sender_id': user.id, 'message': body})
+          .select('id, ride_id, sender_id, message, created_at')
+          .single();
+      return RideChatMessage.fromJson(response);
+    } catch (e) {
+      debugPrint('Error sending ride chat message: $e');
+      return null;
+    }
+  }
+
+  /// Realtime stream for temporary messages in an active ride.
+  RealtimeChannel subscribeToRideMessages({
+    required String rideId,
+    required void Function(RideChatMessage message) onMessage,
+  }) {
+    final channel = _supabase.channel('public:ride_messages:ride_id=$rideId');
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'ride_messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'ride_id',
+            value: rideId,
+          ),
+          callback: (payload) {
+            if (payload.newRecord.isNotEmpty) {
+              onMessage(RideChatMessage.fromJson(payload.newRecord));
+            }
+          },
+        )
+        .subscribe();
+    return channel;
   }
 
   /// Atomically cancel a passenger ride whose online payment is not settled.

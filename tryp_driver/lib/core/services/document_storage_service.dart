@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:tryp_driver/core/services/camera_permission_service.dart';
 import 'package:tryp_driver/core/services/supabase_service.dart';
 
 class DocumentStorageService {
@@ -17,6 +18,10 @@ class DocumentStorageService {
     ImageSource source = ImageSource.gallery,
   }) async {
     try {
+      if (source == ImageSource.camera &&
+          !await CameraPermissionService.ensureCameraPermission()) {
+        return null;
+      }
       final XFile? image = await _picker.pickImage(
         source: source,
         imageQuality: 85,

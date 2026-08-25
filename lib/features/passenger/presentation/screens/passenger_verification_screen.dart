@@ -1,3 +1,4 @@
+import 'package:camera/camera.dart' show CameraLensDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tryp/app/router.dart';
 import 'package:tryp/features/passenger/presentation/screens/in_app_camera_capture_screen.dart';
 import 'package:tryp/app/theme.dart';
+import 'package:tryp/core/services/camera_permission_service.dart';
 import 'package:tryp/core/services/passenger_verification_service.dart';
 import 'package:tryp/core/widgets/common_widgets.dart';
 
@@ -48,7 +50,28 @@ class _PassengerVerificationScreenState
     }
   }
 
+  Future<bool> _requestCameraAccess(CameraLensDirection lensDirection) async {
+    final granted = await CameraPermissionService.ensureCameraPermission(
+      lensDirection: lensDirection,
+    );
+    if (!mounted) return false;
+    if (!granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Camera permission is required to capture your verification photo.',
+          ),
+          backgroundColor: TRYPColors.error,
+        ),
+      );
+    }
+    return granted;
+  }
+
   Future<void> _captureId() async {
+    if (!await _requestCameraAccess(CameraLensDirection.back) || !mounted) {
+      return;
+    }
     final file = await Navigator.of(context).push<XFile>(
       MaterialPageRoute(
         fullscreenDialog: true,
@@ -61,6 +84,9 @@ class _PassengerVerificationScreenState
   }
 
   Future<void> _captureSelfie() async {
+    if (!await _requestCameraAccess(CameraLensDirection.front) || !mounted) {
+      return;
+    }
     final file = await Navigator.of(context).push<XFile>(
       MaterialPageRoute(
         fullscreenDialog: true,

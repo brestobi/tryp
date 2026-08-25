@@ -10,10 +10,8 @@ bool get isMobileWebDevice {
     r'android|iphone|ipad|ipod|mobile',
   ).hasMatch(userAgent);
 
-  if (hasMobileUserAgent) return true;
-
-  // Some tablets request a desktop user agent. Keep those supported when the
-  // browser still reports touch input and a mobile-sized viewport.
-  final viewportWidth = html.window.innerWidth ?? double.infinity;
-  return (navigator.maxTouchPoints ?? 0) > 0 && viewportWidth <= 1024;
+  // Deliberately rely on the browser identity rather than viewport size or
+  // touch support. Desktop browsers can be resized and touchscreen laptops
+  // can report touch input, but neither should unlock the mobile-only app.
+  return hasMobileUserAgent;
 }
