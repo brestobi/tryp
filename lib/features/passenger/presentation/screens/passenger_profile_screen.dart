@@ -36,7 +36,7 @@ class _PassengerProfileScreenState
   bool _isUploadingAvatar = false;
   String? _avatarUrl;
   bool _isVerified = false;
-  double _userRating = 4.9;
+  final double _userRating = 4.9;
 
   @override
   void initState() {
@@ -120,7 +120,9 @@ class _PassengerProfileScreenState
     if (!granted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Camera permission is required to take a profile photo.'),
+          content: Text(
+            'Camera permission is required to take a profile photo.',
+          ),
           backgroundColor: TRYPColors.error,
         ),
       );
@@ -170,7 +172,7 @@ class _PassengerProfileScreenState
               subtitle: const Text('Use camera to take a new profile picture'),
               onTap: () async {
                 final file = await _pickCameraAvatar(picker);
-                if (mounted) Navigator.pop(context, file);
+                if (context.mounted) Navigator.pop(context, file);
               },
             ),
             const SizedBox(height: 10),
@@ -198,7 +200,7 @@ class _PassengerProfileScreenState
                   maxHeight: 600,
                   imageQuality: 85,
                 );
-                if (mounted) Navigator.pop(context, file);
+                if (context.mounted) Navigator.pop(context, file);
               },
             ),
           ],
@@ -385,326 +387,136 @@ class _PassengerProfileScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // User Header Card
-                      Center(
-                        child: Column(
-                          children: [
-                            GestureDetector(
-                              onTap: _pickAndUploadAvatar,
-                              child: Stack(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 46,
-                                    backgroundColor: TRYPColors.accent,
-                                    backgroundImage:
-                                        (_avatarUrl != null &&
-                                            _avatarUrl!.startsWith('http'))
-                                        ? NetworkImage(_avatarUrl!)
-                                        : null,
-                                    child: _isUploadingAvatar
-                                        ? const CircularProgressIndicator(
-                                            color: TRYPColors.white,
-                                          )
-                                        : ((_avatarUrl == null ||
-                                                  !_avatarUrl!.startsWith(
-                                                    'http',
-                                                  ))
-                                              ? const Icon(
-                                                  Icons.person_rounded,
-                                                  size: 54,
-                                                  color: TRYPColors.white,
-                                                )
-                                              : null),
-                                  ),
-                                  Positioned(
-                                    right: 0,
-                                    bottom: 0,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: TRYPColors.primary,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: TRYPColors.white,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.camera_alt_rounded,
-                                        size: 14,
-                                        color: TRYPColors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              alignment: WrapAlignment.center,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 6,
-                              children: [
-                                Text(
-                                  _nameController.text,
-                                  style: TRYPTypography.headingMedium.copyWith(
-                                    fontSize: 20,
-                                    color: TRYPColors.primary,
+                      _ProfileHero(
+                        name: _nameController.text,
+                        avatarUrl: _avatarUrl,
+                        isVerified: _isVerified,
+                        rating: _userRating,
+                        isUploading: _isUploadingAvatar,
+                        onAvatarTap: _pickAndUploadAvatar,
+                      ),
+                      const SizedBox(height: 28),
+
+                      _ProfileSection(
+                        title: 'Personal information',
+                        icon: Icons.person_outline_rounded,
+                        isEditing: _isEditing,
+                        children: [
+                          CustomTextField(
+                            label: 'Full Name',
+                            controller: _nameController,
+                            prefixIcon: Icons.badge_outlined,
+                          ),
+                          const SizedBox(height: 12),
+                          CustomTextField(
+                            label: 'Email',
+                            controller: _emailController,
+                            prefixIcon: Icons.email_outlined,
+                          ),
+                          const SizedBox(height: 12),
+                          CustomTextField(
+                            label: 'Phone Number',
+                            controller: _phoneController,
+                            prefixIcon: Icons.phone_outlined,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      _ProfileSection(
+                        title: 'Saved places',
+                        icon: Icons.bookmark_outline_rounded,
+                        isEditing: _isEditing,
+                        children: [
+                          _AddressField(
+                            icon: Icons.home_rounded,
+                            label: 'Home',
+                            controller: _homeAddressController,
+                            isEditing: _isEditing,
+                          ),
+                          const SizedBox(height: 12),
+                          _AddressField(
+                            icon: Icons.work_outline_rounded,
+                            label: 'Work',
+                            controller: _workAddressController,
+                            isEditing: _isEditing,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      _ProfileSection(
+                        title: 'Emergency contact',
+                        icon: Icons.contact_emergency_outlined,
+                        isEditing: _isEditing,
+                        children: [
+                          CustomTextField(
+                            label: 'Contact Name',
+                            hint: 'e.g. Sarah (Spouse / Parent)',
+                            controller: _emergencyNameController,
+                            prefixIcon: Icons.person_outline_rounded,
+                          ),
+                          const SizedBox(height: 12),
+                          CustomTextField(
+                            label: 'Contact Phone',
+                            hint: 'e.g. +27 71 987 6543',
+                            controller: _emergencyContactController,
+                            keyboardType: TextInputType.phone,
+                            prefixIcon: Icons.phone_iphone_rounded,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      _ProfileSection(
+                        title: 'Safety & security',
+                        icon: Icons.shield_outlined,
+                        children: [
+                          const _SafetyNotice(),
+                          const SizedBox(height: 12),
+                          _ActionTile(
+                            icon: _isVerified
+                                ? Icons.verified_rounded
+                                : Icons.verified_user_outlined,
+                            title: _isVerified
+                                ? 'Identity verified'
+                                : 'Verify your identity',
+                            subtitle: _isVerified
+                                ? 'Your identity has been approved by TRYP'
+                                : 'Submit your ID and camera selfie for review',
+                            onTap: () =>
+                                context.go(Routes.passengerVerification),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      _ProfileSection(
+                        title: 'Account controls',
+                        icon: Icons.tune_rounded,
+                        children: [
+                          _ActionTile(
+                            icon: Icons.history_rounded,
+                            title: 'Trip history & receipts',
+                            onTap: () => context.go(Routes.passengerActivity),
+                          ),
+                          const SizedBox(height: 10),
+                          _ActionTile(
+                            icon: Icons.support_agent_rounded,
+                            title: '24/7 safety support & help',
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Contacting TRYP 24/7 Safety Support...',
                                   ),
                                 ),
-                                if (_isVerified)
-                                  Tooltip(
-                                    message: 'Identity verified',
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 7,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: TRYPColors.accentSoft,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.verified_rounded,
-                                            size: 16,
-                                            color: TRYPColors.primaryAlt,
-                                          ),
-                                          const SizedBox(width: 3),
-                                          Text(
-                                            'Verified',
-                                            style: TextStyle(
-                                              color: TRYPColors.primaryAlt,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: TRYPColors.accentSoft,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.star_rounded,
-                                        size: 14,
-                                        color: TRYPColors.primary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '$_userRating ★ Gold Member',
-                                        style: TRYPTypography.bodySmall
-                                            .copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: TRYPColors.primary,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Personal Info Section
-                      _SectionHeader(
-                        title: 'Personal Info',
-                        isEditing: _isEditing,
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        label: 'Full Name',
-                        controller: _nameController,
-                        prefixIcon: Icons.person_outline_rounded,
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        label: 'Email',
-                        controller: _emailController,
-                        prefixIcon: Icons.email_outlined,
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        label: 'Phone Number',
-                        controller: _phoneController,
-                        prefixIcon: Icons.phone_outlined,
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Saved Places Section
-                      _SectionHeader(
-                        title: 'Saved Places',
-                        isEditing: _isEditing,
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        label: 'Home Address',
-                        controller: _homeAddressController,
-                        prefixIcon: Icons.home_outlined,
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        label: 'Work Address',
-                        controller: _workAddressController,
-                        prefixIcon: Icons.work_outline,
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Emergency Contact
-                      _SectionHeader(
-                        title: 'Emergency Contact',
-                        isEditing: _isEditing,
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        label: 'Contact Name',
-                        hint: 'e.g. Sarah (Spouse / Parent)',
-                        controller: _emergencyNameController,
-                        prefixIcon: Icons.contact_phone_outlined,
-                      ),
-                      const SizedBox(height: 12),
-                      CustomTextField(
-                        label: 'Contact Phone',
-                        hint: 'e.g. +27 71 987 6543',
-                        controller: _emergencyContactController,
-                        keyboardType: TextInputType.phone,
-                        prefixIcon: Icons.phone_iphone_rounded,
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Safety & Security
-                      Text(
-                        'Safety & Security',
-                        style: TRYPTypography.headingSmall.copyWith(
-                          fontSize: 16,
-                          color: TRYPColors.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: TRYPColors.inputFill,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: const ListTile(
-                          leading: Icon(
-                            Icons.shield_rounded,
-                            color: TRYPColors.primary,
+                              );
+                            },
                           ),
-                          title: Text(
-                            'Ride PIN verification is enabled',
-                            style: TextStyle(color: TRYPColors.primary),
-                          ),
-                          subtitle: Text(
-                            'Your driver must verify the 4-digit PIN before starting the ride. Use the SOS button during an active ride to contact TRYP safety support or call 112.',
-                            style: TextStyle(color: TRYPColors.grey),
-                          ),
-                        ),
+                        ],
                       ),
-
                       const SizedBox(height: 24),
-
-                      ListTile(
-                        tileColor: TRYPColors.lightGrey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        leading: Icon(
-                          _isVerified
-                              ? Icons.verified_rounded
-                              : Icons.verified_user_rounded,
-                          color: _isVerified
-                              ? TRYPColors.primaryAlt
-                              : TRYPColors.primary,
-                        ),
-                        title: Text(
-                          _isVerified
-                              ? 'Identity verified'
-                              : 'Passenger identity verification',
-                        ),
-                        subtitle: Text(
-                          _isVerified
-                              ? 'Your identity has been approved by TRYP'
-                              : 'Submit your ID and camera selfie for admin review',
-                        ),
-                        trailing: const Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 14,
-                        ),
-                        onTap: () => context.go(Routes.passengerVerification),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // Quick Shortcuts
-                      ListTile(
-                        tileColor: TRYPColors.lightGrey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        leading: const Icon(
-                          Icons.history_rounded,
-                          color: TRYPColors.primary,
-                        ),
-                        title: const Text('Trip History & Receipts'),
-                        trailing: const Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 14,
-                        ),
-                        onTap: () => context.go(Routes.passengerActivity),
-                      ),
-                      const SizedBox(height: 10),
-                      ListTile(
-                        tileColor: TRYPColors.lightGrey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        leading: const Icon(
-                          Icons.support_agent_rounded,
-                          color: TRYPColors.primary,
-                        ),
-                        title: const Text('24/7 Safety Support & Help'),
-                        trailing: const Icon(
-                          Icons.arrow_forward_ios_rounded,
-                          size: 14,
-                        ),
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Contacting TRYP 24/7 Safety Support...',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Logout Button
                       SecondaryButton(label: 'Log Out', onPressed: _logout),
                       const SizedBox(height: 24),
                     ],
@@ -724,27 +536,381 @@ class _PassengerProfileScreenState
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final bool isEditing;
+class _ProfileHero extends StatelessWidget {
+  final String name;
+  final String? avatarUrl;
+  final bool isVerified;
+  final double rating;
+  final bool isUploading;
+  final VoidCallback onAvatarTap;
 
-  const _SectionHeader({required this.title, required this.isEditing});
+  const _ProfileHero({
+    required this.name,
+    required this.avatarUrl,
+    required this.isVerified,
+    required this.rating,
+    required this.isUploading,
+    required this.onAvatarTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: TRYPColors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: TRYPColors.divider),
+        boxShadow: [
+          BoxShadow(
+            color: TRYPColors.primary.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          GestureDetector(
+            onTap: onAvatarTap,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CircleAvatar(
+                  radius: 43,
+                  backgroundColor: TRYPColors.accent,
+                  backgroundImage: avatarUrl != null
+                      ? NetworkImage(avatarUrl!)
+                      : null,
+                  child: isUploading
+                      ? const CircularProgressIndicator(color: TRYPColors.white)
+                      : avatarUrl == null
+                      ? const Icon(
+                          Icons.person_rounded,
+                          size: 50,
+                          color: TRYPColors.white,
+                        )
+                      : null,
+                ),
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: TRYPColors.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: TRYPColors.white, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      size: 13,
+                      color: TRYPColors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TRYPTypography.headingMedium.copyWith(
+                    fontSize: 21,
+                    color: TRYPColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                if (isVerified)
+                  const _StatusPill(
+                    icon: Icons.verified_rounded,
+                    label: 'Identity verified',
+                  )
+                else
+                  const _StatusPill(
+                    icon: Icons.verified_user_outlined,
+                    label: 'Verification pending',
+                    muted: true,
+                  ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _MetaPill(
+                      icon: Icons.star_rounded,
+                      label: rating.toStringAsFixed(1),
+                    ),
+                    const _MetaPill(
+                      icon: Icons.workspace_premium_rounded,
+                      label: 'Gold member',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool muted;
+
+  const _StatusPill({
+    required this.icon,
+    required this.label,
+    this.muted = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = muted ? TRYPColors.grey : TRYPColors.primaryAlt;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: muted ? TRYPColors.lightGrey : TRYPColors.accentSoft,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TRYPTypography.bodySmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetaPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MetaPill({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(title, style: TRYPTypography.headingSmall.copyWith(fontSize: 16)),
-        if (isEditing)
-          Text(
-            'Editing Enabled',
-            style: TRYPTypography.bodySmall.copyWith(
-              color: TRYPColors.primary,
-              fontWeight: FontWeight.bold,
+        Icon(icon, size: 16, color: TRYPColors.primary),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TRYPTypography.bodySmall.copyWith(
+            color: TRYPColors.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final bool isEditing;
+  final List<Widget> children;
+
+  const _ProfileSection({
+    required this.title,
+    required this.icon,
+    this.isEditing = false,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      decoration: BoxDecoration(
+        color: TRYPColors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: TRYPColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: TRYPColors.accentSoft,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, size: 19, color: TRYPColors.primary),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TRYPTypography.titleMedium.copyWith(
+                    color: TRYPColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (isEditing)
+                Text(
+                  'Editing',
+                  style: TRYPTypography.bodySmall.copyWith(
+                    color: TRYPColors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _AddressField extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final TextEditingController controller;
+  final bool isEditing;
+
+  const _AddressField({
+    required this.icon,
+    required this.label,
+    required this.controller,
+    required this.isEditing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isEditing) {
+      return CustomTextField(
+        label: '$label address',
+        controller: controller,
+        prefixIcon: icon,
+      );
+    }
+
+    return _ActionTile(
+      icon: icon,
+      title: label,
+      subtitle: controller.text.trim().isEmpty
+          ? 'Add a saved address'
+          : controller.text.trim(),
+      onTap: () {},
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: TRYPColors.inputFill,
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          child: Row(
+            children: [
+              Icon(icon, color: TRYPColors.primary, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TRYPTypography.titleMedium.copyWith(fontSize: 14),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TRYPTypography.bodySmall.copyWith(height: 1.35),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: TRYPColors.muted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SafetyNotice extends StatelessWidget {
+  const _SafetyNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: TRYPColors.accentSoft,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.lock_outline_rounded, color: TRYPColors.primary),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              'Ride PIN verification is enabled. Your driver must verify the 4-digit PIN before starting your ride.',
+              style: TRYPTypography.bodySmall.copyWith(
+                color: TRYPColors.primaryAlt,
+                height: 1.45,
+              ),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
