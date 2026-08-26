@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 
 /// Environment configuration for TRYP
@@ -11,6 +10,11 @@ class Environment {
   static const String _defaultSupabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
     defaultValue: 'your-anon-key',
+  );
+
+  static const String _defaultSupabasePublishableKey = String.fromEnvironment(
+    'SUPABASE_PUBLISHABLE_KEY',
+    defaultValue: '',
   );
 
   static const String _defaultMapboxAccessToken = String.fromEnvironment(
@@ -36,10 +40,8 @@ class Environment {
       try {
         content = await rootBundle.loadString(filePath);
       } catch (_) {
-        final file = File(filePath);
-        if (file.existsSync()) {
-          content = await file.readAsString();
-        }
+        // Runtime `.env` loading is supported through Flutter assets. Release
+        // builds should provide values with `--dart-define`.
       }
 
       if (content.isEmpty) return;
@@ -67,11 +69,11 @@ class Environment {
   }
 
   static String _resolve(String key, String defaultValue) {
-    return _runtimeValues[key] ?? Platform.environment[key] ?? defaultValue;
+    return _runtimeValues[key] ?? defaultValue;
   }
 
   static bool _resolveBool(String key, bool defaultValue) {
-    final raw = _runtimeValues[key] ?? Platform.environment[key];
+    final raw = _runtimeValues[key];
     if (raw == null) return defaultValue;
     return raw.toLowerCase() == 'true';
   }
@@ -79,8 +81,17 @@ class Environment {
   static String get supabaseUrl =>
       _resolve('SUPABASE_URL', _defaultSupabaseUrl);
 
-  static String get supabaseAnonKey =>
-      _resolve('SUPABASE_ANON_KEY', _defaultSupabaseAnonKey);
+  /// Supabase publishable key. `SUPABASE_ANON_KEY` remains supported for
+  /// existing deployments and local `.env` files.
+  static String get supabaseAnonKey {
+    final publishableKey =
+        _runtimeValues['SUPABASE_PUBLISHABLE_KEY'] ??
+        _defaultSupabasePublishableKey;
+    if (publishableKey.trim().isNotEmpty) {
+      return publishableKey.trim();
+    }
+    return _resolve('SUPABASE_ANON_KEY', _defaultSupabaseAnonKey);
+  }
 
   static String get mapboxAccessToken =>
       _resolve('MAPBOX_ACCESS_TOKEN', _defaultMapboxAccessToken);
@@ -88,11 +99,9 @@ class Environment {
   static bool get isProduction =>
       _resolveBool('IS_PRODUCTION', _defaultIsProduction);
 
-  static bool get isStaging =>
-      _resolveBool('IS_STAGING', _defaultIsStaging);
+  static bool get isStaging => _resolveBool('IS_STAGING', _defaultIsStaging);
 
-  static String get paystackPublicKey =>
-      _resolve('PAYSTACK_PUBLIC_KEY', '');
+  static String get paystackPublicKey => _resolve('PAYSTACK_PUBLIC_KEY', '');
 
   static String get paystackCallbackUrl =>
       _resolve('PAYSTACK_CALLBACK_URL', 'https://standard.paystack.co/close');

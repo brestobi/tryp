@@ -339,6 +339,17 @@ export async function dbReviewPassengerVerification(
   if (error) throw error;
 }
 
+export async function dbNotifyAccountApproval(
+  userId: string,
+  accountType: 'driver' | 'passenger',
+): Promise<void> {
+  const { error } = await supabase.rpc('notify_account_approval', {
+    p_user_id: userId,
+    p_account_type: accountType,
+  });
+  if (error) throw error;
+}
+
 export async function fetchPassengers(): Promise<PassengerProfile[]> {
   const { data, error } = await supabase
     .from('profiles')

@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:tryp/app/theme.dart';
 import 'package:tryp/core/services/payment_checkout_result.dart';
@@ -21,15 +23,128 @@ class PaystackCheckoutScreen extends StatefulWidget {
   State<PaystackCheckoutScreen> createState() => _PaystackCheckoutScreenState();
 }
 
+class _WebCheckoutInstructions extends StatelessWidget {
+  final bool checkoutOpened;
+  final VoidCallback onOpenCheckout;
+  final VoidCallback onCheckPayment;
+
+  const _WebCheckoutInstructions({
+    required this.checkoutOpened,
+    required this.onOpenCheckout,
+    required this.onCheckPayment,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 76,
+                height: 76,
+                decoration: const BoxDecoration(
+                  color: TRYPColors.accentSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.lock_rounded,
+                  color: TRYPColors.primary,
+                  size: 34,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                checkoutOpened ? 'Complete your payment' : 'Secure payment',
+                textAlign: TextAlign.center,
+                style: TRYPTypography.headingSmall,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                checkoutOpened
+                    ? 'Paystack is open in a secure browser tab. Finish the payment there, then return here to confirm your ride.'
+                    : 'You will be redirected to Paystack’s secure checkout to complete your payment.',
+                textAlign: TextAlign.center,
+                style: TRYPTypography.bodyMedium.copyWith(
+                  color: TRYPColors.grey,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: onOpenCheckout,
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: Text(
+                    checkoutOpened ? 'Open Paystack again' : 'Open Paystack',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TRYPColors.primary,
+                    foregroundColor: TRYPColors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+              if (checkoutOpened) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onCheckPayment,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('I completed payment'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: TRYPColors.primary,
+                      side: const BorderSide(color: TRYPColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              Text(
+                'Your payment is verified securely by TRYP before the ride request continues.',
+                textAlign: TextAlign.center,
+                style: TRYPTypography.bodySmall.copyWith(height: 1.4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PaystackCheckoutScreenState extends State<PaystackCheckoutScreen> {
-  late final WebViewController _controller;
+  WebViewController? _controller;
+  Timer? _webVerificationTimer;
   bool _isLoading = true;
   bool _isHandlingReturn = false;
+  bool _webCheckoutOpened = false;
   int _progress = 0;
 
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) {
+      _isLoading = false;
+    } else {
+      _initializeMobileCheckout();
+    }
+  }
+
+  void _initializeMobileCheckout() {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(TRYPColors.white)
@@ -64,6 +179,69 @@ class _PaystackCheckoutScreenState extends State<PaystackCheckoutScreen> {
         ),
       )
       ..loadRequest(Uri.parse(widget.checkoutUrl));
+  }
+
+  Future<void> _openWebCheckout() async {
+    _webVerificationTimer?.cancel();
+    final uri = Uri.tryParse(widget.checkoutUrl);
+    if (uri == null || !uri.hasScheme) {
+      if (mounted) {
+        _showWebMessage('Paystack returned an invalid checkout URL.');
+      }
+      return;
+    }
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!mounted) return;
+
+    if (!launched) {
+      _showWebMessage(
+        'Unable to open Paystack. Check your browser permissions and try again.',
+      );
+      return;
+    }
+
+    setState(() {
+      _webCheckoutOpened = true;
+      _isLoading = false;
+    });
+    _webVerificationTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(_checkWebPayment(silent: true)),
+    );
+  }
+
+  Future<void> _checkWebPayment({bool silent = false}) async {
+    if (_isHandlingReturn || !mounted) return;
+    setState(() => _isHandlingReturn = true);
+
+    try {
+      final status = (await widget.verifyPayment()).trim().toLowerCase();
+      if (!mounted) return;
+      if (status == 'paid' || status == 'failed' || status == 'cancelled') {
+        Navigator.of(context).pop(paymentCheckoutResultForStatus(status));
+        return;
+      }
+
+      setState(() => _isHandlingReturn = false);
+      if (!silent) {
+        _showWebMessage('Payment is still being confirmed by Paystack.');
+      }
+    } catch (error) {
+      debugPrint('Paystack web payment check failed: $error');
+      if (!mounted) return;
+      setState(() => _isHandlingReturn = false);
+      if (!silent) {
+        _showWebMessage('Could not check payment status. Please try again.');
+      }
+    }
+  }
+
+  void _showWebMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: TRYPColors.primary),
+    );
   }
 
   bool _isReturnUrl(String rawUrl) {
@@ -133,6 +311,12 @@ class _PaystackCheckoutScreenState extends State<PaystackCheckoutScreen> {
   }
 
   @override
+  void dispose() {
+    _webVerificationTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
@@ -164,7 +348,14 @@ class _PaystackCheckoutScreenState extends State<PaystackCheckoutScreen> {
         ),
         body: Stack(
           children: [
-            WebViewWidget(controller: _controller),
+            if (kIsWeb)
+              _WebCheckoutInstructions(
+                checkoutOpened: _webCheckoutOpened,
+                onOpenCheckout: () => unawaited(_openWebCheckout()),
+                onCheckPayment: () => unawaited(_checkWebPayment()),
+              )
+            else if (_controller != null)
+              WebViewWidget(controller: _controller!),
             if (_isHandlingReturn)
               ColoredBox(
                 color: Colors.white.withValues(alpha: 0.92),

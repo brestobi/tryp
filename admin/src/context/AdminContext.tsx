@@ -22,6 +22,7 @@ import {
   fetchPassengers,
   fetchPassengerVerifications,
   dbReviewPassengerVerification,
+  dbNotifyAccountApproval,
   fetchRides,
   fetchFareSchemas,
   fetchPayouts,
@@ -364,11 +365,14 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     notes?: string,
   ) => {
     requirePermission('kyc:write');
+    const verification = passengerVerifications.find((v) => v.id === verificationId);
     await dbReviewPassengerVerification(verificationId, status, notes);
+    if (status === 'approved' && verification?.passengerId) {
+      await dbNotifyAccountApproval(verification.passengerId, 'passenger');
+    }
     setPassengerVerifications((prev) =>
       prev.map((v) => (v.id === verificationId ? { ...v, status, reviewNotes: notes } : v)),
     );
-    const verification = passengerVerifications.find((v) => v.id === verificationId);
     setPassengers((prev) =>
       prev.map((p) => (p.id === verification?.passengerId ? { ...p, verificationStatus: status } : p)),
     );
@@ -389,6 +393,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const approveDriver = async (driverId: string) => {
     requirePermission('kyc:write');
     await dbUpdateDriverStatus(driverId, 'approved');
+    await dbNotifyAccountApproval(driverId, 'driver');
     setDrivers((prev) =>
       prev.map((d) => (d.id === driverId ? { ...d, driverStatus: 'approved' as DriverStatus } : d))
     );

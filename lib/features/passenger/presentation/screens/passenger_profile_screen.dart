@@ -406,18 +406,21 @@ class _PassengerProfileScreenState
                             label: 'Full Name',
                             controller: _nameController,
                             prefixIcon: Icons.badge_outlined,
+                            readOnly: !_isEditing,
                           ),
                           const SizedBox(height: 12),
                           CustomTextField(
                             label: 'Email',
                             controller: _emailController,
                             prefixIcon: Icons.email_outlined,
+                            readOnly: true,
                           ),
                           const SizedBox(height: 12),
                           CustomTextField(
                             label: 'Phone Number',
                             controller: _phoneController,
                             prefixIcon: Icons.phone_outlined,
+                            readOnly: !_isEditing,
                           ),
                         ],
                       ),
@@ -455,6 +458,7 @@ class _PassengerProfileScreenState
                             hint: 'e.g. Sarah (Spouse / Parent)',
                             controller: _emergencyNameController,
                             prefixIcon: Icons.person_outline_rounded,
+                            readOnly: !_isEditing,
                           ),
                           const SizedBox(height: 12),
                           CustomTextField(
@@ -463,6 +467,7 @@ class _PassengerProfileScreenState
                             controller: _emergencyContactController,
                             keyboardType: TextInputType.phone,
                             prefixIcon: Icons.phone_iphone_rounded,
+                            readOnly: !_isEditing,
                           ),
                         ],
                       ),
@@ -812,13 +817,62 @@ class _AddressField extends StatelessWidget {
       );
     }
 
-    return _ActionTile(
+    return _ReadOnlyField(
       icon: icon,
-      title: label,
-      subtitle: controller.text.trim().isEmpty
+      label: label,
+      value: controller.text.trim().isEmpty
           ? 'Add a saved address'
           : controller.text.trim(),
-      onTap: () {},
+    );
+  }
+}
+
+class _ReadOnlyField extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _ReadOnlyField({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      decoration: BoxDecoration(
+        color: TRYPColors.inputFill,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: TRYPColors.primary, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TRYPTypography.bodySmall.copyWith(
+                    color: TRYPColors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TRYPTypography.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

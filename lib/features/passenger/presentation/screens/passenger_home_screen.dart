@@ -143,6 +143,8 @@ class _PassengerHomeScreenPageState
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   MapboxMap? _mapController;
   CircleAnnotationManager? _circleAnnotationManager;
+  static const String _destinationTapInteractionId =
+      'passenger-destination-map-tap';
   PolylineAnnotationManager? _lineAnnotationManager;
   PassengerRideMode _mode = PassengerRideMode.idle;
 
@@ -163,8 +165,10 @@ class _PassengerHomeScreenPageState
   final TextEditingController _destinationSearchController =
       TextEditingController();
   final TextEditingController _pickupSearchController = TextEditingController();
+  final TextEditingController _coordinateController = TextEditingController();
   List<LocationItem> _searchResults = tzaneenVillages;
   int _locationSelectionId = 0;
+  bool _isSelectingOnMap = false;
   bool _isSearchingPickup = false;
 
   // Selection & Pricing
@@ -293,6 +297,7 @@ class _PassengerHomeScreenPageState
     _radarAnimController.dispose();
     _destinationSearchController.dispose();
     _pickupSearchController.dispose();
+    _coordinateController.dispose();
     _rideStatusRefreshTimer?.cancel();
     _searchDebounceTimer?.cancel();
     _rideSubscription?.unsubscribe();
@@ -1171,9 +1176,183 @@ class _PassengerHomeScreenPageState
       );
     }).toList();
 
-    setState(() {
-      _searchResults = mapboxResults.isEmpty ? _searchResults : mapboxResults;
-    });
+    final combined = <LocationItem>[];
+    final seen = <String>{};
+    for (final item in [..._searchResults, ...mapboxResults]) {
+      final key = '${item.name.toLowerCase()}|${item.address.toLowerCase()}';
+      if (seen.add(key)) combined.add(item);
+    }
+
+    setState(() => _searchResults = combined);
+  }
+
+  Future<void> _selectMapPoint(Point point) async {
+    final coordinates = point.coordinates;
+    final longitude = coordinates.lng.toDouble();
+    final latitude = coordinates.lat.toDouble();
+    final service = ref.read(locationServiceProvider);
+    final resolved = await service.reverseGeocode(latitude, longitude);
+    if (!mounted) return;
+    final item = LocationItem(
+      name: resolved.shortName,
+      address: resolved.address,
+      lat: latitude,
+      lng: longitude,
+      icon: Icons.push_pin_rounded,
+      city: 'Map pin',
+    );
+    await _selectDestination(item);
+  }
+
+  Future<void> _useCoordinateDestination() async {
+    final raw = _coordinateController.text.trim();
+    final parts = raw.split(RegExp(r'[ ,]+'));
+    if (parts.length != 2) {
+      _showLocationError('Enter coordinates as latitude, longitude.');
+      return;
+    }
+    final latitude = double.tryParse(parts[0]);
+    final longitude = double.tryParse(parts[1]);
+    if (latitude == null ||
+        longitude == null ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180) {
+      _showLocationError('Those coordinates are not valid.');
+      return;
+    }
+
+    final resolved = await ref
+        .read(locationServiceProvider)
+        .reverseGeocode(latitude, longitude);
+    if (!mounted) return;
+    await _selectDestination(
+      LocationItem(
+        name: resolved.shortName,
+        address: resolved.address,
+        lat: latitude,
+        lng: longitude,
+        icon: Icons.pin_drop_rounded,
+        city: 'Coordinates',
+      ),
+    );
+  }
+
+  void _showLocationError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: TRYPColors.error),
+    );
+  }
+
+  void _openDestinationLocationOptions() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: TRYPColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Choose destination', style: TRYPTypography.headingSmall),
+              const SizedBox(height: 6),
+              Text(
+                'Use the option that is easiest for you.',
+                style: TRYPTypography.bodySmall.copyWith(
+                  color: TRYPColors.grey,
+                ),
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                tileColor: TRYPColors.inputFill,
+                leading: const Icon(
+                  Icons.push_pin_rounded,
+                  color: TRYPColors.primary,
+                ),
+                title: const Text('Pin a place on the map'),
+                subtitle: const Text(
+                  'Tap anywhere on the map to choose a destination',
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  setState(() {
+                    _isSelectingOnMap = true;
+                    _mode = PassengerRideMode.idle;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Tap the map to place your destination pin.',
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                tileColor: TRYPColors.inputFill,
+                leading: const Icon(
+                  Icons.gps_fixed_rounded,
+                  color: TRYPColors.secondary,
+                ),
+                title: const Text('Enter coordinates'),
+                subtitle: const Text('Latitude, longitude'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showCoordinateDialog();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCoordinateDialog() async {
+    _coordinateController.clear();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Enter coordinates'),
+        content: TextField(
+          controller: _coordinateController,
+          keyboardType: const TextInputType.numberWithOptions(
+            decimal: true,
+            signed: true,
+          ),
+          decoration: const InputDecoration(
+            hintText: 'Example: -23.8333, 30.1667',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              unawaited(_useCoordinateDestination());
+            },
+            child: const Text('Use location'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showPaymentMethodPicker() {
@@ -1282,6 +1461,16 @@ class _PassengerHomeScreenPageState
             },
             onMapCreated: (controller) {
               _mapController = controller;
+              controller.addInteraction(
+                TapInteraction.onMap((mapContext) {
+                  if (_isSelectingOnMap &&
+                      mapContext.gestureState == GestureState.ended) {
+                    setState(() => _isSelectingOnMap = false);
+                    unawaited(_selectMapPoint(mapContext.point));
+                  }
+                }),
+                interactionID: _destinationTapInteractionId,
+              );
               _centerMapOnCurrentLocation();
               if (!kIsWeb) {
                 unawaited(
@@ -1782,6 +1971,32 @@ class _PassengerHomeScreenPageState
                     ],
                   ),
                   const Divider(height: 20),
+
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Destination',
+                          style: TRYPTypography.labelSmall.copyWith(
+                            color: TRYPColors.grey,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: _openDestinationLocationOptions,
+                          icon: const Icon(Icons.tune_rounded, size: 16),
+                          label: const Text('Other options'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: TRYPColors.secondary,
+                            padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                   // Destination Field
                   Row(
@@ -2382,7 +2597,8 @@ class _PassengerHomeScreenPageState
   // ── MODE D: Dispatching Radar Sheet ─────────────────────────────────
   Widget _buildDispatchingSheet() {
     final activeTrip = ref.watch(activeTripStateProvider);
-    final paymentPending = activeTrip != null &&
+    final paymentPending =
+        activeTrip != null &&
         activeTrip.paymentMethod != 'Cash' &&
         activeTrip.paymentStatus != 'paid';
 
@@ -2420,8 +2636,7 @@ class _PassengerHomeScreenPageState
           if (paymentPending)
             PrimaryButton(
               label: 'Check Payment Status',
-              onPressed: () =>
-                  unawaited(_verifyOnlinePayment(activeTrip.id)),
+              onPressed: () => unawaited(_verifyOnlinePayment(activeTrip.id)),
             ),
           if (paymentPending) const SizedBox(height: 12),
           OutlinedButton(
