@@ -122,6 +122,7 @@ const List<LocationItem> tzaneenVillages = [
 enum PassengerRideMode {
   idle, // Showing "Where to?" bar & map
   searchOverlay, // Searching destination/pickup
+  tripDetails, // Confirming the destination and travelling companions
   tierSelection, // Selecting TRYP Go / Comfort / XL / Exec tier
   scheduledConfirmation, // Scheduled ride saved for a future pickup
   dispatching, // Searching for driver (pulsing radar)
@@ -824,7 +825,7 @@ class _PassengerHomeScreenPageState
       _calculatedDistanceKm = null;
       _calculatedDurationMins = null;
 
-      _mode = PassengerRideMode.tierSelection;
+      _mode = PassengerRideMode.tripDetails;
     });
 
     FocusScope.of(context).unfocus();
@@ -1440,7 +1441,9 @@ class _PassengerHomeScreenPageState
     return Scaffold(
       backgroundColor: TRYPColors.primary,
       extendBodyBehindAppBar: true,
-      appBar: _mode == PassengerRideMode.searchOverlay
+      appBar:
+          _mode == PassengerRideMode.searchOverlay ||
+              _mode == PassengerRideMode.tierSelection
           ? null
           : _buildTopAppBar(unreadNotifs),
       body: Stack(
@@ -1485,10 +1488,10 @@ class _PassengerHomeScreenPageState
 
           // ── 2. Floating My Location FAB ────────────────────────────────
           if (_mode == PassengerRideMode.idle ||
-              _mode == PassengerRideMode.tierSelection)
+              _mode == PassengerRideMode.tripDetails)
             Positioned(
               right: 20,
-              bottom: _mode == PassengerRideMode.idle ? 230 : 380,
+              bottom: _mode == PassengerRideMode.idle ? 230 : 330,
               child: FloatingActionButton.small(
                 heroTag: 'my_loc_btn',
                 backgroundColor: TRYPColors.white,
@@ -1548,19 +1551,39 @@ class _PassengerHomeScreenPageState
             ),
 
           // ── 4. Dynamic Interactive Bottom Panel ───────────────────────
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _buildBottomPanel(
-              ref.watch(fareSchemasProvider).asData?.value ??
-                  const <String, FareSchema>{},
+          if (_mode != PassengerRideMode.tierSelection)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _buildBottomPanel(
+                ref.watch(fareSchemasProvider).asData?.value ??
+                    const <String, FareSchema>{},
+              ),
+            ),
+
+          // ── 5. Booking step overlays ──────────────────────────────────
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: _mode == PassengerRideMode.searchOverlay
+                  ? KeyedSubtree(
+                      key: const ValueKey('destination-search'),
+                      child: _buildSearchOverlayScreen(),
+                    )
+                  : _mode == PassengerRideMode.tierSelection
+                  ? KeyedSubtree(
+                      key: const ValueKey('ride-selection'),
+                      child: _buildRideSelectionScreen(
+                        ref.watch(fareSchemasProvider).asData?.value ??
+                            const <String, FareSchema>{},
+                      ),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('no-booking-overlay')),
             ),
           ),
-
-          // ── 5. Full Screen Search Overlay Sheet ───────────────────────
-          if (_mode == PassengerRideMode.searchOverlay)
-            Positioned.fill(child: _buildSearchOverlayScreen()),
         ],
       ),
     );
@@ -1685,8 +1708,10 @@ class _PassengerHomeScreenPageState
 
   Widget _buildBottomPanel(Map<String, FareSchema> fareSchemas) {
     switch (_mode) {
+      case PassengerRideMode.tripDetails:
+        return _buildTripDetailsSheet();
       case PassengerRideMode.tierSelection:
-        return _buildTierSelectionSheet(fareSchemas);
+        return const SizedBox.shrink();
       case PassengerRideMode.scheduledConfirmation:
         return _buildScheduledRideSheet();
       case PassengerRideMode.dispatching:
@@ -2108,7 +2133,584 @@ class _PassengerHomeScreenPageState
     );
   }
 
-  // ── MODE C: Vehicle Tier Selection Sheet ───────────────────────────
+  // ── MODE C: Trip Details Sheet ─────────────────────────────────────
+  Widget _buildTripDetailsSheet() {
+    final destinationName = _destination?.name ?? 'Zuma Street';
+    final routeReady =
+        _isRouteCalculationComplete &&
+        _calculatedDistanceKm != null &&
+        _calculatedDurationMins != null;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        MediaQuery.of(context).padding.bottom + 18,
+      ),
+      decoration: const BoxDecoration(
+        color: TRYPColors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 20,
+            offset: Offset(0, -6),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: TRYPColors.divider,
+                borderRadius: BorderRadius.circular(100),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 36,
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: TRYPColors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: TRYPColors.divider),
+                ),
+                child: Image.asset(
+                  'assets/images/tryp-logo-red.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TRYP',
+                      style: TRYPTypography.labelSmall.copyWith(
+                        color: TRYPColors.primary,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Text(
+                      'Your destination',
+                      style: TRYPTypography.bodySmall.copyWith(
+                        color: TRYPColors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Change destination',
+                onPressed: () =>
+                    setState(() => _mode = PassengerRideMode.searchOverlay),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.edit_location_alt_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            destinationName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TRYPTypography.headingSmall.copyWith(fontSize: 24),
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              const Icon(
+                Icons.route_rounded,
+                size: 16,
+                color: TRYPColors.primary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                routeReady
+                    ? '${_calculatedDistanceKm!.toStringAsFixed(1)} km'
+                    : 'Calculating distance',
+                style: TRYPTypography.bodySmall.copyWith(
+                  color: TRYPColors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Text('•'),
+              ),
+              Text(
+                routeReady
+                    ? '~${_calculatedDurationMins!} min drive'
+                    : 'Estimated travel time',
+                style: TRYPTypography.bodySmall.copyWith(
+                  color: TRYPColors.grey,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: TRYPColors.inputFill,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.people_alt_outlined,
+                  color: TRYPColors.secondary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'People joining you',
+                        style: TRYPTypography.titleMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'You + $_additionalPassengers companion${_additionalPassengers == 1 ? '' : 's'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TRYPTypography.bodySmall.copyWith(
+                          color: TRYPColors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Remove companion',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: _additionalPassengers == 0
+                      ? null
+                      : () => setState(() => _additionalPassengers--),
+                  icon: const Icon(Icons.remove_circle_outline_rounded),
+                ),
+                SizedBox(
+                  width: 24,
+                  child: Text(
+                    '$_additionalPassengers',
+                    textAlign: TextAlign.center,
+                    style: TRYPTypography.titleLarge.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Add companion',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: _additionalPassengers >= 5
+                      ? null
+                      : () => setState(() => _additionalPassengers++),
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(
+            label: 'Continue',
+            icon: Icons.arrow_forward_rounded,
+            backgroundColor: TRYPColors.primary,
+            enabled: routeReady,
+            onPressed: () =>
+                setState(() => _mode = PassengerRideMode.tierSelection),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── MODE D: Choose Your Ride ───────────────────────────────────────
+  Widget _buildRideSelectionScreen(Map<String, FareSchema> fareSchemas) {
+    final dist = _calculatedDistanceKm;
+    final duration = _calculatedDurationMins;
+    final activeSchema = fareSchemas[_selectedRideType];
+    final selectedCapacity = FareCalculatorService.capacityForRideType(
+      _selectedRideType,
+    );
+    final selectedTierFits = _additionalPassengers + 1 <= selectedCapacity;
+    final activeFare =
+        dist == null ||
+            duration == null ||
+            activeSchema == null ||
+            !selectedTierFits
+        ? null
+        : FareCalculatorService.calculateFare(
+            distanceKm: dist,
+            durationMins: duration.toDouble(),
+            rideTypeId: _selectedRideType,
+            schema: activeSchema,
+            additionalPassengers: _additionalPassengers,
+          );
+
+    final tiers = <Map<String, Object>>[
+      {
+        'id': 'TRYP Go',
+        'desc': 'Affordable everyday hatchbacks',
+        'image': 'assets/images/tryp-go-notext.png',
+        'cap': 4,
+        'eta': '3 min',
+      },
+      {
+        'id': 'TRYP Comfort',
+        'desc': 'Spacious sedans with top drivers',
+        'image': 'assets/images/tryp-comfort-notext.png',
+        'cap': 4,
+        'eta': '2 min',
+      },
+      {
+        'id': 'TRYP XL',
+        'desc': 'SUVs and minivans for groups',
+        'image': 'assets/images/tryp-xl-notext.png',
+        'cap': 6,
+        'eta': '5 min',
+      },
+      {
+        'id': 'TRYP Exec',
+        'desc': 'Premium luxury executive rides',
+        'image': 'assets/images/tryp-comfort-notext.png',
+        'cap': 4,
+        'eta': '4 min',
+      },
+    ];
+
+    return Material(
+      color: TRYPColors.white,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Back to trip details',
+                    onPressed: () =>
+                        setState(() => _mode = PassengerRideMode.tripDetails),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Choose Your Ride',
+                      style: TRYPTypography.headingSmall,
+                    ),
+                  ),
+                  Image.asset(
+                    'assets/images/tryp-logo-red.png',
+                    width: 48,
+                    height: 30,
+                    fit: BoxFit.contain,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: TRYPColors.inputFill,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on_rounded,
+                      color: TRYPColors.primary,
+                      size: 19,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${_destination?.name ?? 'Zuma Street'}  •  ${dist == null ? 'Route pending' : '${dist.toStringAsFixed(1)} km'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TRYPTypography.labelMedium.copyWith(
+                          color: TRYPColors.secondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  0,
+                  20,
+                  MediaQuery.of(context).padding.bottom + 24,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Select a ride', style: TRYPTypography.headingSmall),
+                    const SizedBox(height: 4),
+                    Text(
+                      'All rides include a verified TRYP driver.',
+                      style: TRYPTypography.bodySmall.copyWith(
+                        color: TRYPColors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    ...tiers.map((tier) {
+                      final tierId = tier['id'] as String;
+                      final tierCapacity = tier['cap'] as int;
+                      final tierFits =
+                          _additionalPassengers + 1 <= tierCapacity;
+                      final tierSchema = fareSchemas[tierId];
+                      final fareAmt =
+                          tierSchema == null ||
+                              dist == null ||
+                              duration == null ||
+                              !tierFits
+                          ? null
+                          : FareCalculatorService.calculateFare(
+                              distanceKm: dist,
+                              durationMins: duration.toDouble(),
+                              rideTypeId: tierId,
+                              schema: tierSchema,
+                              additionalPassengers: _additionalPassengers,
+                            );
+                      return _buildRideOptionCard(
+                        tier: tier,
+                        tierFits: tierFits,
+                        fare: fareAmt,
+                      );
+                    }),
+                    const SizedBox(height: 6),
+                    if (!selectedTierFits)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          'This group is too large for $_selectedRideType. Select TRYP XL to continue.',
+                          style: TRYPTypography.bodySmall.copyWith(
+                            color: TRYPColors.error,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    _buildPickupTimeSelector(),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: _showPaymentMethodPicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: TRYPColors.inputFill,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.payment_rounded,
+                              size: 19,
+                              color: TRYPColors.secondary,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Payment',
+                                    style: TRYPTypography.labelSmall.copyWith(
+                                      color: TRYPColors.grey,
+                                    ),
+                                  ),
+                                  Text(
+                                    _paymentMethod,
+                                    style: TRYPTypography.labelMedium.copyWith(
+                                      color: TRYPColors.secondary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: TRYPColors.grey,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    PrimaryButton(
+                      label: activeFare == null
+                          ? 'Loading current fares…'
+                          : 'Request $_selectedRideType • R${activeFare.toStringAsFixed(2)}',
+                      isLoading: _isLoading,
+                      enabled:
+                          selectedTierFits &&
+                          canRequestTrip(
+                            mapCalculationComplete: _isRouteCalculationComplete,
+                            fare: activeFare,
+                            isLoading: _isLoading,
+                          ),
+                      onPressed: _requestRide,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRideOptionCard({
+    required Map<String, Object> tier,
+    required bool tierFits,
+    required double? fare,
+  }) {
+    final tierId = tier['id'] as String;
+    final isSelected = _selectedRideType == tierId;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: tierFits
+              ? () => setState(() => _selectedRideType = tierId)
+              : null,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 104),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? TRYPColors.primary.withValues(alpha: 0.09)
+                  : TRYPColors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected ? TRYPColors.primary : TRYPColors.divider,
+                width: isSelected ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 86,
+                  height: 72,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? TRYPColors.primary
+                        : TRYPColors.inputFill,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Image.asset(
+                    tier['image']! as String,
+                    fit: BoxFit.contain,
+                    semanticLabel: '$tierId vehicle',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              tierId,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TRYPTypography.titleMedium.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: TRYPColors.primary,
+                              size: 18,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        tier['desc']! as String,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TRYPTypography.bodySmall.copyWith(
+                          color: TRYPColors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pickup in ${tier['eta']!}',
+                        style: TRYPTypography.labelSmall.copyWith(
+                          color: TRYPColors.secondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 76,
+                  child: Text(
+                    !tierFits
+                        ? 'Too many'
+                        : fare == null
+                        ? '—'
+                        : 'R${fare.toStringAsFixed(2)}',
+                    textAlign: TextAlign.end,
+                    style: TRYPTypography.titleMedium.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: !tierFits
+                          ? TRYPColors.error
+                          : fare == null
+                          ? TRYPColors.grey
+                          : TRYPColors.secondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Legacy tier sheet kept for compatibility with older callers. ─────
+  // ignore: unused_element
   Widget _buildTierSelectionSheet(Map<String, FareSchema> fareSchemas) {
     final dist = _calculatedDistanceKm;
     final duration = _calculatedDurationMins;
@@ -2594,7 +3196,7 @@ class _PassengerHomeScreenPageState
     );
   }
 
-  // ── MODE D: Dispatching Radar Sheet ─────────────────────────────────
+  // ── MODE E: Dispatching Radar Sheet ─────────────────────────────────
   Widget _buildDispatchingSheet() {
     final activeTrip = ref.watch(activeTripStateProvider);
     final paymentPending =
@@ -2654,7 +3256,7 @@ class _PassengerHomeScreenPageState
     );
   }
 
-  // ── MODE E: Active Trip Sheet ──────────────────────────────────────
+  // ── MODE F: Active Trip Sheet ──────────────────────────────────────
   Widget _buildActiveTripSheet() {
     final activeTrip = ref.watch(activeTripStateProvider);
     final driverName = activeTrip?.driverName ?? 'Assigned Driver';
