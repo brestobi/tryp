@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -39,21 +40,34 @@ class PassengerVerificationService {
     final safeExtension = ['jpg', 'jpeg', 'png', 'webp'].contains(extension)
         ? extension
         : 'jpg';
-    final path =
-        'passengers/$userId/${kind}_${DateTime.now().microsecondsSinceEpoch}.$safeExtension';
     final bytes = await file.readAsBytes();
     final contentType = safeExtension == 'png' ? 'image/png' : 'image/jpeg';
 
-    await _supabase.storage.from(bucketName).uploadBinary(
-          path,
-          bytes,
-          fileOptions: FileOptions(
-            contentType: contentType,
-            cacheControl: '3600',
-            upsert: false,
-          ),
-        );
-    return path;
+    final uploadResponse = await _supabase.functions.invoke(
+      'create-r2-upload',
+      body: {
+        'kind': kind,
+        'fileName': file.name,
+        'contentType': contentType,
+        'folder': 'passengers',
+      },
+    );
+    final uploadData = Map<String, dynamic>.from(uploadResponse.data as Map);
+    final uploadUrl = uploadData['uploadUrl'] as String;
+    final objectKey = uploadData['objectKey'] as String;
+    final client = HttpClient();
+    try {
+      final request = await client.putUrl(Uri.parse(uploadUrl));
+      request.headers.contentType = ContentType.parse(contentType);
+      request.add(bytes);
+      final response = await request.close();
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('R2 upload failed with status ${response.statusCode}');
+      }
+    } finally {
+      client.close();
+    }
+    return objectKey;
   }
 
   Future<String> submitVerification({
@@ -82,6 +96,23 @@ class PassengerVerificationService {
       },
     );
     return verificationId as String;
+  }
+
+  Future<String?> createDocumentDownloadUrl(String objectKey) async {
+    if (objectKey.startsWith('http://') || objectKey.startsWith('https://')) {
+      return objectKey;
+    }
+    try {
+      final response = await _supabase.functions.invoke(
+        'create-r2-download',
+        body: {'objectKey': objectKey},
+      );
+      final data = Map<String, dynamic>.from(response.data as Map);
+      return data['downloadUrl'] as String?;
+    } catch (error) {
+      debugPrint('Failed to create R2 download URL: $error');
+      return null;
+    }
   }
 
   Future<bool> isApproved() async {

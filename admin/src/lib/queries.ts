@@ -222,11 +222,11 @@ export async function fetchDrivers(): Promise<DriverProfile[]> {
         const filePath = doc.document_url.includes(marker)
           ? doc.document_url.split(marker)[1]
           : doc.document_url;
-        const { data: signedData } = await supabase.storage
-          .from('driver-documents')
-          .createSignedUrl(filePath, 3600);
-        if (signedData?.signedUrl) {
-          signedUrl = signedData.signedUrl;
+        const { data: signedData } = await supabase.functions.invoke('create-r2-download', {
+          body: { objectKey: filePath },
+        });
+        if (signedData?.downloadUrl) {
+          signedUrl = signedData.downloadUrl;
         }
       }
     }
@@ -279,20 +279,22 @@ export async function fetchPassengerVerifications(): Promise<PassengerVerificati
 
   const rows = data ?? [];
   const signed = await Promise.all(rows.map(async (row) => {
-    const idUrl = await supabase.storage
-      .from('passenger-verification')
-      .createSignedUrl(row.id_document_path, 3600);
-    const selfieUrl = await supabase.storage
-      .from('passenger-verification')
-      .createSignedUrl(row.selfie_path, 3600);
+    const [{ data: idUrl }, { data: selfieUrl }] = await Promise.all([
+      supabase.functions.invoke('create-r2-download', {
+        body: { objectKey: row.id_document_path },
+      }),
+      supabase.functions.invoke('create-r2-download', {
+        body: { objectKey: row.selfie_path },
+      }),
+    ]);
     const passenger = Array.isArray(row.passenger) ? row.passenger[0] : row.passenger;
     return {
       id: row.id,
       passengerId: row.passenger_id,
       passengerName: passenger?.full_name ?? 'Unknown Passenger',
       passengerEmail: passenger?.email ?? '',
-      idDocumentUrl: idUrl.data?.signedUrl ?? '',
-      selfieUrl: selfieUrl.data?.signedUrl ?? '',
+      idDocumentUrl: idUrl?.downloadUrl ?? '',
+      selfieUrl: selfieUrl?.downloadUrl ?? '',
       status: row.status as PassengerVerification['status'],
       reviewNotes: row.review_notes ?? undefined,
       submittedAt: row.submitted_at,
