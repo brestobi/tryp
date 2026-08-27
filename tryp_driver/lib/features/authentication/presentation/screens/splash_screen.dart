@@ -1,15 +1,10 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:tryp_driver/app/app_variant.dart';
 import 'package:tryp_driver/app/router.dart';
-import 'package:tryp_driver/app/theme.dart';
-import 'package:tryp_driver/core/constants/app_constants.dart';
 
-/// Driver Splash Screen — Premium Dark Aesthetic, Glowing Radar Ring, TRYP Driver Badge
+/// Driver startup screen with a white background, green logo, and loading bar.
 class SplashScreenPage extends StatefulWidget {
   const SplashScreenPage({super.key});
 
@@ -17,44 +12,14 @@ class SplashScreenPage extends StatefulWidget {
   State<SplashScreenPage> createState() => _SplashScreenPageState();
 }
 
-class _SplashScreenPageState extends State<SplashScreenPage>
-    with TickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final AnimationController _radarController;
-  late final Animation<double> _fadeIn;
-  late final Animation<double> _scaleIn;
-
+class _SplashScreenPageState extends State<SplashScreenPage> {
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-    _scaleIn = Tween<double>(
-      begin: 0.85,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
-
-    _radarController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
-
-    _controller.forward();
     _initialize();
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    _radarController.dispose();
-    super.dispose();
-  }
-
   Future<void> _initialize() async {
-    // Request location permissions (non-blocking)
     try {
       final permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -64,7 +29,6 @@ class _SplashScreenPageState extends State<SplashScreenPage>
       debugPrint('Location permission check error: $e');
     }
 
-    // Brief splash delay for smooth visual transition
     await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
 
@@ -78,21 +42,17 @@ class _SplashScreenPageState extends State<SplashScreenPage>
             .select('role, driver_status')
             .eq('id', session.user.id)
             .maybeSingle();
-
         if (!mounted) return;
 
         final role = profile?['role'] as String?;
         final driverStatus = profile?['driver_status'] as String? ?? 'pending';
-
         if (role == 'driver') {
-          // If driver account is approved or under review, go to driver home
           if (driverStatus == 'approved' || driverStatus == 'under_review') {
             context.go(Routes.driverHome);
           } else {
             context.go(Routes.driverOnboarding);
           }
         } else {
-          // User has a passenger account - sign out and redirect to driver onboarding
           await client.auth.signOut();
           if (!mounted) return;
           context.go(Routes.onboarding);
@@ -109,183 +69,30 @@ class _SplashScreenPageState extends State<SplashScreenPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: TRYPColors.primaryAlt,
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Subtle background grid glow pattern
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.center,
-                  radius: 0.85,
-                  colors: [
-                    TRYPColors.primary.withValues(alpha: 0.12),
-                    TRYPColors.secondary,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
           Center(
-            child: FadeTransition(
-              opacity: _fadeIn,
-              child: ScaleTransition(
-                scale: _scaleIn,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Radar Ring around Driver Logo Icon
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        AnimatedBuilder(
-                          animation: _radarController,
-                          builder: (context, child) {
-                            return CustomPaint(
-                              size: const Size(128, 128),
-                              painter: _DriverRadarPulsePainter(
-                                progress: _radarController.value,
-                              ),
-                            );
-                          },
-                        ),
-
-                        // Green driver brand logo without a white container.
-                        Image.asset(
-                          'assets/images/tryp-logo-green.png',
-                          width: 112,
-                          height: 112,
-                          fit: BoxFit.contain,
-                          semanticLabel: 'TRYP Driver logo',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-
-                    // TRYP Title
-                    Text(
-                      'TRYP',
-                      style: TRYPTypography.headingXL.copyWith(
-                        color: TRYPColors.white,
-                        fontSize: 34,
-                        letterSpacing: 6,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // DRIVER Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: TRYPColors.primary.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: TRYPColors.primary.withValues(alpha: 0.6),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              color: TRYPColors.white,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'DRIVER CONSOLE',
-                            style: TRYPTypography.labelLarge.copyWith(
-                              color: TRYPColors.white,
-                              letterSpacing: 2.0,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    Text(
-                      AppConstants.appTagline,
-                      style: TRYPTypography.bodyMedium.copyWith(
-                        color: TRYPColors.secondaryLight,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Loading indicator
-                    const SizedBox(
-                      width: 26,
-                      height: 26,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          TRYPColors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            child: Image.asset(
+              'assets/images/tryp-logo-green.png',
+              width: 170,
+              height: 170,
+              fit: BoxFit.contain,
+              semanticLabel: 'TRYP Driver logo',
             ),
           ),
-
-          // Bottom Version Footer
-          Positioned(
-            bottom: 32,
+          const Positioned(
             left: 0,
             right: 0,
-            child: Text(
-              'v${AppConstants.appVersion}',
-              textAlign: TextAlign.center,
-              style: TRYPTypography.bodySmall.copyWith(
-                color: TRYPColors.secondaryLight.withValues(alpha: 0.8),
-                fontSize: 11,
-              ),
+            bottom: 0,
+            child: LinearProgressIndicator(
+              minHeight: 4,
+              backgroundColor: Color(0xFFD9F0DF),
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF116B2A)),
             ),
           ),
         ],
       ),
     );
   }
-}
-
-class _DriverRadarPulsePainter extends CustomPainter {
-  final double progress;
-
-  const _DriverRadarPulsePainter({required this.progress});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-
-    for (var i = 0; i < 2; i++) {
-      final p = (progress + (i * 0.5)) % 1.0;
-      final radius = 44 + (p * 22);
-      final opacity = (1.0 - p) * 0.35;
-
-      final paint = Paint()
-        ..color = TRYPColors.white.withValues(alpha: opacity)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.8;
-
-      canvas.drawCircle(center, radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DriverRadarPulsePainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }

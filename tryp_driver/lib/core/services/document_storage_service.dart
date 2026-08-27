@@ -56,6 +56,7 @@ class DocumentStorageService {
       try {
         final request = await client.putUrl(Uri.parse(data['uploadUrl'] as String));
         request.headers.contentType = ContentType.parse(mimeType);
+        request.headers.contentLength = bytes.length;
         request.add(bytes);
         final result = await request.close();
         if (result.statusCode < 200 || result.statusCode >= 300) throw Exception('R2 upload failed: ${result.statusCode}');

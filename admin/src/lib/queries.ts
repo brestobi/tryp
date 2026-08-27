@@ -268,6 +268,9 @@ export async function fetchPassengerVerifications(): Promise<PassengerVerificati
       passenger_id,
       id_document_path,
       selfie_path,
+      storage_provider,
+      id_document_object_key,
+      selfie_object_key,
       status,
       review_notes,
       submitted_at,
@@ -279,13 +282,16 @@ export async function fetchPassengerVerifications(): Promise<PassengerVerificati
 
   const rows = data ?? [];
   const signed = await Promise.all(rows.map(async (row) => {
+    const provider = row.storage_provider ?? 'supabase';
+    const idObjectKey = row.id_document_object_key ?? row.id_document_path;
+    const selfieObjectKey = row.selfie_object_key ?? row.selfie_path;
     const [{ data: idUrl }, { data: selfieUrl }] = await Promise.all([
-      supabase.functions.invoke('create-r2-download', {
-        body: { objectKey: row.id_document_path },
-      }),
-      supabase.functions.invoke('create-r2-download', {
-        body: { objectKey: row.selfie_path },
-      }),
+      provider === 'r2'
+        ? supabase.functions.invoke('create-r2-download', { body: { objectKey: idObjectKey } })
+        : supabase.storage.from('passenger-verification').createSignedUrl(row.id_document_path, 3600),
+      provider === 'r2'
+        ? supabase.functions.invoke('create-r2-download', { body: { objectKey: selfieObjectKey } })
+        : supabase.storage.from('passenger-verification').createSignedUrl(row.selfie_path, 3600),
     ]);
     const passenger = Array.isArray(row.passenger) ? row.passenger[0] : row.passenger;
     return {
@@ -293,8 +299,8 @@ export async function fetchPassengerVerifications(): Promise<PassengerVerificati
       passengerId: row.passenger_id,
       passengerName: passenger?.full_name ?? 'Unknown Passenger',
       passengerEmail: passenger?.email ?? '',
-      idDocumentUrl: idUrl?.downloadUrl ?? '',
-      selfieUrl: selfieUrl?.downloadUrl ?? '',
+      idDocumentUrl: idUrl?.downloadUrl ?? idUrl?.signedUrl ?? '',
+      selfieUrl: selfieUrl?.downloadUrl ?? selfieUrl?.signedUrl ?? '',
       status: row.status as PassengerVerification['status'],
       reviewNotes: row.review_notes ?? undefined,
       submittedAt: row.submitted_at,

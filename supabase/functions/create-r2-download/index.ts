@@ -37,18 +37,16 @@ serve(async (request) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
+    const payload = await request.json() as { objectKey?: string };
+    const objectKey = payload.objectKey;
+    if (!objectKey || objectKey.includes("..") || objectKey.startsWith("/")) return json({ error: "Invalid object key" }, 400);
+
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role, admin_role")
       .eq("id", user.id)
       .maybeSingle();
     if (profileError) throw profileError;
-
-    const payload = await request.json() as { objectKey?: string };
-    const objectKey = payload.objectKey;
-    if (!objectKey || objectKey.includes("..") || objectKey.startsWith("/")) {
-      return json({ error: "Invalid object key" }, 400);
-    }
 
     const isAdmin = profile?.role === "admin" || profile?.role === "super_admin";
     const ownsObject = objectKey.startsWith(`drivers/${user.id}/`) || objectKey.startsWith(`passengers/${user.id}/`);

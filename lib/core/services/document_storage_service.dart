@@ -91,6 +91,7 @@ class DocumentStorageService {
       try {
         final request = await client.putUrl(Uri.parse(uploadUrl));
         request.headers.contentType = ContentType.parse(mimeType);
+        request.headers.contentLength = bytes.length;
         request.add(bytes);
         final response = await request.close();
         if (response.statusCode < 200 || response.statusCode >= 300) {
