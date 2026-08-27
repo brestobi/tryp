@@ -222,12 +222,11 @@ export async function fetchDrivers(): Promise<DriverProfile[]> {
         const filePath = doc.document_url.includes(marker)
           ? doc.document_url.split(marker)[1]
           : doc.document_url;
-        const { data: signedData } = await supabase.functions.invoke('create-r2-download', {
+        const { data: signedData, error: signedError } = await supabase.functions.invoke('create-r2-download', {
           body: { objectKey: filePath },
         });
-        if (signedData?.downloadUrl) {
-          signedUrl = signedData.downloadUrl;
-        }
+        if (signedError) console.error('Driver document URL error:', signedError.message);
+        if (signedData?.downloadUrl) signedUrl = signedData.downloadUrl;
       }
     }
 
@@ -285,7 +284,7 @@ export async function fetchPassengerVerifications(): Promise<PassengerVerificati
     const provider = row.storage_provider ?? 'supabase';
     const idObjectKey = row.id_document_object_key ?? row.id_document_path;
     const selfieObjectKey = row.selfie_object_key ?? row.selfie_path;
-    const [{ data: idUrl }, { data: selfieUrl }] = await Promise.all([
+    const [{ data: idUrl, error: idError }, { data: selfieUrl, error: selfieError }] = await Promise.all([
       provider === 'r2'
         ? supabase.functions.invoke('create-r2-download', { body: { objectKey: idObjectKey } })
         : supabase.storage.from('passenger-verification').createSignedUrl(row.id_document_path, 3600),
@@ -293,6 +292,8 @@ export async function fetchPassengerVerifications(): Promise<PassengerVerificati
         ? supabase.functions.invoke('create-r2-download', { body: { objectKey: selfieObjectKey } })
         : supabase.storage.from('passenger-verification').createSignedUrl(row.selfie_path, 3600),
     ]);
+    if (idError) console.error('Passenger ID URL error:', idError.message);
+    if (selfieError) console.error('Passenger selfie URL error:', selfieError.message);
     const passenger = Array.isArray(row.passenger) ? row.passenger[0] : row.passenger;
     return {
       id: row.id,
@@ -433,6 +434,15 @@ export async function dbUpdateDocumentStatus(
   status: DocumentStatus,
   issueNotes?: string
 ) {
+  if (status === 'flagged') {
+    const { error } = await supabase.rpc('flag_driver_document', {
+      p_document_id: docId,
+      p_issue_notes: issueNotes ?? null,
+    });
+    if (error) throw error;
+    return;
+  }
+
   const { error } = await supabase
     .from('driver_documents')
     .update({

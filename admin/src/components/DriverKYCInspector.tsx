@@ -561,7 +561,7 @@ export const DriverKYCInspector: React.FC = () => {
               </div>
 
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px]">
-                This action flags the document in Supabase Storage and dispatches an immediate push notification to the driver's mobile app.
+                This action flags the document and sends the driver an immediate re-upload notification.
               </div>
 
               {actionError?.action === 'flag' && (
