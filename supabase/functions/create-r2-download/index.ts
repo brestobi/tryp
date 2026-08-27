@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { GetObjectCommand, S3Client } from "https://esm.sh/@aws-sdk/client-s3@3.873.0";
 import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.873.0";
 
-const endpoint = Deno.env.get("R2_ENDPOINT") ?? `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`;
+const endpoint = Deno.env.get("R2_ENDPOINT") ?? "https://01867980af2a323a01f48976d38894ea.r2.cloudflarestorage.com";
 const bucket = Deno.env.get("R2_BUCKET_NAME") ?? "tryp";
 const r2 = new S3Client({
   region: "auto",

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,175 +14,102 @@ class DocumentStorageService {
 
   DocumentStorageService(this._supabase);
 
-  /// Pick document image from Camera or Gallery
-  Future<XFile?> pickDocumentImage({
-    ImageSource source = ImageSource.gallery,
-  }) async {
+  Future<XFile?> pickDocumentImage({ImageSource source = ImageSource.gallery}) async {
     try {
-      if (source == ImageSource.camera &&
-          !await CameraPermissionService.ensureCameraPermission()) {
-        return null;
-      }
-      final XFile? image = await _picker.pickImage(
-        source: source,
-        imageQuality: 85,
-        maxWidth: 1600,
-        maxHeight: 1600,
-      );
-      return image;
+      if (source == ImageSource.camera && !await CameraPermissionService.ensureCameraPermission()) return null;
+      return await _picker.pickImage(source: source, imageQuality: 85, maxWidth: 1600, maxHeight: 1600);
     } catch (e) {
       debugPrint('❌ Error picking document image: $e');
       return null;
     }
   }
 
-  /// Map friendly doc keys to official document_type DB names
   String _mapDocKeyToDocType(String docKey) {
     switch (docKey) {
-      case 'prdp':
-        return 'prdp_license';
-      case 'vehicle_registration':
-        return 'vehicle_registration';
-      case 'insurance':
-        return 'insurance';
-      case 'roadworthiness':
-        return 'roadworthiness';
-      case 'selfie':
-        return 'selfie';
-      default:
-        return docKey;
+      case 'prdp': return 'prdp_license';
+      case 'vehicle_registration': return 'vehicle_registration';
+      case 'insurance': return 'insurance';
+      case 'roadworthiness': return 'roadworthiness';
+      case 'selfie': return 'selfie';
+      default: return docKey;
     }
   }
 
-  /// Upload document to Supabase Storage and update profiles & driver_documents tables
-  Future<String?> uploadDriverDocument({
-    required String
-    docKey, // e.g. 'prdp', 'vehicle_registration', 'insurance', 'roadworthiness'
-    required XFile file,
-  }) async {
+  Future<String?> uploadDriverDocument({required String docKey, required XFile file}) async {
     final user = _supabase.auth.currentUser;
-    if (user == null) {
-      debugPrint('⚠️ Cannot upload document — user not logged in.');
-      return null;
-    }
+    if (user == null) return null;
 
     try {
       final bytes = await file.readAsBytes();
       final rawExt = file.name.split('.').last.toLowerCase();
-      final fileExt =
-          (rawExt == 'png' ||
-              rawExt == 'jpg' ||
-              rawExt == 'jpeg' ||
-              rawExt == 'webp' ||
-              rawExt == 'pdf')
-          ? rawExt
-          : 'jpg';
-      final path =
-          'drivers/${user.id}/${docKey}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-
-      debugPrint('📤 Uploading document to Supabase Storage: $path');
-
-      final mimeType = fileExt == 'pdf'
-          ? 'application/pdf'
-          : fileExt == 'png'
-          ? 'image/png'
-          : 'image/jpeg';
-
-      await _supabase.storage
-          .from(bucketName)
-          .uploadBinary(
-            path,
-            bytes,
-            fileOptions: FileOptions(
-              cacheControl: '3600',
-              upsert: true,
-              contentType: mimeType,
-            ),
-          );
-
-      // Store the private storage path, not an expiring URL. The repository
-      // resolves a fresh signed URL whenever onboarding data is loaded.
-      debugPrint('✅ Document uploaded successfully.');
-
-      // 1. Update document metadata in user's profile table
+      final fileExt = ['png', 'jpg', 'jpeg', 'webp', 'pdf'].contains(rawExt) ? rawExt : 'jpg';
+      final mimeType = fileExt == 'pdf' ? 'application/pdf' : fileExt == 'png' ? 'image/png' : 'image/jpeg';
+      final response = await _supabase.functions.invoke('create-r2-upload', body: {
+        'kind': docKey,
+        'fileName': file.name,
+        'contentType': mimeType,
+        'folder': 'drivers',
+      });
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final objectKey = data['objectKey'] as String;
+      final client = HttpClient();
       try {
-        await _supabase.from('profiles').upsert({
-          'id': user.id,
-          'doc_$docKey': path,
-          'doc_${docKey}_status': 'pending',
-          'updated_at': DateTime.now().toIso8601String(),
-        });
-        debugPrint('✅ Profile table updated successfully.');
-      } catch (e) {
-        debugPrint('❌ Error updating profiles table: $e');
-        rethrow;
+        final request = await client.putUrl(Uri.parse(data['uploadUrl'] as String));
+        request.headers.contentType = ContentType.parse(mimeType);
+        request.add(bytes);
+        final result = await request.close();
+        if (result.statusCode < 200 || result.statusCode >= 300) throw Exception('R2 upload failed: ${result.statusCode}');
+      } finally {
+        client.close();
       }
 
-      // 2. Insert into driver_documents table for admin inspector view
-      final docType = _mapDocKeyToDocType(docKey);
-      try {
-        await _supabase.from('driver_documents').upsert({
-          'driver_id': user.id,
-          'document_type': docType,
-          'document_url': path,
-          'status': 'pending',
-          'submitted_at': DateTime.now().toIso8601String(),
-        }, onConflict: 'driver_id, document_type');
-        debugPrint('✅ Driver documents table updated/inserted successfully.');
-      } catch (e) {
-        debugPrint(
-          '❌ Error updating/inserting into driver_documents table: $e',
-        );
-        rethrow;
-      }
-
-      return path;
+      await _supabase.from('profiles').upsert({
+        'id': user.id,
+        'doc_$docKey': objectKey,
+        'doc_${docKey}_status': 'pending',
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+      await _supabase.from('driver_documents').upsert({
+        'driver_id': user.id,
+        'document_type': _mapDocKeyToDocType(docKey),
+        'document_url': objectKey,
+        'storage_provider': 'r2',
+        'object_key': objectKey,
+        'content_type': mimeType,
+        'file_size': bytes.length,
+        'status': 'pending',
+        'submitted_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'driver_id, document_type');
+      return objectKey;
     } catch (e, stackTrace) {
-      debugPrint('❌ Error uploading document: $e');
-      debugPrint('🔍 StackTrace: $stackTrace');
+      debugPrint('❌ Error uploading document: $e\n$stackTrace');
       return null;
     }
   }
 
-  /// Resolve a private storage path to a short-lived URL for display.
-  Future<String?> resolveDocumentUrl(String? pathOrUrl) async {
-    if (pathOrUrl == null || pathOrUrl.isEmpty) return null;
-    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
-      return pathOrUrl;
-    }
+  Future<String?> resolveDocumentUrl(String? objectKey) async {
+    if (objectKey == null || objectKey.isEmpty) return null;
+    if (objectKey.startsWith('http://') || objectKey.startsWith('https://')) return objectKey;
     try {
-      return await _supabase.storage
-          .from(bucketName)
-          .createSignedUrl(pathOrUrl, 60 * 60);
+      final response = await _supabase.functions.invoke('create-r2-download', body: {'objectKey': objectKey});
+      return (response.data as Map)['downloadUrl'] as String?;
     } catch (e) {
       debugPrint('Error creating signed document URL: $e');
       return null;
     }
   }
 
-  /// Fetch document URLs and verification status for current driver
   Future<Map<String, dynamic>> fetchDriverDocumentStatuses() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return {};
-
     try {
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', user.id)
-          .maybeSingle();
-
-      if (response != null) {
-        return response;
-      }
+      final response = await _supabase.from('profiles').select().eq('id', user.id).maybeSingle();
+      return response ?? {};
     } catch (e) {
       debugPrint('Error fetching driver document statuses: $e');
+      return {};
     }
-    return {};
   }
 }
 
-final documentStorageServiceProvider = Provider<DocumentStorageService>((ref) {
-  final supabase = ref.watch(supabaseClientProvider);
-  return DocumentStorageService(supabase);
-});
+final documentStorageServiceProvider = Provider<DocumentStorageService>((ref) => DocumentStorageService(ref.watch(supabaseClientProvider)));
