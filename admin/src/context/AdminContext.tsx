@@ -45,7 +45,8 @@ import {
   dbCancelRide,
   dbVerifyPayout,
   dbAdjustWallet,
-  dbToggleUserStatus,
+  dbSuspendAccount,
+  dbReinstateAccount,
   dbUpdateUserProfile,
   dbDeleteUser,
   dbInsertAuditLog,
@@ -129,7 +130,8 @@ interface AdminContextType {
   cancelRide: (rideId: string, reason: string) => Promise<void>;
   verifyPayout: (payoutId: string) => Promise<void>;
   adjustUserWallet: (userId: string, amount: number, isDriver: boolean, reason: string) => Promise<void>;
-  toggleUserStatus: (userId: string, isDriver: boolean) => Promise<void>;
+  suspendAccount: (userId: string, reason: string) => Promise<void>;
+  reinstateAccount: (userId: string) => Promise<void>;
   updateUserProfile: (userId: string, isDriver: boolean, updates: Parameters<typeof dbUpdateUserProfile>[1]) => Promise<void>;
   promoteUserToAdmin: (userId: string) => Promise<void>;
   promoteUserToAdminScoped: (userId: string, adminRole: AdminRole, sourceRole: 'driver' | 'passenger') => Promise<void>;
@@ -514,31 +516,21 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await writeAuditLog('ADJUST_WALLET', userId, isDriver ? 'driver' : 'passenger', `Adjusted wallet by R${amount}. Reason: ${reason}`);
   };
 
-  const toggleUserStatus = async (userId: string, isDriver: boolean) => {
+  const suspendAccount = async (userId: string, reason: string) => {
     requirePermission('users:write');
-    if (isDriver) {
-      const drv = drivers.find((d) => d.id === userId);
-      await dbToggleUserStatus(userId, true, drv?.driverStatus ?? 'approved');
-      setDrivers((prev) =>
-        prev.map((d) => {
-          if (d.id !== userId) return d;
-          const next: DriverStatus = d.driverStatus === 'approved' ? 'rejected' : 'approved';
-          return { ...d, driverStatus: next };
-        })
-      );
-    } else {
-      const pas = passengers.find((p) => p.id === userId);
-      await dbToggleUserStatus(userId, false, pas?.status ?? 'active');
-      setPassengers((prev) =>
-        prev.map((p) => {
-          if (p.id !== userId) return p;
-          const next = p.status === 'active' ? 'suspended' : 'active';
-          return { ...p, status: next };
-        })
-      );
-    }
-    await writeAuditLog('TOGGLE_USER_STATUS', userId, isDriver ? 'driver' : 'passenger', `Toggled account status`);
+    await dbSuspendAccount(userId, reason);
+    await writeAuditLog('SUSPEND_ACCOUNT', userId, 'account', `Suspended account. Reason: ${reason}`);
+    await loadAll();
   };
+
+  const reinstateAccount = async (userId: string) => {
+    requirePermission('users:write');
+    await dbReinstateAccount(userId);
+    await writeAuditLog('REINSTATE_ACCOUNT', userId, 'account', 'Reinstated account.');
+    await loadAll();
+  };
+
+
 
   const updateUserProfile = async (
     userId: string,
@@ -931,7 +923,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         cancelRide,
         verifyPayout,
         adjustUserWallet,
-        toggleUserStatus,
+        suspendAccount,
+        reinstateAccount,
         updateUserProfile,
         promoteUserToAdmin,
         promoteUserToAdminScoped,

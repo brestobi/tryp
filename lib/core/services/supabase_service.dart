@@ -348,6 +348,13 @@ class AuthService {
   }
 
   /// Sign out
+  Future<bool> isAccountSuspended() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return false;
+    final profile = await _supabase.from('profiles').select('account_status').eq('id', user.id).maybeSingle();
+    return profile?['account_status'] == 'suspended';
+  }
+
   Future<void> signOut() async {
     try {
       _logger.i('Signing out');

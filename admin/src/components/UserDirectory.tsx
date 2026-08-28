@@ -19,22 +19,20 @@ export const UserDirectory: React.FC = () => {
     drivers,
     passengers,
     adjustUserWallet,
-    toggleUserStatus,
+    suspendAccount,
     updateUserProfile,
     deleteUser,
-    promoteUserToAdmin,
     addNotification,
     can,
   } = useAdmin();
 
   const canWriteUsers = can('users:write');
-  const canManageAdmins = can('admin:manage');
   const canAdjustFinance = can('finance:write');
 
   const [activeTab, setActiveTab] = useState<'drivers' | 'passengers'>('drivers');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Inline row action pending state (Promote / Suspend / Activate)
+  // Inline row action pending state (Suspend / Activate)
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
 
   // Modal submitting state (Edit / Delete / Wallet)
@@ -161,32 +159,13 @@ export const UserDirectory: React.FC = () => {
     }
   };
 
-  const handlePromote = async (userId: string) => {
+  const handleToggleStatus = async (userId: string, _isDriver: boolean) => {
     if (pendingIds.has(userId)) return;
     setPendingIds((prev) => new Set(prev).add(userId));
     try {
-      await promoteUserToAdmin(userId);
-    } catch (err) {
-      addNotification({
-        type: 'error',
-        title: 'Promotion Failed',
-        message: err instanceof Error ? err.message : 'Failed to promote user to admin.',
-        timestamp: new Date().toISOString(),
-      });
-    } finally {
-      setPendingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(userId);
-        return next;
-      });
-    }
-  };
-
-  const handleToggleStatus = async (userId: string, isDriver: boolean) => {
-    if (pendingIds.has(userId)) return;
-    setPendingIds((prev) => new Set(prev).add(userId));
-    try {
-      await toggleUserStatus(userId, isDriver);
+      const reason = window.prompt('Suspension reason (required):', 'Account suspended pending review.') ?? '';
+      if (!reason.trim()) return;
+      await suspendAccount(userId, reason.trim());
     } catch (err) {
       addNotification({
         type: 'error',
@@ -322,19 +301,8 @@ export const UserDirectory: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right space-x-1.5">
-                    <button
-                      onClick={() => handlePromote(drv.id)}
-                      disabled={!canManageAdmins || pendingIds.has(drv.id)}
-                      title="Promote to Admin"
-                      className="px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/40 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-                    >
-                      {pendingIds.has(drv.id) ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : null}
-                      <span>Promote</span>
-                    </button>
-                    <button
-                      onClick={() => {
+                      <button
+                        onClick={() => {
                         setModalError(null);
                         setEditModalUser({
                           id: drv.id,
@@ -473,17 +441,6 @@ export const UserDirectory: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right space-x-1.5">
-                      <button
-                        onClick={() => handlePromote(pas.id)}
-                        disabled={!canManageAdmins || pendingIds.has(pas.id)}
-                        title="Promote to Admin"
-                        className="px-2 py-1 rounded-lg bg-amber-600/20 border border-amber-500/30 text-amber-300 hover:bg-amber-600/40 text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-                      >
-                        {pendingIds.has(pas.id) ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : null}
-                        <span>Promote</span>
-                      </button>
                       <button
                         onClick={() => {
                           setModalError(null);

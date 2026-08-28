@@ -12,6 +12,7 @@ import 'package:tryp/features/authentication/presentation/screens/phone_verifica
 import 'package:tryp/features/authentication/presentation/screens/email_verification_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/forgot_password_screen.dart';
 import 'package:tryp/features/authentication/presentation/screens/reset_password_screen.dart';
+import 'package:tryp/features/authentication/presentation/screens/suspended_account_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_home_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_profile_screen.dart';
 import 'package:tryp/features/passenger/presentation/screens/passenger_profile_setup_screen.dart';
@@ -67,6 +68,10 @@ GoRouter buildRouter({PassengerRouteGuard? routeGuard}) {
     GoRoute(
       path: Routes.forgotPassword,
       builder: (context, state) => const ForgotPasswordScreenPage(),
+    ),
+    GoRoute(
+      path: Routes.suspendedAccount,
+      builder: (context, state) => SuspendedAccountScreen(reason: state.uri.queryParameters['reason']),
     ),
     GoRoute(
       path: Routes.resetPassword,
@@ -148,6 +153,8 @@ class PassengerRouteGuard extends ChangeNotifier {
 
   Session? _session;
   String? _role;
+  String? _accountStatus;
+  String? _suspensionReason;
   bool _profileLoaded = false;
   bool _profileLoading = false;
   bool _profileLoadFailed = false;
@@ -174,7 +181,8 @@ class PassengerRouteGuard extends ChangeNotifier {
         location == Routes.register ||
         location == Routes.phoneVerification ||
         location == Routes.emailVerification ||
-        location == Routes.forgotPassword;
+        location == Routes.forgotPassword ||
+        location == Routes.suspendedAccount;
   }
 
   String? redirect(BuildContext context, GoRouterState state) {
@@ -183,6 +191,7 @@ class PassengerRouteGuard extends ChangeNotifier {
     if (location == Routes.resetPassword) {
       return _passwordRecoveryActive ? null : Routes.login;
     }
+    if (location == Routes.suspendedAccount) return _isAuthenticated ? null : Routes.onboarding;
     if (_passwordRecoveryActive) return Routes.resetPassword;
     if (_isPublicRoute(location)) return null;
     if (!_isAuthenticated) return Routes.onboarding;
@@ -197,6 +206,7 @@ class PassengerRouteGuard extends ChangeNotifier {
     }
 
     if (!_profileLoaded || _profileLoading) return Routes.splash;
+    if (_accountStatus == 'suspended') return '${Routes.suspendedAccount}?reason=${Uri.encodeComponent(_suspensionReason ?? '')}';
     if (_profileLoadFailed || _role != 'passenger') return Routes.onboarding;
     return null;
   }
@@ -216,6 +226,8 @@ class PassengerRouteGuard extends ChangeNotifier {
 
     _session = authState.session;
     _role = null;
+    _accountStatus = null;
+    _suspensionReason = null;
     _profileLoaded = _session == null;
     _profileLoading = false;
     _profileLoadFailed = false;
@@ -235,12 +247,14 @@ class PassengerRouteGuard extends ChangeNotifier {
     try {
       final profile = await _client
           .from('profiles')
-          .select('role')
+          .select('role, account_status, suspension_reason')
           .eq('id', userId)
           .maybeSingle();
 
       if (_client.auth.currentUser?.id != userId) return;
       _role = profile?['role'] as String?;
+      _accountStatus = profile?['account_status'] as String?;
+      _suspensionReason = profile?['suspension_reason'] as String?;
     } catch (_) {
       if (_client.auth.currentUser?.id != userId) return;
       _role = null;

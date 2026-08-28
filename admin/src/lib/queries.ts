@@ -437,7 +437,7 @@ export async function dbUpdateDocumentStatus(
   if (status === 'flagged') {
     const { error } = await supabase.rpc('flag_driver_document', {
       p_document_id: docId,
-      p_issue_notes: issueNotes ?? null,
+      p_issue_notes: issueNotes ?? '',
     });
     if (error) throw error;
     return;
@@ -518,6 +518,19 @@ export async function dbAdjustWallet(userId: string, amount: number) {
       .eq('id', userId);
     if (updateError) throw updateError;
   }
+}
+
+export async function dbSuspendAccount(userId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('suspend_account', {
+    p_user_id: userId,
+    p_reason: reason || null,
+  });
+  if (error) throw error;
+}
+
+export async function dbReinstateAccount(userId: string): Promise<void> {
+  const { error } = await supabase.rpc('reinstate_account', { p_user_id: userId });
+  if (error) throw error;
 }
 
 export async function dbToggleUserStatus(userId: string, isDriver: boolean, currentStatus: string) {

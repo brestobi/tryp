@@ -395,7 +395,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
           content: Text(
             'Move closer to the pickup point before marking arrival (${distanceMeters.round()} m away).',
           ),
-          backgroundColor: TRYPColors.secondary,
+          backgroundColor: Colors.black,
         ),
       );
       return;
@@ -457,7 +457,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: TRYPColors.primary,
+              backgroundColor: Colors.black,
               foregroundColor: TRYPColors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -527,7 +527,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
             children: [
               const Icon(
                 Icons.check_circle_rounded,
-                color: TRYPColors.primary,
+                color: Colors.black,
                 size: 28,
               ),
               const SizedBox(width: 10),
@@ -570,7 +570,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                       starIndex <= rating
                           ? Icons.star_rounded
                           : Icons.star_outline_rounded,
-                      color: TRYPColors.primary,
+                      color: Colors.black,
                     ),
                     onPressed: () => setDialogState(() => rating = starIndex),
                   );
@@ -701,7 +701,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
     }
 
     return Scaffold(
-      backgroundColor: TRYPColors.surface,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: TRYPColors.white,
         foregroundColor: TRYPColors.secondary,
@@ -791,7 +791,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: TRYPColors.secondary.withValues(alpha: 0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 20,
                     offset: const Offset(0, -6),
                   ),
@@ -806,7 +806,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                     children: [
                       CircleAvatar(
                         radius: 24,
-                        backgroundColor: TRYPColors.primary,
+                        backgroundColor: Colors.black,
                         backgroundImage:
                             (trip.passengerAvatar != null &&
                                 trip.passengerAvatar!.isNotEmpty)
@@ -849,7 +849,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                         onPressed: () => _makeCall(trip.passengerPhone ?? ''),
                         icon: const Icon(
                           Icons.phone_rounded,
-                          color: TRYPColors.primary,
+                          color: Colors.black,
                         ),
                         tooltip: 'Call Passenger',
                       ),
@@ -892,7 +892,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: TRYPColors.primary.withValues(alpha: 0.12),
+                        color: Colors.black.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
@@ -900,7 +900,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                           const Icon(
                             Icons.navigation_rounded,
                             size: 18,
-                            color: TRYPColors.primary,
+                            color: Colors.black,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -968,7 +968,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: TRYPColors.primary.withValues(alpha: 0.15),
+                        color: Colors.black.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
