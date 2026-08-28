@@ -11,11 +11,12 @@
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "types": ["node"],
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "src/**/*.css.d.ts"],
+  "include": ["src", "api", "src/**/*.css.d.ts"],
   "references": []
 }
