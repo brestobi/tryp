@@ -5,36 +5,35 @@ import SectionHeading from '../components/SectionHeading.astro';
 import AppButtons from '../components/AppButtons.astro';
 ---
 <SiteLayout title="TRYP — Move smarter. Go anywhere." description="TRYP brings safe, reliable and affordable rides to everyday movement in Limpopo, South Africa." path="/">
-  <section class="container hero">
+  <section class="container hero reveal">
     <div class="hero-copy">
       <span class="eyebrow">Local rides. Real connection.</span>
-      <h1>Move smarter.<br /><em>Go anywhere.</em></h1>
-      <p class="hero-lead">TRYP is your everyday ride-hailing app. Safe, reliable and affordable rides at your fingertips.</p>
+      <h1>Your city.<br /><em>Your journey.</em></h1>
+      <p class="hero-lead">Safe, reliable rides for everyday movement — built around the people and places of Limpopo.</p>
       <div class="hero-actions">
-        <a class="button button-red" href="/ride/">Book a ride <span aria-hidden="true">→</span></a>
-        <a class="button button-outline" href="/drive/">Drive with TRYP <span aria-hidden="true">↗</span></a>
+        <a class="button button-red" href="#download">Get the TRYP app <span aria-hidden="true">↗</span></a>
+        <a class="button button-outline" href="/drive/">Drive with TRYP <span aria-hidden="true">→</span></a>
       </div>
-      <p class="hero-note"><span class="status-dot"></span> Now rolling out in Limpopo, South Africa</p>
+      <p class="hero-note"><span class="status-dot"></span> Rolling out across Limpopo, South Africa</p>
     </div>
-    <div class="hero-visual" role="img" aria-label="TRYP vehicle travelling along a red and black road">
-      <span class="skyline"></span>
-      <span class="visual-badge">✦ Built for here</span>
-      <span class="pin-large"><span>T</span></span>
-      <span class="hero-road-line"></span>
-      <span class="car-illustration" aria-hidden="true"></span>
-      <div class="visual-card"><small>TRYP journey</small><strong>Tzaneen → Polokwane</strong></div>
-    </div>
-  </section>
-
-  <section class="container trust-strip" aria-label="TRYP benefits">
-    <div class="trust-inner">
-      <div class="trust-item"><span class="trust-icon">⚡</span><span><strong>Quick rides</strong><span>Get moving in minutes</span></span></div>
-      <div class="trust-item"><span class="trust-icon">♢</span><span><strong>Trusted drivers</strong><span>Verified and local</span></span></div>
-      <div class="trust-item"><span class="trust-icon">▣</span><span><strong>Clear fares</strong><span>Know what to expect</span></span></div>
+    <div class="hero-visual hero-map" role="img" aria-label="A stylized TRYP route map showing a journey from Tzaneen to Polokwane">
+      <span class="map-grid"></span>
+      <span class="map-road map-road-one"></span><span class="map-road map-road-two"></span>
+      <span class="map-route"></span><span class="map-marker map-pickup"><span>●</span></span><span class="map-marker map-destination"><span>T</span></span>
+      <span class="map-label map-label-pickup">Pickup confirmed</span><span class="map-label map-label-destination">Polokwane</span>
+      <span class="visual-badge">● Driver nearby</span>
+      <div class="visual-card"><small>TRYP journey</small><strong>Tzaneen → Polokwane</strong><span class="trip-progress"><i></i></span><small>Arriving in 4 min</small></div>
     </div>
   </section>
 
-  <section class="container section">
+  <section class="container quick-actions reveal" aria-label="Choose how to use TRYP">
+    <a href="/ride/"><span class="quick-icon">↗</span><span><strong>Need a ride?</strong><small>Get there with confidence</small></span><b>→</b></a>
+    <a href="/drive/"><span class="quick-icon quick-icon-dark">⌁</span><span><strong>Want to drive?</strong><small>Your car. Your opportunity.</small></span><b>→</b></a>
+    <a href="/business/"><span class="quick-icon quick-icon-gold">▦</span><span><strong>Moving a team?</strong><small>Explore TRYP Business</small></span><b>→</b></a>
+    <a href="/safety/"><span class="quick-icon quick-icon-green">✓</span><span><strong>Travel safely</strong><small>Know what to expect</small></span><b>→</b></a>
+  </section>
+
+  <section class="container section reveal">
     <SectionHeading eyebrow="The TRYP difference" title={'Less friction.<br /><span class="soft">More moving.</span>'} description="Whether you are crossing town, heading home, or building your next opportunity, TRYP keeps the journey clear." />
     <div class="feature-grid">
       <FeatureCard icon="⌖" title="Door-to-door, made simple" text="Set your pickup, choose your destination, and see the journey clearly from start to finish." href="/ride/" tone="red" />
@@ -43,7 +42,7 @@ import AppButtons from '../components/AppButtons.astro';
     </div>
   </section>
 
-  <section class="dark-section">
+  <section class="dark-section reveal">
     <div class="container section dark-split">
       <div class="dark-copy">
         <span class="eyebrow">For passengers and drivers</span>
@@ -63,7 +62,7 @@ import AppButtons from '../components/AppButtons.astro';
     </div>
   </section>
 
-  <section class="route-section">
+  <section class="route-section reveal">
     <div class="container section">
       <SectionHeading eyebrow="Long-distance rides" title={'Go further with<br /><span class="soft">TRYP.</span>'} description="Find available seats on intercity routes and make the longer journey easier to plan." />
       <div class="route-panel" style="margin-top: 56px;">
@@ -81,7 +80,7 @@ import AppButtons from '../components/AppButtons.astro';
     </div>
   </section>
 
-  <section class="container section">
+  <section class="container section reveal">
     <SectionHeading eyebrow="Choose your TRYP" title={'A clear journey,<br /><span class="soft">all the way.</span>'} description="Simple tools for everyday movement, whether you are taking a trip or making one possible." />
     <div class="ride-options">
       <article class="ride-option"><h3>TRYP <span>GO</span></h3><p>Affordable everyday rides around town.</p><span class="price">Everyday <small>movement</small></span></article>
