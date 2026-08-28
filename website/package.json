@@ -1,15 +1,24 @@
 {
   "name": "tryp-public-website",
   "private": true,
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "check": "astro check"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "check": "tsc -b --noEmit"
   },
   "dependencies": {
-    "@astrojs/sitemap": "latest",
-    "astro": "latest"
+    "@vitejs/plugin-react": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "lucide-react": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest"
   }
 }
