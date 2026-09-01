@@ -15,7 +15,7 @@ This folder contains the public-facing TRYP information website. It is intention
 - `/styles.css` — shared design system and responsive layout
 - `/assets/` — TRYP logos and image slots
 
-The directory structure gives pages real clean URLs such as `https://tryp.co.za/privacy/` without JavaScript routing.
+The directory structure gives pages real clean URLs such as `https://mytryp.co.za/privacy/` without JavaScript routing.
 
 ## Preview locally
 
@@ -46,7 +46,7 @@ The current homepage uses a CSS illustration as a temporary product placeholder.
 - Confirm the public domain and canonical URLs.
 - Replace placeholder store links with the official Google Play / App Store links.
 - Confirm the public service area and launch wording.
-- Replace `hello@tryp.co.za` with the approved support address if different.
+- Replace `hello@mytryp.co.za` with the approved support address if different.
 - Have `/privacy/` and `/terms/` reviewed and approved for the launch jurisdiction.
 - Add final photography, app screenshots, and social preview metadata.
 - Add analytics only after the privacy approach is confirmed.

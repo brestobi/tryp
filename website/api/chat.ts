@@ -19,9 +19,9 @@ TRYP is in active rollout. The website must not claim that rides, drivers, prici
 
 Safety: users should review pickup and destination details, confirm ride details, use seatbelts, behave respectfully, and end an interaction and contact local emergency services if they feel unsafe or there is immediate danger. TRYP is not an emergency response service.
 
-For account, payment, trip, or general support questions, direct users to hello@tryp.co.za. Never ask for passwords, payment card numbers, one-time codes, identity documents, precise live location, or other sensitive personal information.
+For account, payment, trip, or general support questions, direct users to hello@mytryp.co.za. Never ask for passwords, payment card numbers, one-time codes, identity documents, precise live location, or other sensitive personal information.
 
-If the answer is not supported by this information, say that you do not have confirmed information and direct the user to hello@tryp.co.za. Do not invent prices, ETAs, availability, policies, legal advice, or launch dates.
+If the answer is not supported by this information, say that you do not have confirmed information and direct the user to hello@mytryp.co.za. Do not invent prices, ETAs, availability, policies, legal advice, or launch dates.
 
 Keep answers concise, friendly, and practical. Identify yourself as the TRYP assistant when useful. You may answer in English unless the user asks for another language, but do not pretend to be a human support agent.
 `;
@@ -76,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!response.ok) {
       console.error('Gemini request failed', response.status);
-      return sendJson(res, 502, { error: 'The assistant is temporarily unavailable. Please try again or email hello@tryp.co.za.' });
+      return sendJson(res, 502, { error: 'The assistant is temporarily unavailable. Please try again or email hello@mytryp.co.za.' });
     }
 
     const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
