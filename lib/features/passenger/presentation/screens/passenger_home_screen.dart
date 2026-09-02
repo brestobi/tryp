@@ -151,15 +151,16 @@ class _PassengerHomeScreenPageState
 
   // Locations
   LocationItem _pickup = const LocationItem(
-    name: 'Sandton City Mall',
-    address: '83 Rivonia Rd, Sandhurst, Sandton',
-    lat: -26.1076,
-    lng: 28.0567,
-    icon: Icons.my_location_rounded,
-    city: 'Sandton',
+    name: 'Choose pickup location',
+    address: 'Location unavailable',
+    lat: -23.8333,
+    lng: 30.1667,
+    icon: Icons.location_searching_rounded,
+    city: 'Pickup required',
   );
   LocationItem? _destination;
   LocationItem? _currentLocation;
+  bool _hasConfirmedPickup = false;
   bool _hasCenteredOnCurrentLocation = false;
 
   // Search state
@@ -655,14 +656,35 @@ class _PassengerHomeScreenPageState
       );
 
       setState(() {
-        _currentLocation = locItem;
+        _currentLocation = userLoc.isFallback ? null : locItem;
+        _hasConfirmedPickup = !userLoc.isFallback;
         _pickup = locItem;
         _pickupSearchController.text = locItem.name;
       });
 
       _centerMapOnCurrentLocation();
       _updateMapMarkers();
+      if (userLoc.isFallback) {
+        _showLocationError(
+          'We could not find your location. Choose a pickup point before requesting a ride.',
+        );
+      }
     } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _currentLocation = null;
+        _hasConfirmedPickup = false;
+        final fallback = UserLocation.fallback();
+        _pickup = LocationItem(
+          name: fallback.shortName,
+          address: fallback.address,
+          lat: fallback.latitude,
+          lng: fallback.longitude,
+          icon: Icons.location_searching_rounded,
+          city: 'Pickup required',
+        );
+        _pickupSearchController.text = _pickup.name;
+      });
       _updateMapMarkers();
     }
   }
@@ -806,6 +828,20 @@ class _PassengerHomeScreenPageState
     );
   }
 
+  void _invalidateTypedLocation({required bool pickupChanged}) {
+    ++_routeCalculationId;
+    setState(() {
+      _isRouteCalculationComplete = false;
+      _calculatedDistanceKm = null;
+      _calculatedDurationMins = null;
+      if (pickupChanged) {
+        _hasConfirmedPickup = false;
+      } else {
+        _destination = null;
+      }
+    });
+  }
+
   Future<void> _selectDestination(LocationItem item) async {
     ++_routeCalculationId;
     setState(() {
@@ -882,6 +918,14 @@ class _PassengerHomeScreenPageState
   }
 
   Future<void> _requestRide() async {
+    if (!_hasConfirmedPickup) {
+      if (mounted) {
+        _showLocationError(
+          'Choose and confirm a pickup location before requesting a ride.',
+        );
+      }
+      return;
+    }
     if (_destination == null ||
         !_isRouteCalculationComplete ||
         _calculatedDistanceKm == null ||
@@ -1752,12 +1796,63 @@ class _PassengerHomeScreenPageState
           ),
           const SizedBox(height: 16),
 
+          if (!_hasConfirmedPickup)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: TRYPColors.accentSoft,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: TRYPColors.primary.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.location_searching_rounded,
+                      color: TRYPColors.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Choose your pickup point before planning a ride.',
+                        style: TRYPTypography.bodySmall.copyWith(
+                          color: TRYPColors.primaryAlt,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _fetchUserLocation,
+                      style: TextButton.styleFrom(
+                        foregroundColor: TRYPColors.primary,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: const Text('Locate me'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (!_hasConfirmedPickup) const SizedBox(height: 12),
+
           // "Where to?" Search Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: GestureDetector(
               onTap: () {
-                setState(() => _mode = PassengerRideMode.searchOverlay);
+                setState(() {
+                  _isSearchingPickup = false;
+                  _searchResults = tzaneenVillages;
+                  _mode = PassengerRideMode.searchOverlay;
+                });
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -1786,7 +1881,9 @@ class _PassengerHomeScreenPageState
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        'Where to?',
+                        _destination == null ? 'Where to?' : _destination!.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TRYPTypography.headingSmall.copyWith(
                           color: TRYPColors.secondary,
                           fontSize: 18,
@@ -1942,13 +2039,18 @@ class _PassengerHomeScreenPageState
                       setState(() => _mode = PassengerRideMode.idle);
                     },
                   ),
-                  Text(
-                    'Plan your ride',
-                    style: TRYPTypography.headingMedium.copyWith(fontSize: 20),
+                  Expanded(
+                    child: Text(
+                      'Plan your ride',
+                      style: TRYPTypography.headingMedium.copyWith(
+                        fontSize: 20,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
+            _buildBookingProgress(currentStep: 0),
 
             // Pickup & Destination Inputs Box
             Container(
@@ -1975,12 +2077,14 @@ class _PassengerHomeScreenPageState
                       Expanded(
                         child: TextField(
                           controller: _pickupSearchController,
+                          autofocus: !_hasConfirmedPickup,
                           onTap: () {
                             _isSearchingPickup = true;
                             _onSearchQueryChanged('');
                           },
                           onChanged: (val) {
                             _isSearchingPickup = true;
+                            _invalidateTypedLocation(pickupChanged: true);
                             _onSearchQueryChanged(val);
                           },
                           decoration: const InputDecoration(
@@ -2038,13 +2142,14 @@ class _PassengerHomeScreenPageState
                       Expanded(
                         child: TextField(
                           controller: _destinationSearchController,
-                          autofocus: true,
+                          autofocus: _hasConfirmedPickup,
                           onTap: () {
                             _isSearchingPickup = false;
                             _onSearchQueryChanged('');
                           },
                           onChanged: (val) {
                             _isSearchingPickup = false;
+                            _invalidateTypedLocation(pickupChanged: false);
                             _onSearchQueryChanged(val);
                           },
                           decoration: const InputDecoration(
@@ -2113,6 +2218,7 @@ class _PassengerHomeScreenPageState
 
                       setState(() {
                         _pickup = resolved;
+                        _hasConfirmedPickup = true;
                         _pickupSearchController.text = resolved.name;
                         _isSearchingPickup = false;
                         _isRouteCalculationComplete = false;
@@ -2137,203 +2243,291 @@ class _PassengerHomeScreenPageState
   Widget _buildTripDetailsSheet() {
     final destinationName = _destination?.name ?? 'Zuma Street';
     final routeReady =
+        _hasConfirmedPickup &&
         _isRouteCalculationComplete &&
         _calculatedDistanceKm != null &&
         _calculatedDurationMins != null;
 
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        14,
-        20,
-        MediaQuery.of(context).padding.bottom + 18,
-      ),
-      decoration: const BoxDecoration(
-        color: TRYPColors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 20,
-            offset: Offset(0, -6),
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.62,
+        ),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(
+            20,
+            14,
+            20,
+            MediaQuery.of(context).padding.bottom + 18,
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(
-                color: TRYPColors.divider,
-                borderRadius: BorderRadius.circular(100),
+          decoration: const BoxDecoration(
+            color: TRYPColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 20,
+                offset: Offset(0, -6),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 36,
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: TRYPColors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: TRYPColors.divider),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: TRYPColors.divider,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
                 ),
-                child: Image.asset(
-                  'assets/images/tryp-logo-red.png',
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 14),
+                _buildBookingProgress(currentStep: 1),
+                const SizedBox(height: 14),
+                Row(
                   children: [
-                    Text(
-                      'TRYP',
-                      style: TRYPTypography.labelSmall.copyWith(
-                        color: TRYPColors.primary,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
+                    Container(
+                      width: 42,
+                      height: 36,
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: TRYPColors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: TRYPColors.divider),
+                      ),
+                      child: Image.asset(
+                        'assets/images/tryp-logo-red.png',
+                        fit: BoxFit.contain,
                       ),
                     ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TRYP',
+                            style: TRYPTypography.labelSmall.copyWith(
+                              color: TRYPColors.primary,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          Text(
+                            'Your destination',
+                            style: TRYPTypography.bodySmall.copyWith(
+                              color: TRYPColors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Change destination',
+                      onPressed: () => setState(
+                        () => _mode = PassengerRideMode.searchOverlay,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.edit_location_alt_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  destinationName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TRYPTypography.headingSmall.copyWith(fontSize: 24),
+                ),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.route_rounded,
+                      size: 16,
+                      color: TRYPColors.primary,
+                    ),
+                    const SizedBox(width: 6),
                     Text(
-                      'Your destination',
+                      routeReady
+                          ? '${_calculatedDistanceKm!.toStringAsFixed(1)} km'
+                          : 'Calculating distance',
                       style: TRYPTypography.bodySmall.copyWith(
                         color: TRYPColors.grey,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('•'),
+                    ),
+                    Expanded(
+                      child: Text(
+                        routeReady
+                            ? '~${_calculatedDurationMins!} min drive'
+                            : 'Estimated travel time',
+                        overflow: TextOverflow.ellipsis,
+                        style: TRYPTypography.bodySmall.copyWith(
+                          color: TRYPColors.grey,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              IconButton(
-                tooltip: 'Change destination',
-                onPressed: () =>
-                    setState(() => _mode = PassengerRideMode.searchOverlay),
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.edit_location_alt_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            destinationName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TRYPTypography.headingSmall.copyWith(fontSize: 24),
-          ),
-          const SizedBox(height: 5),
-          Row(
-            children: [
-              const Icon(
-                Icons.route_rounded,
-                size: 16,
-                color: TRYPColors.primary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                routeReady
-                    ? '${_calculatedDistanceKm!.toStringAsFixed(1)} km'
-                    : 'Calculating distance',
-                style: TRYPTypography.bodySmall.copyWith(
-                  color: TRYPColors.grey,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text('•'),
-              ),
-              Text(
-                routeReady
-                    ? '~${_calculatedDurationMins!} min drive'
-                    : 'Estimated travel time',
-                style: TRYPTypography.bodySmall.copyWith(
-                  color: TRYPColors.grey,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: TRYPColors.inputFill,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.people_alt_outlined,
-                  color: TRYPColors.secondary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: TRYPColors.inputFill,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
                     children: [
-                      Text(
-                        'People joining you',
-                        style: TRYPTypography.titleMedium.copyWith(
-                          fontWeight: FontWeight.bold,
+                      const Icon(
+                        Icons.people_alt_outlined,
+                        color: TRYPColors.secondary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'People joining you',
+                              style: TRYPTypography.titleMedium.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'You + $_additionalPassengers companion${_additionalPassengers == 1 ? '' : 's'}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TRYPTypography.bodySmall.copyWith(
+                                color: TRYPColors.grey,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Text(
-                        'You + $_additionalPassengers companion${_additionalPassengers == 1 ? '' : 's'}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TRYPTypography.bodySmall.copyWith(
-                          color: TRYPColors.grey,
+                      IconButton(
+                        tooltip: 'Remove companion',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _additionalPassengers == 0
+                            ? null
+                            : () => setState(() => _additionalPassengers--),
+                        icon: const Icon(Icons.remove_circle_outline_rounded),
+                      ),
+                      SizedBox(
+                        width: 24,
+                        child: Text(
+                          '$_additionalPassengers',
+                          textAlign: TextAlign.center,
+                          style: TRYPTypography.titleLarge.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
+                      ),
+                      IconButton(
+                        tooltip: 'Add companion',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _additionalPassengers >= 5
+                            ? null
+                            : () => setState(() => _additionalPassengers++),
+                        icon: const Icon(Icons.add_circle_outline_rounded),
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Remove companion',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _additionalPassengers == 0
-                      ? null
-                      : () => setState(() => _additionalPassengers--),
-                  icon: const Icon(Icons.remove_circle_outline_rounded),
-                ),
-                SizedBox(
-                  width: 24,
-                  child: Text(
-                    '$_additionalPassengers',
-                    textAlign: TextAlign.center,
-                    style: TRYPTypography.titleLarge.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Add companion',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _additionalPassengers >= 5
-                      ? null
-                      : () => setState(() => _additionalPassengers++),
-                  icon: const Icon(Icons.add_circle_outline_rounded),
+                const SizedBox(height: 16),
+                PrimaryButton(
+                  label: 'Continue',
+                  icon: Icons.arrow_forward_rounded,
+                  backgroundColor: TRYPColors.primary,
+                  enabled: routeReady,
+                  onPressed: () =>
+                      setState(() => _mode = PassengerRideMode.tierSelection),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          PrimaryButton(
-            label: 'Continue',
-            icon: Icons.arrow_forward_rounded,
-            backgroundColor: TRYPColors.primary,
-            enabled: routeReady,
-            onPressed: () =>
-                setState(() => _mode = PassengerRideMode.tierSelection),
-          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookingProgress({required int currentStep}) {
+    const labels = ['Locations', 'Ride', 'Request'];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          for (var index = 0; index < labels.length; index++) ...[
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: index < currentStep
+                          ? TRYPColors.secondary
+                          : index == currentStep
+                          ? TRYPColors.primary
+                          : TRYPColors.inputFill,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${index + 1}',
+                      style: TRYPTypography.labelSmall.copyWith(
+                        color: index <= currentStep
+                            ? TRYPColors.white
+                            : TRYPColors.grey,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    labels[index],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TRYPTypography.labelSmall.copyWith(
+                      color: index <= currentStep
+                          ? TRYPColors.secondary
+                          : TRYPColors.grey,
+                      fontWeight: index == currentStep
+                          ? FontWeight.w800
+                          : FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (index < labels.length - 1)
+              Expanded(
+                child: Container(
+                  height: 2,
+                  margin: const EdgeInsets.only(bottom: 22),
+                  color: index < currentStep
+                      ? TRYPColors.secondary
+                      : TRYPColors.divider,
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -2423,6 +2617,8 @@ class _PassengerHomeScreenPageState
                 ],
               ),
             ),
+            _buildBookingProgress(currentStep: 2),
+            const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: Container(

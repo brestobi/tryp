@@ -197,13 +197,10 @@ class PassengerRouteGuard extends ChangeNotifier {
     if (!_isAuthenticated) return Routes.onboarding;
 
     // A new Google account may not have a profile row until the trigger
-    // completes. Allow the setup route once auth is established.
-    if (location == Routes.profileSetup && _role != 'driver') {
-      // Splash resolves the Google callback and navigates here while the
-      // guard may still be loading the same profile. Do not bounce the user
-      // back to splash during that normal startup race.
-      return null;
-    }
+    // completes. Keep setup reachable only while that profile lookup is still
+    // in flight; once the account status is known, suspended users must go to
+    // the suspension screen like every other protected route.
+    if (location == Routes.profileSetup && _profileLoading) return null;
 
     if (!_profileLoaded || _profileLoading) return Routes.splash;
     if (_accountStatus == 'suspended') return '${Routes.suspendedAccount}?reason=${Uri.encodeComponent(_suspensionReason ?? '')}';

@@ -2,6 +2,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tryp/core/services/location_service.dart';
 
 void main() {
+  test('fallback location is marked unusable for ride pickup', () {
+    final fallback = UserLocation.fallback();
+
+    expect(fallback.isFallback, isTrue);
+    expect(fallback.shortName, 'Choose pickup location');
+    expect(fallback.address, 'Location unavailable');
+  });
+
+  test('resolved locations are not marked as fallback', () {
+    const location = UserLocation(
+      latitude: -23.8333,
+      longitude: 30.1667,
+      address: 'Tzaneen, Limpopo',
+      shortName: 'Tzaneen',
+    );
+
+    expect(location.isFallback, isFalse);
+  });
+
   test('parses Mapbox search results into suggestions with coordinates', () {
     final suggestions = LocationService.parseMapboxSearchResults({
       'features': [

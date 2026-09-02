@@ -19,6 +19,7 @@ class UserLocation {
   final String address;
   final String shortName;
   final String? placeId;
+  final bool isFallback;
 
   const UserLocation({
     required this.latitude,
@@ -26,13 +27,17 @@ class UserLocation {
     required this.address,
     required this.shortName,
     this.placeId,
+    this.isFallback = false,
   });
 
   factory UserLocation.fallback() => const UserLocation(
-    latitude: -26.1076,
-    longitude: 28.0567,
-    address: 'Sandton City, Sandton',
-    shortName: 'Current Location',
+    // Keep the map over TRYP's initial Limpopo service area without presenting
+    // a fabricated address as the passenger's pickup point.
+    latitude: -23.8333,
+    longitude: 30.1667,
+    address: 'Location unavailable',
+    shortName: 'Choose pickup location',
+    isFallback: true,
   );
 }
 
@@ -72,24 +77,24 @@ class LocationService {
 
   String get _mapboxAccessToken => Environment.mapboxAccessToken;
 
-  Options get _mapboxOptions => Options(
-    headers: const {'Accept-Language': 'en'},
-  );
+  Options get _mapboxOptions =>
+      Options(headers: const {'Accept-Language': 'en'});
 
   static List<Map<String, dynamic>> _mapboxFeatures(dynamic data) {
     if (data is! Map) return [];
     final features = data['features'];
     if (features is! List) return [];
-    return features.whereType<Map>().map(
-      (feature) => Map<String, dynamic>.from(feature),
-    ).toList();
+    return features
+        .whereType<Map>()
+        .map((feature) => Map<String, dynamic>.from(feature))
+        .toList();
   }
 
   static List<double>? _featureCenter(Map<String, dynamic> feature) {
     final rawCenter = feature['center'];
     final rawGeometry = feature['geometry'];
-    final rawCoordinates = rawCenter ??
-        (rawGeometry is Map ? rawGeometry['coordinates'] : null);
+    final rawCoordinates =
+        rawCenter ?? (rawGeometry is Map ? rawGeometry['coordinates'] : null);
     if (rawCoordinates is! List || rawCoordinates.length < 2) return null;
 
     final longitude = (rawCoordinates[0] as num?)?.toDouble();
@@ -110,9 +115,7 @@ class LocationService {
 
       final placeName = feature['place_name']?.toString().trim() ?? '';
       final text = feature['text']?.toString().trim() ?? '';
-      final name = text.isNotEmpty
-          ? text
-          : placeName.split(',').first.trim();
+      final name = text.isNotEmpty ? text : placeName.split(',').first.trim();
       if (name.isEmpty) continue;
 
       suggestions.add(
@@ -332,16 +335,20 @@ class LocationService {
                 ? geometry['coordinates']
                 : null;
             if (coordinates is List && coordinates.isNotEmpty) {
-              final points = coordinates.whereType<List>().where((coord) {
-                return coord.length >= 2 &&
-                    coord[0] is num &&
-                    coord[1] is num;
-              }).map((coord) {
-                return MapCoordinate(
-                  (coord[1] as num).toDouble(),
-                  (coord[0] as num).toDouble(),
-                );
-              }).toList();
+              final points = coordinates
+                  .whereType<List>()
+                  .where((coord) {
+                    return coord.length >= 2 &&
+                        coord[0] is num &&
+                        coord[1] is num;
+                  })
+                  .map((coord) {
+                    return MapCoordinate(
+                      (coord[1] as num).toDouble(),
+                      (coord[0] as num).toDouble(),
+                    );
+                  })
+                  .toList();
 
               if (points.isNotEmpty) {
                 final durationMins = (durationSeconds / 60.0).round();
