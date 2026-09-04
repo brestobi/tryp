@@ -23,7 +23,18 @@ import {
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
-  const { activeTab, setActiveTab, drivers, rides, payouts, incidents, scheduledRides, can } = useAdmin();
+  const {
+    activeTab,
+    setActiveTab,
+    drivers,
+    rides,
+    payouts,
+    incidents,
+    scheduledRides,
+    can,
+    isSidebarOpen,
+    setIsSidebarOpen,
+  } = useAdmin();
 
   const pendingKycCount = drivers.filter(
     (d) => d.driverStatus === 'pending' || d.driverStatus === 'under_review'
@@ -63,7 +74,20 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-64 glass-panel border-r border-slate-800 flex flex-col justify-between p-4 shrink-0 min-h-[calc(100vh-4rem)]">
+    <>
+      {isSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-slate-950/60 lg:hidden"
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-72 glass-panel border-r border-slate-800 flex flex-col justify-between p-4 shrink-0 min-h-screen transition-transform duration-200 lg:static lg:z-auto lg:w-64 lg:min-h-[calc(100vh-4rem)] lg:translate-x-0 ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
       <div className="space-y-6">
         <div>
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-3 mb-2">
@@ -76,7 +100,10 @@ export const Sidebar: React.FC = () => {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setIsSidebarOpen(false);
+                  }}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium text-xs transition-all duration-200 ${
                     isActive
                       ? 'bg-slate-100 text-slate-950 border border-slate-100 shadow-lg shadow-white/10'
@@ -105,7 +132,7 @@ export const Sidebar: React.FC = () => {
               <Zap className="w-3.5 h-3.5 text-amber-400" />
               <span>System Status</span>
             </span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-label="System status operational" />
           </div>
           <div className="space-y-2 text-xs">
             {[
@@ -129,6 +156,7 @@ export const Sidebar: React.FC = () => {
         </div>
         <span>TRYP Platform</span>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 };

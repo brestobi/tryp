@@ -419,11 +419,6 @@ class TripService {
 
   TripService(this._supabase);
 
-  String _generatePinCode() {
-    final rng = Random();
-    return (1000 + rng.nextInt(9000)).toString();
-  }
-
   /// Fetch user profile details
   Future<UserProfileModel?> getUserProfile(String userId) async {
     try {
@@ -453,9 +448,15 @@ class TripService {
           .order('requested_at', ascending: false);
 
       final list = response as List<dynamic>;
-      return list
-          .map((item) => TripModel.fromJson(item as Map<String, dynamic>))
-          .toList();
+      final trips = <TripModel>[];
+      for (final item in list) {
+        trips.add(
+          await _attachPassengerSafetyPin(
+            TripModel.fromJson(item as Map<String, dynamic>),
+          ),
+        );
+      }
+      return trips;
     } catch (e) {
       debugPrint('Error fetching passenger trips: $e');
       rethrow;
@@ -482,7 +483,6 @@ class TripService {
     if (user == null) {
       throw StateError('requestRide called without an authenticated user.');
     }
-    final pinCode = _generatePinCode();
     final rideId = await _supabase.rpc(
       'dispatch_ride',
       params: {
@@ -498,7 +498,7 @@ class TripService {
         'p_payment_method': paymentMethod,
         'p_distance_km': distanceKm,
         'p_duration_mins': durationMins,
-        'p_metadata': {'pin_code': pinCode},
+        'p_metadata': null,
         'p_scheduled_for': scheduledFor?.toUtc().toIso8601String(),
         'p_additional_passengers': additionalPassengers,
       },
@@ -630,6 +630,26 @@ class TripService {
     }
   }
 
+  Future<TripModel> _attachPassengerSafetyPin(TripModel trip) async {
+    final user = _supabase.auth.currentUser;
+    if (user?.id != trip.passengerId || trip.pinCode.isNotEmpty) return trip;
+
+    try {
+      final pin = await _supabase.rpc(
+        'get_ride_safety_pin',
+        params: {'p_ride_id': trip.id},
+      );
+      if (pin is String && pin.isNotEmpty) {
+        return trip.copyWith(pinCode: pin);
+      }
+    } catch (e) {
+      debugPrint(
+        'Safety PIN is temporarily unavailable for ride ${trip.id}: $e',
+      );
+    }
+    return trip;
+  }
+
   /// Fetch a ride by ID, including participant/profile data when permitted.
   ///
   /// Completed rides may no longer permit reading the counterparty profile
@@ -642,7 +662,9 @@ class TripService {
           .select('*, passenger:passenger_id(*), driver:driver_id(*)')
           .eq('id', rideId)
           .maybeSingle();
-      if (response != null) return TripModel.fromJson(response);
+      if (response != null) {
+        return _attachPassengerSafetyPin(TripModel.fromJson(response));
+      }
     } catch (e) {
       debugPrint('Profile join unavailable for ride $rideId: $e');
     }
@@ -654,7 +676,7 @@ class TripService {
           .eq('id', rideId)
           .maybeSingle();
       if (response == null) return null;
-      return TripModel.fromJson(response);
+      return _attachPassengerSafetyPin(TripModel.fromJson(response));
     } catch (e) {
       debugPrint('Error fetching ride $rideId: $e');
       return null;
@@ -677,7 +699,7 @@ class TripService {
           .maybeSingle();
 
       if (response == null) return null;
-      return TripModel.fromJson(response);
+      return _attachPassengerSafetyPin(TripModel.fromJson(response));
     } catch (e) {
       debugPrint('Error fetching passenger active trip: $e');
       return null;

@@ -1,3 +1,4 @@
+
 -- =========================================================================
 -- TRYP PLATFORM — Welcome Email Trigger
 -- Migration: 20260801210000_welcome_email_trigger.sql

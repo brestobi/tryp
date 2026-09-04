@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -413,11 +412,6 @@ class TripService {
 
   TripService(this._supabase);
 
-  String _generatePinCode() {
-    final rng = Random();
-    return (1000 + rng.nextInt(9000)).toString();
-  }
-
   /// Fetch user profile details
   Future<UserProfileModel?> getUserProfile(String userId) async {
     try {
@@ -470,12 +464,12 @@ class TripService {
     required double destLat,
     required double destLng,
     int additionalPassengers = 0,
+    DateTime? scheduledFor,
   }) async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
       throw StateError('requestRide called without an authenticated user.');
     }
-    final pinCode = _generatePinCode();
     final rideId = await _supabase.rpc(
       'dispatch_ride',
       params: {
@@ -491,7 +485,8 @@ class TripService {
         'p_payment_method': paymentMethod,
         'p_distance_km': distanceKm,
         'p_duration_mins': durationMins,
-        'p_metadata': {'pin_code': pinCode},
+        'p_metadata': null,
+        'p_scheduled_for': scheduledFor?.toUtc().toIso8601String(),
         'p_additional_passengers': additionalPassengers,
       },
     );
@@ -644,6 +639,26 @@ class TripService {
     }
   }
 
+  /// Fetch a ride assigned to the currently authenticated driver.
+  Future<TripModel?> getDriverTripById(String rideId) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      final response = await _supabase
+          .from('rides')
+          .select('*, passenger:passenger_id(*), driver:driver_id(*)')
+          .eq('id', rideId)
+          .eq('driver_id', user.id)
+          .maybeSingle();
+      if (response == null) return null;
+      return TripModel.fromJson(response);
+    } catch (e) {
+      debugPrint('Error fetching driver ride $rideId: $e');
+      return null;
+    }
+  }
+
   /// Fetch a ride by ID, including participant/profile data when permitted.
   ///
   /// Completed rides may no longer permit reading the counterparty profile
@@ -772,11 +787,16 @@ class TripService {
     required String rideId,
     required TripStatus status,
     String? driverId,
+    String? pinCode,
   }) async {
     try {
       await _supabase.rpc(
         'transition_ride_status',
-        params: {'p_ride_id': rideId, 'p_next_status': status.toDbString()},
+        params: {
+          'p_ride_id': rideId,
+          'p_next_status': status.toDbString(),
+          'p_pin_code': pinCode,
+        },
       );
       return getTripById(rideId);
     } catch (e) {
@@ -906,6 +926,8 @@ class TripService {
           .from('profiles')
           .select()
           .eq('role', 'driver')
+          .eq('driver_status', 'approved')
+          .eq('account_status', 'active')
           .eq('is_online', true);
 
       final list = response as List<dynamic>;

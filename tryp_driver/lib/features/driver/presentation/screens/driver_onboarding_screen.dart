@@ -551,10 +551,10 @@ class _DriverOnboardingScreenState
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  err.toString(),
+                const Text(
+                  'We could not load your verification details. Check your connection and try again.',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: TRYPColors.secondaryLight),
+                  style: TextStyle(color: TRYPColors.secondaryLight),
                 ),
                 const SizedBox(height: 20),
                 PrimaryButton(

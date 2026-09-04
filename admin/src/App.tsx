@@ -81,9 +81,21 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 const MainContent: React.FC = () => {
-  const { activeTab } = useAdmin();
+  const { activeTab, error } = useAdmin();
   return (
-    <main className="flex-1 p-6 overflow-y-auto max-w-[1600px] mx-auto w-full">
+    <main className="flex-1 p-4 sm:p-6 overflow-y-auto max-w-[1600px] mx-auto w-full min-w-0">
+      {error && (
+        <div
+          role="alert"
+          className="mb-4 flex items-start gap-3 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0">
+            <p className="font-semibold">Some dashboard data could not be loaded</p>
+            <p className="mt-1 break-words text-xs text-red-100/80">{error}</p>
+          </div>
+        </div>
+      )}
       {activeTab === 'dashboard' && <DashboardOverview />}
       {activeTab === 'kyc'       && <DriverKYCInspector />}
       {activeTab === 'passenger-verification' && <PassengerVerificationInspector />}
@@ -123,7 +135,7 @@ const AppShell: React.FC = () => {
     <AdminProvider>
       <div className={`min-h-screen flex flex-col font-sans theme-root ${theme === 'light' ? 'theme-light' : 'theme-dark'}`}>
         <Header />
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden relative">
           <Sidebar />
           <MainContent />
         </div>

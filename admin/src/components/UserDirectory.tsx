@@ -20,6 +20,7 @@ export const UserDirectory: React.FC = () => {
     passengers,
     adjustUserWallet,
     suspendAccount,
+    reinstateAccount,
     updateUserProfile,
     deleteUser,
     addNotification,
@@ -159,13 +160,17 @@ export const UserDirectory: React.FC = () => {
     }
   };
 
-  const handleToggleStatus = async (userId: string, _isDriver: boolean) => {
+  const handleToggleStatus = async (userId: string, isSuspended: boolean) => {
     if (pendingIds.has(userId)) return;
     setPendingIds((prev) => new Set(prev).add(userId));
     try {
-      const reason = window.prompt('Suspension reason (required):', 'Account suspended pending review.') ?? '';
-      if (!reason.trim()) return;
-      await suspendAccount(userId, reason.trim());
+      if (isSuspended) {
+        await reinstateAccount(userId);
+      } else {
+        const reason = window.prompt('Suspension reason (required):', 'Account suspended pending review.') ?? '';
+        if (!reason.trim()) return;
+        await suspendAccount(userId, reason.trim());
+      }
     } catch (err) {
       addNotification({
         type: 'error',
@@ -292,12 +297,13 @@ export const UserDirectory: React.FC = () => {
                     <td className="py-3 px-4">
                       <span
                         className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase border ${
-                          drv.driverStatus === 'approved'
+                          drv.accountStatus === 'active'
                             ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                             : 'bg-red-500/20 text-red-400 border-red-500/30'
                         }`}
                       >
-                        {drv.driverStatus}
+                        <span className="block">Account: {drv.accountStatus}</span>
+                        <span className="block text-[9px] text-slate-500">KYC: {drv.driverStatus}</span>
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right space-x-1.5">
@@ -343,10 +349,10 @@ export const UserDirectory: React.FC = () => {
                         Legacy Credit
                       </button>
                       <button
-                        onClick={() => handleToggleStatus(drv.id, true)}
+                        onClick={() => handleToggleStatus(drv.id, drv.accountStatus === 'suspended')}
                         disabled={!canWriteUsers || pendingIds.has(drv.id)}
                         className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors border flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
-                          drv.driverStatus === 'approved'
+                          drv.accountStatus === 'active'
                             ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
                             : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
                         }`}
@@ -354,7 +360,7 @@ export const UserDirectory: React.FC = () => {
                         {pendingIds.has(drv.id) ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
                         ) : null}
-                        <span>{drv.driverStatus === 'approved' ? 'Suspend' : 'Activate'}</span>
+                        <span>{drv.accountStatus === 'active' ? 'Suspend' : 'Reinstate'}</span>
                       </button>
                       <button
                         onClick={() => {
@@ -432,12 +438,12 @@ export const UserDirectory: React.FC = () => {
                     <td className="py-3 px-4">
                       <span
                         className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase border ${
-                          pas.status === 'active'
+                          pas.accountStatus === 'active'
                             ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                             : 'bg-red-500/20 text-red-400 border-red-500/30'
                         }`}
                       >
-                        {pas.status}
+                        {pas.accountStatus}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right space-x-1.5">
@@ -476,10 +482,10 @@ export const UserDirectory: React.FC = () => {
                         Legacy Credit
                       </button>
                       <button
-                        onClick={() => handleToggleStatus(pas.id, false)}
+                        onClick={() => handleToggleStatus(pas.id, pas.accountStatus === 'suspended')}
                         disabled={!canWriteUsers || pendingIds.has(pas.id)}
                         className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors border flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed ${
-                          pas.status === 'active'
+                          pas.accountStatus === 'active'
                             ? 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20'
                             : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
                         }`}
@@ -487,7 +493,7 @@ export const UserDirectory: React.FC = () => {
                         {pendingIds.has(pas.id) ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
                         ) : null}
-                        <span>{pas.status === 'active' ? 'Suspend' : 'Activate'}</span>
+                        <span>{pas.accountStatus === 'active' ? 'Suspend' : 'Reinstate'}</span>
                       </button>
                       <button
                         onClick={() => {

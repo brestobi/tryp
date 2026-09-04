@@ -68,6 +68,7 @@ function mapDriver(row: any, docs: DriverDocument[]): DriverProfile {
     saIdNumber: row.id_number ?? '',
     licenseNumber: row.license_number ?? '',
     driverStatus: (row.driver_status ?? 'pending') as DriverStatus,
+    accountStatus: (row.account_status ?? 'active') as DriverProfile['accountStatus'],
     vehicleMake: row.vehicle_make ?? '',
     vehicleModel: row.vehicle_model ?? '',
     vehicleYear: parseInt(row.vehicle_year ?? '0') || 0,
@@ -103,7 +104,8 @@ function mapPassenger(row: any): PassengerProfile {
     emergencyContactName: row.emergency_contact_name ?? '',
     emergencyContactPhone: row.emergency_contact_phone ?? '',
     totalRides: 0,
-    status: (row.driver_status === 'rejected' ? 'suspended' : 'active') as 'active' | 'suspended',
+    status: (row.account_status === 'suspended' ? 'suspended' : 'active') as 'active' | 'suspended',
+    accountStatus: (row.account_status ?? 'active') as PassengerProfile['accountStatus'],
     joinedAt: row.created_at,
     avatarUrl: row.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(row.full_name ?? 'Passenger')}&background=111111&color=ffffff`,
   };
@@ -979,10 +981,22 @@ export async function fetchRefundableRide(
     : supabase
         .from('rides')
         .select(baseSelect)
-        .or(`payment_reference.eq.${identifier.trim()},ride_reference.eq.${identifier.trim()}`)
+        .eq('payment_reference', identifier.trim())
         .limit(1);
-  const { data, error } = await base.maybeSingle();
-  if (error) throw error;
+
+  const { data: firstMatch, error: firstError } = await base.maybeSingle();
+  if (firstError) throw firstError;
+  let data = firstMatch;
+  if (!data && !isUuid) {
+    const { data: rideMatch, error: rideError } = await supabase
+      .from('rides')
+      .select(baseSelect)
+      .eq('ride_reference', identifier.trim())
+      .limit(1)
+      .maybeSingle();
+    if (rideError) throw rideError;
+    data = rideMatch;
+  }
   if (!data) return null;
   return {
     id: data.id,

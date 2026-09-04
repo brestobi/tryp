@@ -40,6 +40,8 @@ class PushNotificationService {
   );
 
   bool _initialized = false;
+  String? _pendingRoute;
+  void Function(String route)? _onNotificationTap;
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<String>? _tokenSubscription;
 
@@ -55,7 +57,13 @@ class PushNotificationService {
       iOS: iosSettings,
     );
 
-    await _localNotifications.initialize(initSettings);
+    await _localNotifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (response) {
+        final route = response.payload;
+        if (route != null && route.isNotEmpty) _navigateFromNotification(route);
+      },
+    );
 
     if (Platform.isAndroid) {
       final androidPlugin = _localNotifications
@@ -298,9 +306,40 @@ class PushNotificationService {
     );
   }
 
+  /// Attach navigation after the Flutter router has been created.
+  /// Taps received during bootstrap are queued until this handler is available.
+  void setNotificationTapHandler(void Function(String route) handler) {
+    _onNotificationTap = handler;
+    final pendingRoute = _pendingRoute;
+    _pendingRoute = null;
+    if (pendingRoute != null) handler(pendingRoute);
+  }
+
   void _handleNotificationTap(RemoteMessage message) {
     final data = message.data;
-    debugPrint('👆 Notification tapped: route=${data['route']} data=$data');
+    final route = data['route']?.toString();
+    debugPrint('Notification tapped: route=$route');
+    if (route != null) _navigateFromNotification(route);
+  }
+
+  void _navigateFromNotification(String route) {
+    const allowedRoutes = {
+      '/notifications',
+      '/driver/home',
+      '/driver/active-trip',
+      '/driver/trip-history',
+      '/driver/wallet',
+      '/driver/documents',
+      '/driver/onboarding',
+    };
+    if (!allowedRoutes.contains(route)) return;
+
+    final handler = _onNotificationTap;
+    if (handler == null) {
+      _pendingRoute = route;
+      return;
+    }
+    handler(route);
   }
 
   /// Delete the FCM token from Supabase when the user logs out.

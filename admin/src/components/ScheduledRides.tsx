@@ -91,6 +91,7 @@ export const ScheduledRides: React.FC = () => {
     rescheduleScheduledRide,
     cancelScheduledRideAction,
     refresh,
+    addNotification,
   } = useAdmin();
 
   const canOperate = can('fleet:read');
@@ -161,12 +162,12 @@ export const ScheduledRides: React.FC = () => {
       await cancelScheduledRideAction(cancelling.ride.id, cancelling.reason);
       setCancelling(null);
     } catch (err) {
-      setCancelling({
-        ...cancelling,
-        reason: cancelling.reason,
+      addNotification({
+        type: 'error',
+        title: 'Cancellation failed',
+        message: err instanceof Error ? err.message : 'Could not cancel scheduled ride.',
+        timestamp: new Date().toISOString(),
       });
-      // surface via notification
-      // (handled by the action itself)
     } finally {
       setSubmitting(null);
     }

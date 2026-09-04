@@ -63,6 +63,16 @@ export const FarePricingEngine: React.FC = () => {
 
   const [saving, setSaving] = useState<boolean>(false);
 
+  if (!activeSchema) {
+    return (
+      <div className="glass-panel rounded-2xl border border-slate-800 p-8 text-center">
+        <BadgePercent className="mx-auto h-10 w-10 text-slate-500" />
+        <h2 className="mt-4 text-xl font-bold text-white">No fare schemas available</h2>
+        <p className="mt-2 text-sm text-slate-400">Fare configuration will appear once the database returns at least one schema.</p>
+      </div>
+    );
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeSchema || saving) return;
@@ -110,10 +120,12 @@ export const FarePricingEngine: React.FC = () => {
         {fareSchemas.map(schema => {
           const isSelected = schema.id === selectedSchemaId;
           return (
-            <div
+            <button
+              type="button"
               key={schema.id}
               onClick={() => handleSelectTier(schema)}
-              className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+              aria-pressed={isSelected}
+              className={`w-full text-left p-4 rounded-2xl border cursor-pointer transition-all ${
                 isSelected
                   ? 'glass-card border-purple-500/80 shadow-xl shadow-purple-500/10'
                   : 'bg-slate-900/60 border-slate-800/80 hover:border-slate-700'
@@ -133,7 +145,7 @@ export const FarePricingEngine: React.FC = () => {
                 <div>Min Fare: R{schema.minFare.toFixed(2)}</div>
                 <div>Extra Person: R{schema.extraPersonRate.toFixed(2)}</div>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -160,8 +172,9 @@ export const FarePricingEngine: React.FC = () => {
                 <input
                   type="number"
                   step="0.50"
+                  min="0"
                   value={baseFare}
-                  onChange={e => setBaseFare(parseFloat(e.target.value) || 0)}
+                  onChange={e => setBaseFare(Math.max(0, parseFloat(e.target.value) || 0))}
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 font-mono font-bold text-sm focus:border-purple-500 focus:outline-none"
                 />
               </div>
@@ -172,8 +185,9 @@ export const FarePricingEngine: React.FC = () => {
                 <input
                   type="number"
                   step="0.10"
+                  min="0"
                   value={perKmRate}
-                  onChange={e => setPerKmRate(parseFloat(e.target.value) || 0)}
+                  onChange={e => setPerKmRate(Math.max(0, parseFloat(e.target.value) || 0))}
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 font-mono font-bold text-sm focus:border-purple-500 focus:outline-none"
                 />
               </div>
@@ -184,8 +198,9 @@ export const FarePricingEngine: React.FC = () => {
                 <input
                   type="number"
                   step="1.00"
+                  min="0"
                   value={minFare}
-                  onChange={e => setMinFare(parseFloat(e.target.value) || 0)}
+                  onChange={e => setMinFare(Math.max(0, parseFloat(e.target.value) || 0))}
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 font-mono font-bold text-sm focus:border-purple-500 focus:outline-none"
                 />
               </div>
@@ -196,8 +211,9 @@ export const FarePricingEngine: React.FC = () => {
                 <input
                   type="number"
                   step="0.10"
+                  min="0"
                   value={perMinuteRate}
-                  onChange={e => setPerMinuteRate(parseFloat(e.target.value) || 0)}
+                  onChange={e => setPerMinuteRate(Math.max(0, parseFloat(e.target.value) || 0))}
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 font-mono font-bold text-sm focus:border-purple-500 focus:outline-none"
                 />
               </div>
@@ -222,8 +238,10 @@ export const FarePricingEngine: React.FC = () => {
                 <input
                   type="number"
                   step="0.5"
+                  min="0"
+                  max="100"
                   value={commissionPercentage}
-                  onChange={e => setCommissionPercentage(parseFloat(e.target.value) || 0)}
+                  onChange={e => setCommissionPercentage(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 font-mono font-bold text-sm focus:border-purple-500 focus:outline-none"
                 />
               </div>

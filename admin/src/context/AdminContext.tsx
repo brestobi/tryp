@@ -118,6 +118,8 @@ interface AdminContextType {
   notifications: AdminNotification[];
   isRealtimeLive: boolean;
   setIsRealtimeLive: (live: boolean) => void;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
 
   // Actions
   approveDriver: (driverId: string) => Promise<void>;
@@ -185,6 +187,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [currentRole]);
   const [isRealtimeLive, setIsRealtimeLive] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -206,42 +209,88 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      // Do not let a restricted role fail the whole console because it cannot
-      // read another department's sensitive tables.
-      const [d, wallets, p, pv, r, f, pay, adminsList, refundsList, incidentsList, scheduledList, logs] = await Promise.all([
-        can('users:read') || can('kyc:read') || can('fleet:read')
-          ? fetchDrivers()
-          : Promise.resolve([]),
-        can('finance:read') ? fetchDriverWallets() : Promise.resolve([]),
-        can('users:read') ? fetchPassengers() : Promise.resolve([]),
-        can('kyc:read') ? fetchPassengerVerifications() : Promise.resolve([]),
-        can('dashboard:read') || can('fleet:read') ? fetchRides() : Promise.resolve([]),
-        can('fares:read') ? fetchFareSchemas() : Promise.resolve([]),
-        can('finance:read') ? fetchPayouts() : Promise.resolve([]),
-        can('admin:manage') ? fetchAdmins() : Promise.resolve([]),
-        can('finance:read') ? fetchRefunds() : Promise.resolve([]),
-        can('fleet:read') ? fetchSafetyIncidents() : Promise.resolve([]),
-        can('fleet:read') || can('finance:read') ? fetchScheduledRides() : Promise.resolve([]),
-        can('audit:read') ? fetchAuditLogs() : Promise.resolve([]),
-      ]);
-      setDrivers(d);
-      setDriverWallets(wallets);
-      setPassengers(p);
-      setPassengerVerifications(pv);
-      setRides(r);
-      setFareSchemas(f);
-      setPayouts(pay);
-      setAdmins(adminsList);
-      setRefunds(refundsList);
-      setIncidents(incidentsList);
-      setScheduledRides(scheduledList);
-      setAuditLogs(logs);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
+
+    // Load each module independently. A permissions/schema issue in one
+    // section should not make the rest of the console appear empty.
+    const requests: Array<{
+      label: string;
+      request: Promise<unknown>;
+      apply: (value: unknown) => void;
+    }> = [
+      {
+        label: 'drivers',
+        request: can('users:read') || can('kyc:read') || can('fleet:read') ? fetchDrivers() : Promise.resolve([]),
+        apply: (value) => setDrivers(value as DriverProfile[]),
+      },
+      {
+        label: 'driver wallets',
+        request: can('finance:read') ? fetchDriverWallets() : Promise.resolve([]),
+        apply: (value) => setDriverWallets(value as DriverWallet[]),
+      },
+      {
+        label: 'passengers',
+        request: can('users:read') ? fetchPassengers() : Promise.resolve([]),
+        apply: (value) => setPassengers(value as PassengerProfile[]),
+      },
+      {
+        label: 'passenger verification',
+        request: can('kyc:read') ? fetchPassengerVerifications() : Promise.resolve([]),
+        apply: (value) => setPassengerVerifications(value as PassengerVerification[]),
+      },
+      {
+        label: 'rides',
+        request: can('dashboard:read') || can('fleet:read') ? fetchRides() : Promise.resolve([]),
+        apply: (value) => setRides(value as Ride[]),
+      },
+      {
+        label: 'fare schemas',
+        request: can('fares:read') ? fetchFareSchemas() : Promise.resolve([]),
+        apply: (value) => setFareSchemas(value as FareSchema[]),
+      },
+      {
+        label: 'payouts',
+        request: can('finance:read') ? fetchPayouts() : Promise.resolve([]),
+        apply: (value) => setPayouts(value as PayoutSettlement[]),
+      },
+      {
+        label: 'admin roster',
+        request: can('admin:manage') ? fetchAdmins() : Promise.resolve([]),
+        apply: (value) => setAdmins(value as AdminUser[]),
+      },
+      {
+        label: 'refunds',
+        request: can('finance:read') ? fetchRefunds() : Promise.resolve([]),
+        apply: (value) => setRefunds(value as Refund[]),
+      },
+      {
+        label: 'incidents',
+        request: can('fleet:read') ? fetchSafetyIncidents() : Promise.resolve([]),
+        apply: (value) => setIncidents(value as SafetyIncident[]),
+      },
+      {
+        label: 'scheduled rides',
+        request: can('fleet:read') || can('finance:read') ? fetchScheduledRides() : Promise.resolve([]),
+        apply: (value) => setScheduledRides(value as ScheduledRide[]),
+      },
+      {
+        label: 'audit logs',
+        request: can('audit:read') ? fetchAuditLogs() : Promise.resolve([]),
+        apply: (value) => setAuditLogs(value as AdminAuditLog[]),
+      },
+    ];
+
+    const results = await Promise.allSettled(requests.map(({ request }) => request));
+    const failures: string[] = [];
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        requests[index].apply(result.value);
+      } else {
+        const message = result.reason instanceof Error ? result.reason.message : 'Request failed';
+        failures.push(`${requests[index].label}: ${message}`);
+      }
+    });
+    setError(failures.length > 0 ? failures.join(' · ') : null);
+    setLoading(false);
   }, [can]);
 
   useEffect(() => {
@@ -252,88 +301,81 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     if (!isRealtimeLive) return;
 
-    const ridesChannel = supabase
-      .channel('admin-rides')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, () => {
-        fetchRides().then(setRides).catch(console.error);
-      })
-      .subscribe();
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+    const subscribe = <T,>(
+      name: string,
+      table: string,
+      onChange: () => Promise<T>,
+      setData: (value: T) => void,
+      event: '*' | 'INSERT' = '*',
+    ) => {
+      const channel = supabase
+        .channel(name)
+        .on('postgres_changes', { event, schema: 'public', table }, () => {
+          onChange().then(setData).catch(console.error);
+        })
+        .subscribe();
+      channels.push(channel);
+    };
 
-    const walletsChannel = supabase
-      .channel('admin-driver-wallets')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_wallets' }, () => {
-        fetchDriverWallets().then(setDriverWallets).catch(console.error);
-      })
-      .subscribe();
-
-    const refundsChannel = supabase
-      .channel('admin-refunds')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'refunds' }, () => {
-        if (can('finance:read')) {
-          fetchRefunds().then(setRefunds).catch(console.error);
-        }
-      })
-      .subscribe();
-
-    const incidentsChannel = supabase
-      .channel('admin-incidents')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'safety_incidents' }, () => {
-        if (can('fleet:read')) {
-          // Pull the SECURE view, not the base table, so we never request
-          // internal_notes without the SECURITY DEFINER gate.
-          fetchSafetyIncidents().then(setIncidents).catch(console.error);
-        }
-      })
-      .subscribe();
-
-    const scheduledChannel = supabase
-      .channel('admin-scheduled-rides')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, () => {
-        if (can('fleet:read') || can('finance:read')) {
-          fetchScheduledRides().then(setScheduledRides).catch(console.error);
-        }
-      })
-      .subscribe();
-
-    const profilesChannel = supabase
-      .channel('admin-profiles')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        fetchDrivers().then(setDrivers).catch(console.error);
-        fetchPassengers().then(setPassengers).catch(console.error);
-        if (can('admin:manage')) {
-          fetchAdmins().then(setAdmins).catch(console.error);
-        }
-      })
-      .subscribe();
-
-    const logsChannel = supabase
-      .channel('admin-audit-logs')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_audit_logs' }, (payload) => {
-        const newLog: AdminAuditLog = {
-          id: payload.new.id,
-          adminRole: payload.new.admin_role as AdminRole,
-          adminName: payload.new.admin_email ?? 'Admin',
-          action: payload.new.action,
-          targetId: payload.new.target_id,
-          targetType: payload.new.target_type,
-          details: payload.new.details ?? '',
-          ipAddress: payload.new.ip_address ?? '',
-          timestamp: payload.new.created_at,
-        };
-        setAuditLogs((prev) => [newLog, ...prev]);
-      })
-      .subscribe();
+    // Only subscribe to datasets the signed-in role is allowed to read. This
+    // avoids both noisy failed requests and accidentally exposing restricted
+    // data through a realtime callback.
+    if (can('dashboard:read') || can('fleet:read')) {
+      subscribe('admin-rides', 'rides', fetchRides, setRides);
+    }
+    if (can('finance:read')) {
+      subscribe('admin-driver-wallets', 'driver_wallets', fetchDriverWallets, setDriverWallets);
+      subscribe('admin-refunds', 'refunds', fetchRefunds, setRefunds);
+    }
+    if (can('fleet:read')) {
+      subscribe('admin-incidents', 'safety_incidents', fetchSafetyIncidents, setIncidents);
+      subscribe('admin-scheduled-rides', 'rides', fetchScheduledRides, setScheduledRides);
+    }
+    if (can('users:read') || can('kyc:read') || can('fleet:read')) {
+      const profileChannel = supabase
+        .channel('admin-profiles')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+          if (can('users:read') || can('kyc:read') || can('fleet:read')) {
+            fetchDrivers().then(setDrivers).catch(console.error);
+          }
+          if (can('users:read')) {
+            fetchPassengers().then(setPassengers).catch(console.error);
+          }
+          if (can('admin:manage')) {
+            fetchAdmins().then(setAdmins).catch(console.error);
+          }
+        })
+        .subscribe();
+      channels.push(profileChannel);
+    }
+    if (can('audit:read')) {
+      const logsChannel = supabase
+        .channel('admin-audit-logs')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_audit_logs' }, (payload) => {
+          const newLog: AdminAuditLog = {
+            id: payload.new.id,
+            adminRole: payload.new.admin_role as AdminRole,
+            adminName: payload.new.admin_email ?? 'Admin',
+            action: payload.new.action,
+            targetId: payload.new.target_id,
+            targetType: payload.new.target_type,
+            details: payload.new.details ?? '',
+            ipAddress: payload.new.ip_address ?? '',
+            timestamp: payload.new.created_at,
+          };
+          setAuditLogs((prev) => [newLog, ...prev]);
+        })
+        .subscribe();
+      channels.push(logsChannel);
+    }
 
     return () => {
-      supabase.removeChannel(ridesChannel);
-      supabase.removeChannel(walletsChannel);
-      supabase.removeChannel(profilesChannel);
-      supabase.removeChannel(refundsChannel);
-      supabase.removeChannel(incidentsChannel);
-      supabase.removeChannel(scheduledChannel);
-      supabase.removeChannel(logsChannel);
+      channels.forEach((channel) => {
+        supabase.removeChannel(channel);
+      });
     };
-  }, [isRealtimeLive]);
+  }, [isRealtimeLive, can]);
 
   // ── Audit log helper ───────────────────────────────────────────────────────
   const writeAuditLog = useCallback(
@@ -746,7 +788,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const acknowledgeSafetyIncident = async (incidentId: string) => {
-    requirePermission('fleet:read');
+    requirePermission('fleet:write');
     await acknowledgeIncident(incidentId);
     const incident = incidents.find((i) => i.id === incidentId);
     await writeAuditLog(
@@ -809,7 +851,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const rescheduleScheduledRide = async (rideId: string, scheduledForIso: string, reason: string) => {
-    requirePermission('fleet:read');
+    requirePermission('fleet:write');
     await rescheduleRide(rideId, scheduledForIso, reason);
     const ride = scheduledRides.find((r) => r.id === rideId);
     await writeAuditLog(
@@ -831,7 +873,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const cancelScheduledRideAction = async (rideId: string, reason: string) => {
-    requirePermission('fleet:read');
+    requirePermission('fleet:write');
     await cancelScheduledRide(rideId, reason);
     const ride = scheduledRides.find((r) => r.id === rideId);
     await writeAuditLog(
@@ -913,6 +955,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         notifications,
         isRealtimeLive,
         setIsRealtimeLive,
+        isSidebarOpen,
+        setIsSidebarOpen,
         approveDriver,
         reviewPassengerVerification,
         rejectDriver,

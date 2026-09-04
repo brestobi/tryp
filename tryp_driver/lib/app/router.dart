@@ -72,7 +72,8 @@ GoRouter buildRouter(AppVariant variant, {DriverRouteGuard? routeGuard}) {
     ),
     GoRoute(
       path: Routes.suspendedAccount,
-      builder: (context, state) => SuspendedAccountScreen(reason: state.uri.queryParameters['reason']),
+      builder: (context, state) =>
+          SuspendedAccountScreen(reason: state.uri.queryParameters['reason']),
     ),
     GoRoute(
       path: Routes.resetPassword,
@@ -137,7 +138,7 @@ GoRouter buildRouter(AppVariant variant, {DriverRouteGuard? routeGuard}) {
     refreshListenable: guard,
     redirect: (context, state) => guard.redirect(state),
     routes: routes,
-    errorBuilder: (context, state) => ErrorScreen(error: state.error),
+    errorBuilder: (context, state) => const ErrorScreen(),
   );
 }
 
@@ -195,7 +196,8 @@ class DriverRouteGuard extends ChangeNotifier {
     if (!_isAuthenticated) return Routes.onboarding;
     if (!_profileLoaded || _profileLoading) return Routes.splash;
     if (_profileLoadFailed) return Routes.profileLoadError;
-    if (_accountStatus == 'suspended') return '${Routes.suspendedAccount}?reason=${Uri.encodeComponent(_suspensionReason ?? '')}';
+    if (_accountStatus == 'suspended')
+      return '${Routes.suspendedAccount}?reason=${Uri.encodeComponent(_suspensionReason ?? '')}';
     if (_role != expectedRole) return Routes.onboarding;
 
     final requiresApproval =
@@ -314,13 +316,20 @@ class ProfileLoadErrorScreen extends StatelessWidget {
 }
 
 class ErrorScreen extends StatelessWidget {
-  final Exception? error;
-
-  const ErrorScreen({super.key, this.error});
+  const ErrorScreen({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      Scaffold(body: Center(child: Text('Error: ${error?.toString()}')));
+  Widget build(BuildContext context) => const Scaffold(
+    body: Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          'This screen is unavailable right now. Please return and try again.',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    ),
+  );
 }
 
 /// Validates that a signed-in driver account has the correct role.

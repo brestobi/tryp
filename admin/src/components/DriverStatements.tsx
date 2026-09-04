@@ -38,6 +38,19 @@ function formatDateForInput(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
+function getPreviousWeekPeriod(date: Date = new Date()): StatementPeriod {
+  const thisMonday = getLastMonday(date);
+  const previousMonday = new Date(thisMonday);
+  previousMonday.setDate(previousMonday.getDate() - 7);
+  const previousSunday = new Date(thisMonday);
+  previousSunday.setDate(previousSunday.getDate() - 1);
+  return {
+    start: formatDateForInput(previousMonday),
+    end: formatDateForInput(previousSunday),
+    label: 'Last Week (Mon-Sun)',
+  };
+}
+
 // Statement period options
 const PERIOD_OPTIONS: StatementPeriod[] = [
   {
@@ -50,13 +63,7 @@ const PERIOD_OPTIONS: StatementPeriod[] = [
     end: formatDateForInput(new Date()),
     label: 'This Week (Mon-Today)',
   },
-  {
-    start: formatDateForInput(
-      new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
-    ),
-    end: formatDateForInput(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
-    label: 'Last Week (Mon-Sun)',
-  },
+  getPreviousWeekPeriod(),
   {
     start: formatDateForInput(
       new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -80,6 +87,7 @@ export const DriverStatements: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
   const [selectedDriverIds, setSelectedDriverIds] = useState<Set<string>>(new Set());
+  const selectedStatements = statements.filter((statement) => selectedDriverIds.has(statement.driverId));
 
   // Fetch statements
   const handleGenerateStatements = useCallback(async () => {
@@ -88,8 +96,12 @@ export const DriverStatements: React.FC = () => {
       const startDate = useCustomDates ? customStartDate : selectedPeriod.start;
       const endDate = useCustomDates ? customEndDate : selectedPeriod.end;
 
+      if (!startDate || !endDate || startDate > endDate) {
+        throw new Error('Choose a valid statement period where the start date is before the end date.');
+      }
       const data = await fetchAllDriverStatements(startDate, endDate);
       setStatements(data);
+      setSelectedDriverIds(new Set());
 
       addNotification({
         type: 'success',
@@ -129,17 +141,18 @@ export const DriverStatements: React.FC = () => {
     }
   };
 
-  // Download all statements
+  // Download the selected statements, or the full batch when none are selected.
   const handleDownloadAll = async () => {
-    if (statements.length === 0) return;
+    const downloads = selectedStatements.length > 0 ? selectedStatements : statements;
+    if (downloads.length === 0) return;
 
     setLoading(true);
     try {
-      await downloadAllStatementsPDF(statements);
+      await downloadAllStatementsPDF(downloads);
       addNotification({
         type: 'success',
-        title: 'All Statements Downloaded',
-        message: `Downloaded ${statements.length} statements`,
+        title: 'Statements Downloaded',
+        message: `Downloaded ${downloads.length} statement${downloads.length === 1 ? '' : 's'}`,
         timestamp: new Date().toISOString(),
       });
     } catch (err) {
@@ -154,17 +167,18 @@ export const DriverStatements: React.FC = () => {
     }
   };
 
-  // Send statements to all drivers
+  // Send the selected statements, or all statements when none are selected.
   const handleSendAllStatements = async () => {
-    if (statements.length === 0) return;
+    const recipients = selectedStatements.length > 0 ? selectedStatements : statements;
+    if (recipients.length === 0) return;
 
     setSending(true);
     try {
-      const result = await sendDriverStatements(statements);
+      const result = await sendDriverStatements(recipients);
       addNotification({
         type: result.failed === 0 ? 'success' : 'warning',
         title: 'Statements Sent',
-        message: `Successfully sent ${result.success} statements${result.failed > 0 ? ` (${result.failed} failed)` : ''}`,
+        message: `Successfully sent ${result.success} of ${recipients.length} statements${result.failed > 0 ? ` (${result.failed} failed)` : ''}`,
         timestamp: new Date().toISOString(),
       });
     } catch (err) {
@@ -380,11 +394,11 @@ export const DriverStatements: React.FC = () => {
                 ) : (
                   <Download className="w-3 h-3" />
                 )}
-                <span>Download All</span>
+                <span>{selectedStatements.length > 0 ? `Download Selected (${selectedStatements.length})` : 'Download All'}</span>
               </button>
               <button
                 onClick={handleSendAllStatements}
-                disabled={sending}
+                disabled={sending || statements.length === 0}
                 className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-500 transition-colors flex items-center space-x-1.5 disabled:opacity-50"
               >
                 {sending ? (
@@ -392,7 +406,7 @@ export const DriverStatements: React.FC = () => {
                 ) : (
                   <Send className="w-3 h-3" />
                 )}
-                <span>Send to All Drivers</span>
+                <span>{selectedStatements.length > 0 ? `Send to Selected (${selectedStatements.length})` : 'Send to All Drivers'}</span>
               </button>
             </div>
           </div>

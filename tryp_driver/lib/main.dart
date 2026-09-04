@@ -53,21 +53,10 @@ Future<void> _runBootstrap(AppVariant variant) async {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      SelectableText(
-                        details.exceptionAsString(),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SelectableText(
-                        details.stack?.toString() ?? '',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          color: Colors.grey,
-                        ),
+                      const Text(
+                        'Something went wrong while displaying this screen. Please restart the app and try again.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 14, color: Colors.black87),
                       ),
                     ],
                   ),
@@ -139,11 +128,11 @@ Future<void> _runBootstrap(AppVariant variant) async {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          SelectableText(
-                            'Error: $error\n\n$stack',
+                          const Text(
+                            'TRYP could not start securely. Check your connection and try again.',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 12,
+                            style: TextStyle(
+                              fontSize: 14,
                               color: Color(0xFFD92D20),
                             ),
                           ),

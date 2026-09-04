@@ -29,7 +29,9 @@ export const DashboardOverview: React.FC = () => {
     (d) => d.driverStatus === 'pending' || d.driverStatus === 'under_review'
   ).length;
   const onlineDrivers = drivers.filter((d) => d.isOnline);
-  const activeRides = rides.filter((r) => r.status === 'in_trip' || r.status === 'accepted');
+  const activeRides = rides.filter((r) =>
+    r.status === 'in_trip' || r.status === 'accepted' || r.status === 'arrived'
+  );
 
   // Compute revenue by day of week from real rides data
   const revenueByDay = useMemo(() => {
@@ -56,8 +58,10 @@ export const DashboardOverview: React.FC = () => {
     return Object.entries(tiers).map(([tier, count]) => ({ tier, count }));
   }, [rides]);
 
-  // Total revenue from verified payouts
-  const totalGross = payouts.reduce((s, p) => s + p.grossEarnings, 0);
+  // Total revenue from verified payouts only.
+  const totalGross = payouts
+    .filter((p) => p.status === 'verified' || p.status === 'paid')
+    .reduce((s, p) => s + p.grossEarnings, 0);
 
   // Average platform driver rating
   const avgRating =
@@ -123,7 +127,7 @@ export const DashboardOverview: React.FC = () => {
             </div>
             <div className="flex items-center space-x-1 text-xs text-emerald-400 font-semibold mt-1">
               <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>From verified settlements</span>
+              <span>Verified settlements</span>
             </div>
           </div>
         </div>

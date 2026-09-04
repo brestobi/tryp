@@ -61,28 +61,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Restore existing session
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+    let mounted = true;
+
+    // Restore existing session. A profile failure should not leave the login
+    // screen spinning forever.
+    supabase.auth.getSession().then(async ({ data: { session: s }, error }) => {
+      if (error) {
+        console.error('Session restore failed:', error.message);
+      }
+      if (!mounted) return;
       setSession(s);
       if (s?.user) {
-        const profile = await fetchProfile(s.user);
-        setUser(profile);
+        try {
+          const profile = await fetchProfile(s.user);
+          if (mounted) setUser(profile);
+        } catch (profileError) {
+          console.error('Profile load failed:', profileError);
+          if (mounted) setUser(null);
+        }
       }
-      setLoading(false);
+      if (mounted) setLoading(false);
     });
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, s) => {
+      if (!mounted) return;
       setSession(s);
       if (s?.user) {
-        const profile = await fetchProfile(s.user);
-        setUser(profile);
+        try {
+          const profile = await fetchProfile(s.user);
+          if (mounted) setUser(profile);
+        } catch (profileError) {
+          console.error('Profile load failed:', profileError);
+          if (mounted) setUser(null);
+        }
       } else {
         setUser(null);
       }
+      if (mounted) setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
@@ -90,14 +111,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) return { error: error.message };
 
     if (data.user) {
-      const profile = await fetchProfile(data.user);
-      if (!profile.adminRole) {
+      try {
+        const profile = await fetchProfile(data.user);
+        if (!profile.adminRole) {
+          await supabase.auth.signOut();
+          setUser(null);
+          setSession(null);
+          return { error: 'Access denied: Account does not have admin privileges.' };
+        }
+        setUser(profile);
+      } catch (profileError) {
         await supabase.auth.signOut();
         setUser(null);
         setSession(null);
-        return { error: 'Access denied: Account does not have admin privileges.' };
+        return {
+          error: profileError instanceof Error
+            ? profileError.message
+            : 'Could not load your admin profile.',
+        };
       }
-      setUser(profile);
     }
     return { error: null };
   };

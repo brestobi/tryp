@@ -63,6 +63,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '16356250251',
     projectId: 'tryp-75e26',
     storageBucket: 'tryp-75e26.firebasestorage.app',
-    iosBundleId: 'com.hungrydevelopers.tryp',
+    iosBundleId: 'com.hungrydevelopers.trypDriver',
   );
 }

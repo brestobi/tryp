@@ -21,7 +21,7 @@ export const PassengerVerificationInspector: React.FC = () => {
     () => passengerVerifications.filter((v) => filter === 'all' || v.status === filter),
     [filter, passengerVerifications],
   );
-  const active = passengerVerifications.find((v) => v.id === selectedId) ?? filtered[0];
+  const active = filtered.find((v) => v.id === selectedId) ?? filtered[0];
 
   const handleReview = async (status: 'approved' | 'rejected') => {
     if (!active || busy) return;

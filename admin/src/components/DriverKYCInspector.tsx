@@ -48,7 +48,8 @@ export const DriverKYCInspector: React.FC = () => {
     return d.driverStatus === filterStatus;
   });
 
-  const activeDriver: DriverProfile | undefined = drivers.find(d => d.id === selectedDriverId) || filteredDrivers[0] || drivers[0];
+  const activeDriver: DriverProfile | undefined =
+    filteredDrivers.find(d => d.id === selectedDriverId) || filteredDrivers[0];
 
   const activeDocument: DriverDocument | undefined = activeDriver?.documents.find(
     doc => doc.id === selectedDocId

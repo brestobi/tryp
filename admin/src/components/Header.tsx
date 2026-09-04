@@ -14,6 +14,8 @@ import {
   RefreshCw,
   Sun,
   Moon,
+  Menu,
+  X,
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -27,6 +29,8 @@ export const Header: React.FC = () => {
     rides,
     loading,
     refresh,
+    isSidebarOpen,
+    setIsSidebarOpen,
   } = useAdmin();
 
   const { user, signOut } = useAuth();
@@ -45,7 +49,16 @@ export const Header: React.FC = () => {
   return (
     <header className="min-h-16 border-b border-slate-800 glass-panel sticky top-0 z-40 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2">
       {/* Brand */}
-      <div className="flex items-center space-x-4 min-w-0">
+      <div className="flex items-center space-x-3 min-w-0">
+        <button
+          type="button"
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          aria-label={isSidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={isSidebarOpen}
+          className="lg:hidden rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 hover:text-white"
+        >
+          {isSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </button>
         <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-950 flex items-center justify-center shadow-lg shadow-white/10 font-bold text-lg font-heading">
             T
@@ -88,6 +101,7 @@ export const Header: React.FC = () => {
       <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
         {/* Refresh */}
         <button
+          type="button"
           onClick={refresh}
           disabled={loading}
           title="Reload all data"
@@ -98,6 +112,7 @@ export const Header: React.FC = () => {
 
         {/* Theme toggle */}
         <button
+          type="button"
           onClick={toggleTheme}
           title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
@@ -109,6 +124,7 @@ export const Header: React.FC = () => {
 
         {/* Live toggle */}
         <button
+          type="button"
           onClick={() => setIsRealtimeLive(!isRealtimeLive)}
           className={`flex items-center space-x-2 text-xs px-3 py-1.5 rounded-lg border transition-all ${isRealtimeLive ? 'bg-slate-100 text-slate-950 border-slate-100 hover:bg-white'
               : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'
@@ -132,6 +148,7 @@ export const Header: React.FC = () => {
         {/* Notifications */}
         <div className="relative">
           <button
+            type="button"
             onClick={() => {
               setShowNotifications(!showNotifications);
               if (unreadCount > 0) markNotificationsRead();
@@ -190,6 +207,7 @@ export const Header: React.FC = () => {
             <div className="text-[10px] text-purple-400 font-mono mt-0.5">{user?.email ?? '—'}</div>
           </div>
           <button
+            type="button"
             onClick={signOut}
             title="Sign out"
             className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"

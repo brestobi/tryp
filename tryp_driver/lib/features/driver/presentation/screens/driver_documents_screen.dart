@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/services/document_storage_service.dart';
-import 'package:tryp_driver/core/widgets/common_widgets.dart';
 import 'package:tryp_driver/core/widgets/driver_bottom_nav_bar.dart';
 import 'package:tryp_driver/features/driver/data/repositories/driver_onboarding_repository.dart';
 import 'package:tryp_driver/features/driver/domain/models/driver_onboarding_config.dart';
@@ -263,8 +262,11 @@ class _DriverDocumentsScreenState extends ConsumerState<DriverDocumentsScreen> {
           loading: () => const Center(
             child: CircularProgressIndicator(color: TRYPColors.primary),
           ),
-          error: (err, stack) =>
-              Center(child: Text('Error loading documents: $err')),
+          error: (err, stack) => const Center(
+            child: Text(
+              'Documents are unavailable right now. Please try again.',
+            ),
+          ),
           data: (data) {
             final docs = DriverOnboardingConfig.requiredDocuments;
             int uploadedCount = 0;

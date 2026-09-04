@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart' as geo;
 import 'package:go_router/go_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/constants/map_styles.dart';
@@ -51,6 +52,13 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _gpsUpdateTimer?.cancel();
+      return;
+    }
+
     if (state == AppLifecycleState.resumed) {
       final trip = _activeTrip;
       if (trip != null) {
@@ -76,6 +84,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
   }
 
   Future<void> _loadActiveTrip() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     final tripService = ref.read(tripServiceProvider);
 
@@ -91,6 +100,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
     if (!mounted) return;
 
     if (trip == null) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       return;
     }
@@ -122,7 +132,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
     try {
       final updatedTrip = await ref
           .read(tripServiceProvider)
-          .getTripById(activeTrip.id);
+          .getDriverTripById(activeTrip.id);
       if (!mounted || updatedTrip == null || _activeTrip?.id != activeTrip.id) {
         return;
       }
@@ -215,12 +225,14 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
 
     _pickupRouteInFlight = true;
     try {
-      final route = await ref.read(locationServiceProvider).getRealRoute(
-        startLat: position.latitude,
-        startLng: position.longitude,
-        endLat: trip.pickupLat,
-        endLng: trip.pickupLng,
-      );
+      final route = await ref
+          .read(locationServiceProvider)
+          .getRealRoute(
+            startLat: position.latitude,
+            startLng: position.longitude,
+            endLat: trip.pickupLat,
+            endLng: trip.pickupLng,
+          );
       if (!mounted || _activeTrip?.id != trip.id) return;
 
       _lastPickupRouteAt = DateTime.now();
@@ -310,8 +322,10 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
   Future<void> _updateTripStatus(
     TripStatus nextStatus, {
     bool asDriverCompletion = false,
+    String? pinCode,
   }) async {
     if (_activeTrip == null) return;
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
@@ -329,6 +343,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
         updated = await tripService.updateTripStatus(
           rideId: _activeTrip!.id,
           status: nextStatus,
+          pinCode: pinCode,
         );
       }
 
@@ -371,12 +386,16 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
     final trip = _activeTrip;
     if (trip == null) return;
 
-    final position = await ref.read(locationServiceProvider).getCurrentPosition();
+    final position = await ref
+        .read(locationServiceProvider)
+        .getCurrentPosition();
     if (!mounted) return;
     if (position == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Your location is unavailable. Enable GPS and try again.'),
+          content: Text(
+            'Your location is unavailable. Enable GPS and try again.',
+          ),
           backgroundColor: TRYPColors.error,
         ),
       );
@@ -465,11 +484,10 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
             ),
             onPressed: () {
               final inputPin = _pinController.text.trim();
-              final expectedPin = _activeTrip?.pinCode ?? '';
-              if (expectedPin.isNotEmpty && inputPin != expectedPin) {
+              if (!RegExp(r'^\d{4}$').hasMatch(inputPin)) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('That safety PIN is incorrect. Please try again.'),
+                    content: Text('Enter the passenger\'s 4-digit safety PIN.'),
                     backgroundColor: TRYPColors.error,
                   ),
                 );
@@ -477,7 +495,7 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
               }
 
               Navigator.pop(dialogContext);
-              _updateTripStatus(TripStatus.inTrip);
+              _updateTripStatus(TripStatus.inTrip, pinCode: inputPin);
             },
             child: const Text(
               'Verify & Start Trip',
@@ -617,8 +635,17 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
     );
   }
 
-  void _makeCall(String phone) {
-    if (phone.isEmpty) return;
+  Future<void> _makeCall(String phone) async {
+    final trimmed = phone.trim();
+    if (trimmed.isEmpty) return;
+
+    final uri = Uri(scheme: 'tel', path: trimmed);
+    final messenger = ScaffoldMessenger.of(context);
+    if (!await launchUrl(uri)) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Unable to open the phone app.')),
+      );
+    }
   }
 
   @override
@@ -958,9 +985,8 @@ class _ActiveTripScreenState extends ConsumerState<ActiveTripScreen>
                     ],
                   ),
 
-                  if (trip.pinCode.isNotEmpty &&
-                      (status == TripStatus.accepted ||
-                          status == TripStatus.arrived)) ...[
+                  if (status == TripStatus.accepted ||
+                      status == TripStatus.arrived) ...[
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.symmetric(

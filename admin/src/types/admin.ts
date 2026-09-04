@@ -24,6 +24,7 @@ export interface DriverProfile {
   saIdNumber: string;
   licenseNumber: string;
   driverStatus: DriverStatus;
+  accountStatus: 'active' | 'suspended';
   vehicleMake: string;
   vehicleModel: string;
   vehicleYear: number;
@@ -69,6 +70,7 @@ export interface PassengerProfile {
   emergencyContactPhone: string;
   totalRides: number;
   status: 'active' | 'suspended';
+  accountStatus: 'active' | 'suspended';
   joinedAt: string;
   avatarUrl: string;
 }

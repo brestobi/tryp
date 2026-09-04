@@ -4,6 +4,8 @@
 <dict>
 	<key>NSCameraUsageDescription</key>
 	<string>TRYP needs camera access to capture your live selfie for driver verification.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TRYP uses your location to show nearby ride requests and guide you to passenger pickups.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

@@ -51,6 +51,17 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      if (_isOnline) {
+        _isOnline = false;
+        _stopOnlineTrackingAndListening();
+        unawaited(ref.read(tripServiceProvider).setDriverOnlineStatus(false));
+      }
+      return;
+    }
+
     if (state == AppLifecycleState.resumed) {
       // Timers and realtime sockets may be suspended by the operating system.
       // Reconcile the server state and recreate the listeners on resume.
@@ -70,6 +81,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage>
   }
 
   Future<void> _checkDriverVerificationStatus() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final client = ref.read(supabaseClientProvider);
@@ -80,7 +92,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage>
             .select()
             .eq('id', user.id)
             .maybeSingle();
-        if (profile != null) {
+        if (profile != null && mounted) {
           setState(() {
             _driverStatus = profile['driver_status'] ?? 'pending';
             _isOnline = profile['is_online'] ?? false;
@@ -152,9 +164,11 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage>
     _requestSheetExpiryTimer?.cancel();
     _pendingRidesChannel?.unsubscribe();
     _pendingRidesChannel = null;
-    setState(() {
-      _openRequests = [];
-    });
+    if (mounted) {
+      setState(() {
+        _openRequests = [];
+      });
+    }
   }
 
   Future<void> _updateAndBroadcastLocation() async {
@@ -184,9 +198,7 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage>
   }
 
   Future<void> _fetchOpenRequests() async {
-    if (!_isOnline ||
-        _driverStatus != 'approved' ||
-        _requestsFetchInFlight) {
+    if (!_isOnline || _driverStatus != 'approved' || _requestsFetchInFlight) {
       return;
     }
     _requestsFetchInFlight = true;
@@ -707,7 +719,6 @@ class _DriverHomeScreenPageState extends ConsumerState<DriverHomeScreenPage>
                   child: const Text('View Uploaded Documents'),
                 ),
               ),
-
             ],
           ),
         );

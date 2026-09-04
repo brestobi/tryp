@@ -7,6 +7,7 @@ import 'package:tryp_driver/app/app_variant.dart';
 import 'package:tryp_driver/app/router.dart';
 import 'package:tryp_driver/app/theme.dart';
 import 'package:tryp_driver/core/services/auth_deep_link_service.dart';
+import 'package:tryp_driver/core/services/push_notification_service.dart';
 
 class TRYPApp extends ConsumerStatefulWidget {
   final AppVariant variant;
@@ -27,6 +28,7 @@ class _TRYPAppState extends ConsumerState<TRYPApp> {
     super.initState();
     _routeGuard = DriverRouteGuard(expectedRole: widget.variant.expectedRole);
     _router = buildRouter(widget.variant, routeGuard: _routeGuard);
+    PushNotificationService().setNotificationTapHandler(_router.go);
     _authDeepLinkService = AuthDeepLinkService();
     unawaited(_authDeepLinkService.initialize());
   }

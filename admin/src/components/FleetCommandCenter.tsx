@@ -56,10 +56,29 @@ export const FleetCommandCenter: React.FC = () => {
     return true;
   });
 
-  const selectedRide = rides.find(r => r.id === selectedRideId);
-  const availableDrivers = drivers.filter(d => d.isOnline && d.driverStatus === 'approved');
+  const selectedRide = filteredRides.find(r => r.id === selectedRideId) ?? filteredRides[0];
+  const availableDrivers = drivers.filter(
+    (d) =>
+      d.isOnline &&
+      d.driverStatus === 'approved' &&
+      d.accountStatus === 'active' &&
+      Number.isFinite(d.currentLat) &&
+      Number.isFinite(d.currentLng) &&
+      Math.abs(d.currentLat) <= 90 &&
+      Math.abs(d.currentLng) <= 180 &&
+      (Math.abs(d.currentLat) > 0.0001 || Math.abs(d.currentLng) > 0.0001),
+  );
 
   const defaultCenter: [number, number] = [-26.1200, 28.0500]; // Johannesburg / Sandton
+  const hasValidCoordinatePair = (lat: number, lng: number) =>
+    Number.isFinite(lat) && Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 && Math.abs(lng) <= 180 &&
+    (Math.abs(lat) > 0.0001 || Math.abs(lng) > 0.0001);
+  const selectedRideHasCoordinates = Boolean(
+    selectedRide &&
+    hasValidCoordinatePair(selectedRide.pickupLat, selectedRide.pickupLng) &&
+    hasValidCoordinatePair(selectedRide.destLat, selectedRide.destLng),
+  );
 
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +197,12 @@ export const FleetCommandCenter: React.FC = () => {
 
                 {/* Render Online Drivers */}
                 {drivers
-                  .filter(d => d.isOnline)
+                  .filter(
+                    (d) =>
+                      d.isOnline &&
+                      d.accountStatus === 'active' &&
+                      hasValidCoordinatePair(d.currentLat, d.currentLng),
+                  )
                   .map(drv => {
                     const isBusy = rides.some(r => r.driverId === drv.id && (r.status === 'in_trip' || r.status === 'accepted'));
                     return (
@@ -204,7 +228,7 @@ export const FleetCommandCenter: React.FC = () => {
                   })}
 
                 {/* Render Selected Ride Pickup / Destination Pins & Vector Line */}
-                {selectedRide && (
+                {selectedRideHasCoordinates && selectedRide && (
                   <>
                     <Marker position={[selectedRide.pickupLat, selectedRide.pickupLng]} icon={pickupIcon}>
                       <Popup>
